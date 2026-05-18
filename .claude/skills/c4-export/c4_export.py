@@ -1,0 +1,1075 @@
+#!/usr/bin/env python3
+"""c4_export.py — render the Reliever business-capability tree as
+Structurizr DSL files.
+
+Reads upstream BCM via `bcm-pack` only — never touches /bcm/, /adr/,
+/func-adr/, /tech-adr/, /tech-vision/, /product-vision/, /business-vision/
+on disk. The implementation overlay is taken from `sources/` and `src/`
+in the working tree.
+
+Outputs:
+
+    docs/c4/
+        enterprise/
+            workspace.dsl          one System Landscape view, every L2
+                                   as a container, grouped by zone
+            zone-<ZONE>.dsl        per-zone view, every L2 in that zone
+                                   as a container, with cross-cap event flows
+        <CAP_L2>/
+            workspace.dsl          per-L2 detail — implementation artifacts
+                                   (backend / stub / BFF / frontend) as
+                                   containers, DDD elements (aggregates,
+                                   read-models, bus publishers) as
+                                   components. ADR refs as properties.
+
+Run from the repo root:
+
+    python3 .claude/skills/c4-export/c4_export.py            # everything
+    python3 .claude/skills/c4-export/c4_export.py --cap CAP.BSP.001.SCO
+    python3 .claude/skills/c4-export/c4_export.py --enterprise-only
+    python3 .claude/skills/c4-export/c4_export.py --dry-run
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DOCS_C4 = REPO_ROOT / "docs" / "c4"
+SOURCES_DIR = REPO_ROOT / "sources"
+SRC_DIR = REPO_ROOT / "src"
+PROCESS_DIR = REPO_ROOT / "process"
+
+BANKING_KNOWLEDGE_BLOB = (
+    "https://github.com/Banking-Reliever/banking-knowledge/blob/main"
+)
+BANKING_BLOB = "https://github.com/Banking-Reliever/banking/blob/main"
+
+# Zone abbreviation used in src/<zone-abbrev>/ for CHANNEL BFFs.
+ZONE_ABBREV = {
+    "BUSINESS_SERVICE_PRODUCTION": "bsp",
+    "SUPPORT": "sup",
+    "REFERENTIAL": "ref",
+    "CHANNEL": "chn",
+    "EXCHANGE_B2B": "b2b",
+    "DATA_ANALYTICS": "dat",
+    "STEERING": "str",
+}
+
+
+# ─────────────────────────────────────────────────────────────────────
+# bcm-pack invocation
+# ─────────────────────────────────────────────────────────────────────
+
+
+def run_bcm_pack(*args: str) -> str:
+    """Invoke `bcm-pack` and return stdout. The first '[bcm-pack] fetching ...'
+    log line on stdout is stripped — only the JSON / TSV payload is returned."""
+    cmd = ["bcm-pack", *args]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        print(f"!! bcm-pack {' '.join(args)} failed:", file=sys.stderr)
+        print(proc.stderr, file=sys.stderr)
+        sys.exit(proc.returncode)
+    # bcm-pack prints "[bcm-pack] fetching ..." on stdout before the payload.
+    lines = proc.stdout.splitlines()
+    payload = "\n".join(line for line in lines if not line.startswith("[bcm-pack]"))
+    return payload
+
+
+def list_capabilities() -> list[dict]:
+    """Return every capability bcm-pack knows about. Each entry has
+    id / level / zone / name."""
+    raw = run_bcm_pack("list")
+    out: list[dict] = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = re.split(r"\s+", line, maxsplit=3)
+        if len(parts) < 4:
+            continue
+        cap_id, level, zone, name = parts
+        out.append(
+            {"id": cap_id, "level": level.strip(), "zone": zone.strip(), "name": name}
+        )
+    return out
+
+
+def pack_capability(cap_id: str) -> dict:
+    """Return the bcm-pack --deep --compact payload for one capability."""
+    raw = run_bcm_pack("pack", cap_id, "--deep", "--compact")
+    return json.loads(raw)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Implementation overlay (filesystem-driven)
+# ─────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class ImplStatus:
+    has_mode_a: bool = False     # sources/<CAP>/backend/
+    has_stub: bool = False       # sources/<CAP>/stub/
+    has_frontend: bool = False   # sources/<CAP>/frontend/
+    has_bff: bool = False        # src/<zone-abbrev>/<CAP>-bff/
+    has_process: bool = False    # process/<CAP>/
+
+    @property
+    def label(self) -> str:
+        """Single-word status label suitable for a tag."""
+        if self.has_mode_a:
+            return "mode-a"
+        if self.has_stub:
+            return "stub"
+        if self.has_bff or self.has_frontend:
+            return "channel-impl"
+        return "not-scaffolded"
+
+
+def detect_impl(cap_id: str, zone: str) -> ImplStatus:
+    s = ImplStatus()
+    cap_dir = SOURCES_DIR / cap_id
+    if (cap_dir / "backend").is_dir():
+        s.has_mode_a = True
+    if (cap_dir / "stub").is_dir():
+        s.has_stub = True
+    if (cap_dir / "frontend").is_dir():
+        s.has_frontend = True
+
+    zone_abbrev = ZONE_ABBREV.get(zone, zone.lower())
+    bff_dir = SRC_DIR / zone_abbrev / f"{cap_id}-bff"
+    if bff_dir.is_dir():
+        s.has_bff = True
+
+    if (PROCESS_DIR / cap_id).is_dir():
+        s.has_process = True
+    return s
+
+
+# ─────────────────────────────────────────────────────────────────────
+# DDD components, mined from process/<CAP>/ when present
+# ─────────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class DddComponents:
+    aggregates: list[str] = field(default_factory=list)
+    read_models: list[str] = field(default_factory=list)
+    policies: list[str] = field(default_factory=list)
+    publishers: list[str] = field(default_factory=list)
+
+    def is_empty(self) -> bool:
+        return not (
+            self.aggregates or self.read_models or self.policies or self.publishers
+        )
+
+
+_YAML_ID_RE = re.compile(r"^\s*-\s*id:\s*([A-Z][A-Z0-9._-]+)\s*$")
+
+
+def _scan_yaml_ids(path: Path, prefixes: tuple[str, ...]) -> list[str]:
+    """Lightweight YAML scan — collect every `- id: X` entry whose value
+    starts with one of `prefixes`. Avoids a pyyaml dependency AND filters
+    out nested invariant / open-question IDs (which sit under each
+    aggregate entry but use a different prefix)."""
+    if not path.is_file():
+        return []
+    out = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = _YAML_ID_RE.match(line)
+        if m and m.group(1).startswith(prefixes):
+            out.append(m.group(1))
+    return out
+
+
+def mine_ddd(cap_id: str) -> DddComponents:
+    cap_dir = PROCESS_DIR / cap_id
+    if not cap_dir.is_dir():
+        return DddComponents()
+    out = DddComponents()
+    out.aggregates = _scan_yaml_ids(cap_dir / "aggregates.yaml", ("AGG.",))
+    out.read_models = _scan_yaml_ids(
+        cap_dir / "read-models.yaml", ("PRJ.", "QRY.")
+    )
+    out.policies = _scan_yaml_ids(cap_dir / "policies.yaml", ("POL.",))
+    bus_path = cap_dir / "bus.yaml"
+    if bus_path.is_file():
+        # Routing keys = one publisher concept each.
+        for line in bus_path.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"\s*-\s+resource_event:\s*(RVT\.[A-Z0-9._-]+)", line)
+            if m:
+                out.publishers.append(m.group(1))
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ADR URLs — derived from the `files` slice of bcm-pack pack output
+# ─────────────────────────────────────────────────────────────────────
+
+
+def adr_urls(pack: dict, adr_ids: list[str]) -> list[tuple[str, str]]:
+    """For every ADR id we are asked about, find a matching file path in
+    the pack's `files` slice and return (adr_id, github_url) pairs.
+
+    Falls back to a None URL if no file path can be matched — caller decides
+    whether to emit anyway."""
+    files = pack.get("files", []) or []
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for adr_id in adr_ids:
+        if adr_id in seen:
+            continue
+        seen.add(adr_id)
+        match = next(
+            (
+                f["path"]
+                for f in files
+                if adr_id in f.get("path", "")
+            ),
+            None,
+        )
+        if match:
+            out.append((adr_id, f"{BANKING_KNOWLEDGE_BLOB}/{match}"))
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Structurizr DSL helpers
+# ─────────────────────────────────────────────────────────────────────
+
+
+_IDENT_SCRUB = re.compile(r"[^A-Za-z0-9_]")
+
+
+def dsl_id(raw: str) -> str:
+    """Turn an arbitrary string into a Structurizr-safe identifier."""
+    s = _IDENT_SCRUB.sub("_", raw).strip("_")
+    if not s:
+        s = "x"
+    if s[0].isdigit():
+        s = "_" + s
+    return s
+
+
+def dsl_str(s: str | None) -> str:
+    """Quote a Structurizr string literal — escape backslashes and double
+    quotes, collapse newlines."""
+    if s is None:
+        return "\"\""
+    s = s.replace("\\", "\\\\").replace("\"", "\\\"")
+    s = re.sub(r"\s+", " ", s).strip()
+    return f"\"{s}\""
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Per-L2 DSL emission
+# ─────────────────────────────────────────────────────────────────────
+
+
+_STYLES_BLOCK = """\
+        styles {
+            element "capability-self" {
+                background "#1168bd"
+                color "#ffffff"
+                shape RoundedBox
+            }
+            element "external-capability" {
+                background "#999999"
+                color "#ffffff"
+                shape RoundedBox
+            }
+            element "implemented:mode-a" {
+                background "#2e7d32"
+                color "#ffffff"
+            }
+            element "implemented:stub" {
+                background "#fbc02d"
+                color "#000000"
+            }
+            element "implemented:bff" {
+                background "#0288d1"
+                color "#ffffff"
+            }
+            element "implemented:frontend" {
+                background "#7b1fa2"
+                color "#ffffff"
+            }
+            element "not-scaffolded" {
+                background "#bdbdbd"
+                color "#000000"
+                border Dashed
+            }
+            element "ddd:aggregate" {
+                background "#ffd54f"
+                color "#000000"
+                shape Hexagon
+            }
+            element "ddd:read-model" {
+                background "#a5d6a7"
+                color "#000000"
+                shape Cylinder
+            }
+            element "ddd:policy" {
+                background "#ce93d8"
+                color "#000000"
+            }
+            element "ddd:publisher" {
+                background "#ffab91"
+                color "#000000"
+                shape Pipe
+            }
+            element "zone:BSP" {
+                background "#e8eaf6"
+            }
+            element "zone:SUP" {
+                background "#fce4ec"
+            }
+            element "zone:REF" {
+                background "#f1f8e9"
+            }
+            element "zone:CHN" {
+                background "#e0f7fa"
+            }
+            element "zone:CHANNEL" {
+                background "#e0f7fa"
+            }
+            element "zone:B2B" {
+                background "#fff8e1"
+            }
+            element "zone:DAT" {
+                background "#ede7f6"
+            }
+            element "zone:STR" {
+                background "#efebe9"
+            }
+            element "level:L1" {
+                strokeWidth 4
+            }
+            element "level:L2" {
+                strokeWidth 2
+            }
+            relationship "upstream-event" {
+                dashed true
+                color "#ff7043"
+            }
+            relationship "downstream-event" {
+                dashed true
+                color "#42a5f5"
+            }
+        }"""
+
+
+def emit_l2_workspace(cap_id: str, pack: dict) -> str:
+    self_slice = (pack.get("slices", {}).get("capability_self") or [{}])[0]
+    name = self_slice.get("name", cap_id)
+    parent = self_slice.get("parent")
+    zone = self_slice.get("zoning", "")
+    description = self_slice.get("description", "").strip()
+    owner = self_slice.get("owner", "")
+
+    slices = pack.get("slices", {})
+    tactical = (slices.get("tactical_stack") or [{}])[0]
+    stack_tags = tactical.get("tags", []) or []
+    tech_stack = "+".join(
+        t for t in stack_tags
+        if t in {"python", "dotnet", "fastapi", "aspnet", "csharp",
+                 "postgresql", "mongodb", "rabbitmq", "kafka"}
+    ) or "stack-not-decided"
+
+    domain_class = (
+        (slices.get("capability_definition") or [{}])[0]
+        .get("domain_classification", {})
+        .get("type", "")
+    )
+
+    impl = detect_impl(cap_id, zone)
+    ddd = mine_ddd(cap_id)
+
+    # Collect ADRs referenced anywhere in the pack.
+    referenced: list[str] = []
+    referenced.extend(self_slice.get("adrs", []) or [])
+    if tactical.get("id"):
+        referenced.append(tactical["id"])
+    for slice_name in (
+        "capability_definition",
+        "governing_urba",
+        "governing_tech_strat",
+        "governance_adrs",
+        "product_vision",
+        "tech_vision",
+    ):
+        for item in slices.get(slice_name, []) or []:
+            if item.get("id"):
+                referenced.append(item["id"])
+    adr_props = adr_urls(pack, referenced)
+
+    # Upstream capabilities (consumed events).
+    upstream: dict[str, dict] = {}
+    for sub in slices.get("consumed_business_events", []) or []:
+        ev = sub.get("subscribed_event", {})
+        emitter = ev.get("emitting_capability")
+        if not emitter or emitter == cap_id:
+            continue
+        upstream.setdefault(emitter, {"events": []})
+        upstream[emitter]["events"].append(ev.get("id", ""))
+    for sub in slices.get("consumed_resource_events", []) or []:
+        ev = sub.get("subscribed_resource_event", {})
+        emitter = ev.get("emitting_capability")
+        if not emitter or emitter == cap_id:
+            continue
+        upstream.setdefault(emitter, {"events": []})
+        upstream[emitter]["events"].append(ev.get("id", ""))
+
+    emitted_events = [
+        e.get("id") for e in slices.get("emitted_resource_events", []) or []
+    ]
+
+    self_ident = dsl_id(cap_id)
+
+    lines: list[str] = []
+    lines.append(f"workspace {dsl_str(f'{cap_id} — {name}')} {dsl_str(description)} {{")
+    lines.append("")
+    lines.append("    !identifiers hierarchical")
+    lines.append("")
+    lines.append("    model {")
+
+    # External upstream capabilities.
+    upstream_idents: dict[str, str] = {}
+    for ext_id in sorted(upstream.keys()):
+        ident = dsl_id(ext_id)
+        upstream_idents[ext_id] = ident
+        lines.append(
+            f"        {ident} = softwareSystem {dsl_str(ext_id)} "
+            f"{dsl_str('Upstream capability')} {{"
+        )
+        lines.append(f"            tags \"external-capability\"")
+        lines.append("        }")
+
+    # The capability itself, with implementation containers.
+    lines.append("")
+    self_tags = [
+        "capability-self",
+        f"level:L2",
+        f"zone:{ZONE_ABBREV.get(zone, zone).upper()}",
+    ]
+    if domain_class:
+        self_tags.append(f"domain:{domain_class}")
+    lines.append(
+        f"        {self_ident} = softwareSystem {dsl_str(name)} "
+        f"{dsl_str(description or cap_id)} {{"
+    )
+    lines.append(f"            tags {' '.join(dsl_str(t) for t in self_tags)}")
+    lines.append("            properties {")
+    lines.append(f"                {dsl_str('capability-id')} {dsl_str(cap_id)}")
+    if parent:
+        lines.append(f"                {dsl_str('parent')} {dsl_str(parent)}")
+    lines.append(f"                {dsl_str('zoning')} {dsl_str(zone)}")
+    if owner:
+        lines.append(f"                {dsl_str('owner')} {dsl_str(owner)}")
+    lines.append(f"                {dsl_str('tech-stack')} {dsl_str(tech_stack)}")
+    lines.append(
+        f"                {dsl_str('implementation-status')} {dsl_str(impl.label)}"
+    )
+    for adr_id, url in adr_props:
+        lines.append(f"                {dsl_str('adr:' + adr_id)} {dsl_str(url)}")
+    lines.append("            }")
+
+    # Containers — one per implementation artifact (real or placeholder).
+    container_idents: list[str] = []
+
+    if impl.has_mode_a:
+        loc = f"sources/{cap_id}/backend"
+        lines.extend(
+            _emit_container(
+                "backend",
+                "Backend microservice",
+                f"{tech_stack} · Mode A",
+                ["implemented:mode-a", f"tech:{tech_stack}"],
+                {"loc": loc, "github": f"{BANKING_BLOB}/{loc}"},
+                ddd,
+                indent="            ",
+            )
+        )
+        container_idents.append("backend")
+    elif impl.has_stub:
+        loc = f"sources/{cap_id}/stub"
+        lines.extend(
+            _emit_container(
+                "stub",
+                "Contract stub",
+                f"{tech_stack} · Mode B (contract stub)",
+                ["implemented:stub", f"tech:{tech_stack}"],
+                {"loc": loc, "github": f"{BANKING_BLOB}/{loc}"},
+                ddd,
+                indent="            ",
+            )
+        )
+        container_idents.append("stub")
+    elif not (impl.has_bff or impl.has_frontend):
+        # Backend planned but not started — emit a placeholder Container.
+        lines.extend(
+            _emit_container(
+                "backend",
+                "Backend (planned)",
+                f"{tech_stack} · not scaffolded yet",
+                ["not-scaffolded", f"tech:{tech_stack}"],
+                {},
+                ddd,
+                indent="            ",
+            )
+        )
+        container_idents.append("backend")
+
+    if impl.has_bff:
+        zabbr = ZONE_ABBREV.get(zone, zone.lower())
+        loc = f"src/{zabbr}/{cap_id}-bff"
+        lines.extend(
+            _emit_container(
+                "bff",
+                "Backend-for-Frontend",
+                ".NET 10 Minimal API",
+                ["implemented:bff", "tech:dotnet"],
+                {"loc": loc, "github": f"{BANKING_BLOB}/{loc}"},
+                DddComponents(),
+                indent="            ",
+            )
+        )
+        container_idents.append("bff")
+
+    if impl.has_frontend:
+        loc = f"sources/{cap_id}/frontend"
+        lines.extend(
+            _emit_container(
+                "frontend",
+                "Web frontend",
+                "vanilla HTML5 / CSS3 / JS",
+                ["implemented:frontend", "tech:vanilla-js"],
+                {"loc": loc, "github": f"{BANKING_BLOB}/{loc}"},
+                DddComponents(),
+                indent="            ",
+            )
+        )
+        container_idents.append("frontend")
+
+    lines.append("        }")  # close softwareSystem
+
+    # Relationships from upstream capabilities to this one.
+    for ext_id, info in sorted(upstream.items()):
+        ext_ident = upstream_idents[ext_id]
+        # Pick the first sensible target container (backend / stub / bff).
+        target = container_idents[0] if container_idents else None
+        target_path = f"{self_ident}.{target}" if target else self_ident
+        events_desc = ", ".join(sorted({e for e in info["events"] if e})) or "events"
+        lines.append("")
+        lines.append(
+            f"        {ext_ident} -> {target_path} "
+            f"{dsl_str(events_desc)} \"RabbitMQ\" \"upstream-event\""
+        )
+
+    # Outgoing relationships — note emitted events on the self node via a
+    # synthetic "downstream consumers" software system, so the view still
+    # shows we publish something.
+    if emitted_events:
+        cons_ident = f"{self_ident}_downstream_consumers"
+        lines.append("")
+        lines.append(
+            f"        {cons_ident} = softwareSystem "
+            f"{dsl_str('Downstream consumers')} "
+            f"{dsl_str('Any capability subscribed to the events emitted by this one.')} {{"
+        )
+        lines.append("            tags \"external-capability\"")
+        lines.append("        }")
+        target = container_idents[0] if container_idents else None
+        src_path = f"{self_ident}.{target}" if target else self_ident
+        events_desc = ", ".join(sorted({e for e in emitted_events if e}))
+        lines.append(
+            f"        {src_path} -> {cons_ident} "
+            f"{dsl_str(events_desc)} \"RabbitMQ\" \"downstream-event\""
+        )
+
+    lines.append("    }")  # close model
+    lines.append("")
+    lines.append("    views {")
+    lines.append(f"        systemContext {self_ident} \"L2-Context\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    lines.append(f"        container {self_ident} \"L2-Containers\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    for ident in container_idents:
+        if not ddd.is_empty() and ident in {"backend", "stub"}:
+            lines.append(
+                f"        component {self_ident}.{ident} "
+                f"\"L2-Components-{ident}\" {{"
+            )
+            lines.append("            include *")
+            lines.append("            autoLayout lr")
+            lines.append("        }")
+    lines.append(_STYLES_BLOCK)
+    lines.append("    }")  # close views
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _emit_container(
+    ident: str,
+    name: str,
+    technology: str,
+    tags: list[str],
+    properties: dict[str, str],
+    ddd: DddComponents,
+    indent: str,
+) -> list[str]:
+    # Structurizr DSL signature: container <name> [description] [technology]
+    description = name
+    out = [
+        f"{indent}{ident} = container {dsl_str(name)} "
+        f"{dsl_str(description)} {dsl_str(technology)} {{"
+    ]
+    out.append(f"{indent}    tags {' '.join(dsl_str(t) for t in tags)}")
+    if properties:
+        out.append(f"{indent}    properties {{")
+        for k, v in properties.items():
+            out.append(f"{indent}        {dsl_str(k)} {dsl_str(v)}")
+        out.append(f"{indent}    }}")
+
+    if ident in {"backend", "stub"} and not ddd.is_empty():
+        for agg in ddd.aggregates:
+            cid = dsl_id(agg)
+            out.append(
+                f"{indent}    {cid} = component {dsl_str(agg)} "
+                f"{dsl_str('Aggregate (DDD)')} {{"
+            )
+            out.append(f"{indent}        tags \"ddd:aggregate\"")
+            out.append(f"{indent}    }}")
+        for rm in ddd.read_models:
+            cid = dsl_id(rm)
+            out.append(
+                f"{indent}    {cid} = component {dsl_str(rm)} "
+                f"{dsl_str('Read model (CQRS)')} {{"
+            )
+            out.append(f"{indent}        tags \"ddd:read-model\"")
+            out.append(f"{indent}    }}")
+        for pol in ddd.policies:
+            cid = dsl_id(pol)
+            out.append(
+                f"{indent}    {cid} = component {dsl_str(pol)} "
+                f"{dsl_str('Policy / reactive saga')} {{"
+            )
+            out.append(f"{indent}        tags \"ddd:policy\"")
+            out.append(f"{indent}    }}")
+        for pub in ddd.publishers:
+            cid = dsl_id(pub)
+            out.append(
+                f"{indent}    {cid} = component {dsl_str(pub)} "
+                f"{dsl_str('Resource-event publisher')} {{"
+            )
+            out.append(f"{indent}        tags \"ddd:publisher\"")
+            out.append(f"{indent}    }}")
+    out.append(f"{indent}}}")
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Per-zone DSL emission
+# ─────────────────────────────────────────────────────────────────────
+
+
+def emit_zone_workspace(zone: str, l2_caps: list[dict], packs: dict[str, dict]) -> str:
+    """One zone = one Software System; each L2 in the zone is a Container.
+    Cross-cap event flows wired from each pack's emitted/consumed events."""
+    zabbr = ZONE_ABBREV.get(zone, zone.lower()).upper()
+    system_ident = dsl_id(f"zone_{zabbr}")
+
+    lines: list[str] = []
+    lines.append(
+        f"workspace {dsl_str(f'Zone {zone}')} "
+        f"{dsl_str(f'C4 container view of the {zone} zone — each L2 capability is a container.')} {{"
+    )
+    lines.append("")
+    lines.append("    !identifiers hierarchical")
+    lines.append("")
+    lines.append("    model {")
+    lines.append(
+        f"        {system_ident} = softwareSystem {dsl_str(zone)} "
+        f"{dsl_str(f'{zone} zone of the Reliever business capability model.')} {{"
+    )
+    lines.append(
+        f"            tags \"capability-self\" \"zone:{zabbr}\""
+    )
+
+    # Each L2 cap = a container.
+    cap_idents: dict[str, str] = {}
+    for cap in sorted(l2_caps, key=lambda c: c["id"]):
+        cap_id = cap["id"]
+        ident = dsl_id(cap_id)
+        cap_idents[cap_id] = ident
+        pack = packs.get(cap_id, {})
+        self_slice = (pack.get("slices", {}).get("capability_self") or [{}])[0]
+        impl = detect_impl(cap_id, zone)
+        tactical_tags = (
+            ((pack.get("slices", {}).get("tactical_stack") or [{}])[0]).get("tags", [])
+            or []
+        )
+        tech = "python" if "python" in tactical_tags else (
+            "dotnet" if "dotnet" in tactical_tags or "aspnet" in tactical_tags
+            else "stack-tbd"
+        )
+        parent = self_slice.get("parent", "")
+        impl_tag = f"implemented:{impl.label}" if impl.label != "not-scaffolded" else "not-scaffolded"
+        tags = [impl_tag, f"tech:{tech}", f"parent:{parent}"]
+        lines.append(
+            f"            {ident} = container {dsl_str(cap_id)} "
+            f"{dsl_str(cap['name'])} {dsl_str(tech)} {{"
+        )
+        lines.append(f"                tags {' '.join(dsl_str(t) for t in tags)}")
+        lines.append(f"                properties {{")
+        lines.append(
+            f"                    {dsl_str('detail-view')} "
+            f"{dsl_str(f'../{cap_id}/workspace.dsl')}"
+        )
+        if parent:
+            lines.append(f"                    {dsl_str('parent')} {dsl_str(parent)}")
+        lines.append(f"                }}")
+        lines.append(f"            }}")
+
+    lines.append("        }")  # close zone softwareSystem
+
+    # External capabilities (emitters in other zones).
+    external_caps: dict[str, str] = {}
+    relationships: list[tuple[str, str, str]] = []  # (src, dst, label)
+
+    # Inbound: each cap consumes events from emitters; if the emitter is in
+    # another zone (or another cap in this zone), draw a relationship.
+    for cap in l2_caps:
+        cap_id = cap["id"]
+        pack = packs.get(cap_id, {})
+        cap_ident = cap_idents[cap_id]
+        for sub in pack.get("slices", {}).get("consumed_resource_events", []) or []:
+            ev = sub.get("subscribed_resource_event", {})
+            emitter = ev.get("emitting_capability")
+            if not emitter or emitter == cap_id:
+                continue
+            if emitter in cap_idents:
+                src_path = f"{system_ident}.{cap_idents[emitter]}"
+            else:
+                if emitter not in external_caps:
+                    external_caps[emitter] = dsl_id(emitter)
+                src_path = external_caps[emitter]
+            relationships.append((src_path, f"{system_ident}.{cap_ident}", ev.get("id", "RVT")))
+
+    for emitter, ident in external_caps.items():
+        lines.append("")
+        lines.append(
+            f"        {ident} = softwareSystem {dsl_str(emitter)} "
+            f"{dsl_str('External capability (other zone).')} {{"
+        )
+        lines.append("            tags \"external-capability\"")
+        lines.append("        }")
+
+    # Deduplicate relationships.
+    seen: set[tuple[str, str]] = set()
+    for src, dst, label in relationships:
+        key = (src, dst)
+        if key in seen:
+            continue
+        seen.add(key)
+        lines.append(
+            f"        {src} -> {dst} {dsl_str(label)} \"RabbitMQ\" \"upstream-event\""
+        )
+
+    lines.append("    }")  # close model
+    lines.append("")
+    lines.append("    views {")
+    lines.append(f"        systemContext {system_ident} \"Zone-Context\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    lines.append(f"        container {system_ident} \"Zone-Containers\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    lines.append(_STYLES_BLOCK)
+    lines.append("    }")
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Enterprise (L1 Reliever) DSL emission
+# ─────────────────────────────────────────────────────────────────────
+
+
+def emit_enterprise_workspace(
+    l2_caps: list[dict], packs: dict[str, dict]
+) -> str:
+    """One Software Landscape: Reliever as a system, every zone as a container,
+    every L2 as a component."""
+    lines: list[str] = []
+    lines.append(
+        f"workspace {dsl_str('Reliever — Enterprise C4')} "
+        f"{dsl_str('System landscape — every L2 capability grouped by zone.')} {{"
+    )
+    lines.append("")
+    lines.append("    !identifiers hierarchical")
+    lines.append("")
+    lines.append("    model {")
+
+    # Actors (external).
+    lines.append("        beneficiary = person \"Beneficiary\" \"Recipient of the Reliever programme.\"")
+    lines.append("        prescriber = person \"Prescriber\" \"Social worker or programme prescriber.\"")
+    lines.append("        regulator = person \"Regulator\" \"Programme governance, compliance auditor.\"")
+    lines.append("        partner_bank = softwareSystem \"Partner bank\" \"Financial institution providing card and payment rails.\" {")
+    lines.append("            tags \"external-system\"")
+    lines.append("        }")
+
+    reliever_ident = "reliever"
+    lines.append("")
+    lines.append(
+        f"        {reliever_ident} = softwareSystem {dsl_str('Reliever')} "
+        f"{dsl_str('Financial-inclusion programme: behavioural remediation, autonomy tiers, prescriber co-decision.')} {{"
+    )
+    lines.append("            tags \"capability-self\"")
+
+    # Group L2 caps by zone.
+    by_zone: dict[str, list[dict]] = {}
+    for cap in l2_caps:
+        by_zone.setdefault(cap["zone"], []).append(cap)
+
+    zone_idents: dict[str, str] = {}
+    cap_idents: dict[str, str] = {}
+
+    for zone in sorted(by_zone.keys()):
+        zabbr = ZONE_ABBREV.get(zone, zone.lower()).upper()
+        zone_ident = dsl_id(f"zone_{zabbr}")
+        zone_idents[zone] = zone_ident
+        lines.append(
+            f"            {zone_ident} = container {dsl_str(zone)} "
+            f"{dsl_str(f'{zone} zone')} {dsl_str('group')} {{"
+        )
+        lines.append(f"                tags \"zone:{zabbr}\" \"capability-self\"")
+        for cap in sorted(by_zone[zone], key=lambda c: c["id"]):
+            cap_id = cap["id"]
+            ident = dsl_id(cap_id)
+            cap_idents[cap_id] = ident
+            pack = packs.get(cap_id, {})
+            tactical_tags = (
+                ((pack.get("slices", {}).get("tactical_stack") or [{}])[0])
+                .get("tags", []) or []
+            )
+            tech = "python" if "python" in tactical_tags else (
+                "dotnet" if "dotnet" in tactical_tags or "aspnet" in tactical_tags
+                else "stack-tbd"
+            )
+            impl = detect_impl(cap_id, zone)
+            impl_tag = (
+                f"implemented:{impl.label}"
+                if impl.label != "not-scaffolded"
+                else "not-scaffolded"
+            )
+            lines.append(
+                f"                {ident} = component {dsl_str(cap_id)} "
+                f"{dsl_str(cap['name'])} {dsl_str(tech)} {{"
+            )
+            lines.append(
+                f"                    tags {dsl_str(impl_tag)} {dsl_str('tech:' + tech)} {dsl_str('level:L2')}"
+            )
+            lines.append("                }")
+        lines.append("            }")
+
+    lines.append("        }")  # close reliever softwareSystem
+
+    # Coarse-grained actor relationships.
+    if "CHANNEL" in by_zone:
+        chn_ident = zone_idents.get("CHANNEL")
+        if chn_ident:
+            lines.append("")
+            lines.append(
+                f"        beneficiary -> {reliever_ident}.{chn_ident} "
+                f"\"Uses the beneficiary journey\" \"HTTPS\""
+            )
+            lines.append(
+                f"        prescriber -> {reliever_ident}.{chn_ident} "
+                f"\"Uses the prescriber portal\" \"HTTPS\""
+            )
+    if "EXCHANGE_B2B" in by_zone:
+        b2b_ident = zone_idents.get("EXCHANGE_B2B")
+        if b2b_ident:
+            lines.append(
+                f"        partner_bank -> {reliever_ident}.{b2b_ident} "
+                f"\"Card / Open Banking flows\" \"HTTPS\""
+            )
+    if "STEERING" in by_zone:
+        str_ident = zone_idents.get("STEERING")
+        if str_ident:
+            lines.append(
+                f"        regulator -> {reliever_ident}.{str_ident} "
+                f"\"Audits programme governance\" \"HTTPS\""
+            )
+
+    # Zone-to-zone relationships (one per directed pair where ≥1 cross-zone
+    # event flow exists).
+    zone_edges: set[tuple[str, str]] = set()
+    cap_zone: dict[str, str] = {c["id"]: c["zone"] for c in l2_caps}
+    for cap in l2_caps:
+        cap_id = cap["id"]
+        pack = packs.get(cap_id, {})
+        for sub in pack.get("slices", {}).get("consumed_resource_events", []) or []:
+            ev = sub.get("subscribed_resource_event", {})
+            emitter = ev.get("emitting_capability")
+            if not emitter:
+                continue
+            src_zone = cap_zone.get(emitter)
+            dst_zone = cap_zone.get(cap_id)
+            if src_zone and dst_zone and src_zone != dst_zone:
+                zone_edges.add((src_zone, dst_zone))
+
+    for src_zone, dst_zone in sorted(zone_edges):
+        src = zone_idents.get(src_zone)
+        dst = zone_idents.get(dst_zone)
+        if src and dst:
+            lines.append(
+                f"        {reliever_ident}.{src} -> {reliever_ident}.{dst} "
+                f"\"Resource events\" \"RabbitMQ\" \"upstream-event\""
+            )
+
+    lines.append("    }")  # close model
+    lines.append("")
+    lines.append("    views {")
+    lines.append(f"        systemLandscape \"Enterprise-Landscape\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    lines.append(f"        systemContext {reliever_ident} \"Reliever-Context\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    lines.append(f"        container {reliever_ident} \"Reliever-Zones\" {{")
+    lines.append("            include *")
+    lines.append("            autoLayout lr")
+    lines.append("        }")
+    for zone, zone_ident in zone_idents.items():
+        view_id = f"Zone-{ZONE_ABBREV.get(zone, zone).upper()}-L2s"
+        lines.append(
+            f"        component {reliever_ident}.{zone_ident} {dsl_str(view_id)} {{"
+        )
+        lines.append("            include *")
+        lines.append("            autoLayout lr")
+        lines.append("        }")
+    lines.append(_STYLES_BLOCK)
+    lines.append("    }")
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Orchestration
+# ─────────────────────────────────────────────────────────────────────
+
+
+def write_file(path: Path, content: str, dry_run: bool) -> str:
+    if dry_run:
+        return f"DRY-RUN would write {path.relative_to(REPO_ROOT)} ({len(content)} bytes)"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return f"wrote {path.relative_to(REPO_ROOT)}"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Render the Reliever capability tree to Structurizr DSL."
+    )
+    ap.add_argument(
+        "--cap",
+        help="emit only this capability's per-L2 workspace.dsl",
+    )
+    ap.add_argument(
+        "--enterprise-only",
+        action="store_true",
+        help="emit only the enterprise + zone workspaces, no per-L2 files",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print what would be written but make no filesystem change",
+    )
+    args = ap.parse_args()
+
+    caps = list_capabilities()
+    l2_caps = [c for c in caps if c["level"] == "L2"]
+    if args.cap:
+        target = next((c for c in l2_caps if c["id"] == args.cap), None)
+        if target is None:
+            print(f"!! Unknown L2 capability {args.cap!r}", file=sys.stderr)
+            return 2
+        l2_caps = [target]
+
+    print(f"[c4-export] L2 capabilities discovered: {len(l2_caps)}")
+
+    packs: dict[str, dict] = {}
+    for cap in l2_caps:
+        cap_id = cap["id"]
+        packs[cap_id] = pack_capability(cap_id)
+        print(f"[c4-export] packed {cap_id}")
+
+    log: list[str] = []
+
+    if not args.enterprise_only:
+        for cap in l2_caps:
+            cap_id = cap["id"]
+            dsl = emit_l2_workspace(cap_id, packs[cap_id])
+            path = DOCS_C4 / cap_id / "workspace.dsl"
+            log.append(write_file(path, dsl, args.dry_run))
+
+    # For enterprise + zone we want the FULL set, not a single --cap.
+    if args.cap and not args.enterprise_only:
+        # If the user asked for a single cap, skip enterprise/zone re-rendering
+        # (would be incomplete). They can re-run without --cap to refresh those.
+        print(
+            "[c4-export] --cap given: skipping enterprise/zone rendering "
+            "(re-run without --cap to refresh those)"
+        )
+    else:
+        # Need packs for all L2s to render enterprise + zone correctly.
+        all_l2 = [c for c in caps if c["level"] == "L2"]
+        for cap in all_l2:
+            if cap["id"] not in packs:
+                packs[cap["id"]] = pack_capability(cap["id"])
+                print(f"[c4-export] packed {cap['id']} (for enterprise/zone)")
+
+        # Zone files.
+        by_zone: dict[str, list[dict]] = {}
+        for cap in all_l2:
+            by_zone.setdefault(cap["zone"], []).append(cap)
+        for zone, zcaps in sorted(by_zone.items()):
+            dsl = emit_zone_workspace(zone, zcaps, packs)
+            abbrev = ZONE_ABBREV.get(zone, zone.lower())
+            path = DOCS_C4 / "enterprise" / f"zone-{abbrev}.dsl"
+            log.append(write_file(path, dsl, args.dry_run))
+
+        # Enterprise file.
+        dsl = emit_enterprise_workspace(all_l2, packs)
+        path = DOCS_C4 / "enterprise" / "workspace.dsl"
+        log.append(write_file(path, dsl, args.dry_run))
+
+    for entry in log:
+        print(f"[c4-export] {entry}")
+    print(f"[c4-export] done — {len(log)} file(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

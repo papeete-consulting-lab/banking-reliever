@@ -44,6 +44,8 @@ the next pending stage. Idempotent: re-invoke after each stage completes.
 /sources/<CAP_ID>/        Stage 4 — backend/ (Mode A microservice) | stub/ (Mode B) | frontend/
 /src/<zone-abbrev>/<CAP_ID>-bff/   Stage 4 — CHANNEL BFFs
 /tests/<CAP_ID>/TASK-NNN-{slug}/   Stage 5 — generated pytest suite + report.html
+/docs/c4/                 Structurizr DSL — enterprise/workspace.dsl, enterprise/zone-*.dsl,
+                          <CAP_L2>/workspace.dsl (owned by /c4-export)
 /externals-template/      seed templates for the application & process catalogues
 /.claude/skills/          one folder per skill (see cheatsheet)
 /.claude/agents/          implement-capability, create-bff, code-web-frontend,
@@ -102,6 +104,7 @@ Post-implementation:
 | `/implementation-pipeline` | Status across all capabilities; advance to next pending stage |
 | `/process <CAP_ID>` | Stage 0 — interactive DDD modelling; opens PR on `process/<CAP_ID>` branch |
 | `/sketch-miro` | Render every `process/CAP.*/` as a Miro Event Storming board |
+| `/c4-export` | Render the BCM tree as Structurizr DSL — per-L2, per-zone, enterprise — under `docs/c4/` |
 | `/roadmap` | Stage 1 — `roadmap.md` for a capability |
 | `/task` | Stage 2 — `TASK-NNN-*.md` for a capability |
 | `/sort-task` | Refresh `tasks/BOARD.md` (read-only) |
@@ -130,7 +133,8 @@ Post-implementation:
   refuse to run until that PR is merged into `main`.
 - **One authoring skill per folder.** `/process` → `process/`, `/roadmap` → `roadmap/`,
   `/task` → `tasks/<CAP_ID>/`, `/sort-task` → `tasks/BOARD.md`, `/code` → `sources/`
-  and `src/`, the test skills → `tests/`. No skill writes outside its lane.
+  and `src/`, the test skills → `tests/`, `/c4-export` → `docs/c4/`. No skill writes
+  outside its lane.
 - **Branch isolation is end-to-end.** One branch (`feat/TASK-NNN-{slug}`) and
   one worktree (`/tmp/kanban-worktrees/TASK-NNN-{slug}/`) per task. RabbitMQ
   exchanges/queues, ports, OTel `environment` tag, and frontend branch badge
