@@ -21,7 +21,7 @@ CHANNEL-zone capability — implemented as a **.NET 10 Backend-For-Frontend** pl
   - `ADR-TECH-STRAT-006` — Kubernetes hosting, 4 environments, Day-0 GitOps.
   - `ADR-TECH-STRAT-007` — Two-world identifier strategy — `case_id` (UUIDv7) is the public correlation key; resolution to canonical `OBJ.SUP.002.BENEFICIARY_RECORD.internal_id` is delegated to `CAP.SUP.002.BEN` and is **not** carried by this BFF (PII-exclusion lane).
   - `ADR-TECH-STRAT-008` — Capability as multi-faceted information producer (operational bus emission for telemetry + analytical CDC fan-out + REST read APIs to the frontend).
-- **Tactical stack**: `ADR-TECH-TACT-001` — .NET 10 BFF, vanilla HTML5/CSS3/JS frontend, ETag, polling (5 s cadence — 304 most of the time, NOT WebSocket / SSE), `localStorage` for the frontend session cache, **PII exclusion** enforced by `INV.DSH.001`. Stage 4 routes to `create-bff` (BFF under `src/chn/CAP.CHN.001.DSH-bff/`) ∥ `code-web-frontend` (frontend under `sources/CAP.CHN.001.DSH/frontend/`).
+- **Tactical stack**: `ADR-TECH-TACT-001` — .NET 10 BFF, vanilla HTML5/CSS3/JS frontend, ETag, polling (5 s cadence — 304 most of the time, NOT WebSocket / SSE), `localStorage` for the frontend session cache, **PII exclusion** enforced by `INV.DSH.001`. Stage 4 routes to `create-bff` (BFF under `sources/CAP.CHN.001.DSH/bff/`) ∥ `code-web-frontend` (frontend under `sources/CAP.CHN.001.DSH/frontend/`).
 - **Governing URBA**: `ADR-BCM-URBA-0003` (one capability = one responsibility), `0009` (event meta-model + capability event ownership), `0010` (L2 as urbanisation pivot).
 - **Process Modelling layer** (read-only contract for this roadmap): `process/CAP.CHN.001.DSH/` v0.2.0 across all files — 1 aggregate, 4 commands, 3 policies, 2 projections, 2 queries, 3 upstream subscriptions, 1 emitted RVT.
 
@@ -54,7 +54,7 @@ CHANNEL-zone capability — implemented as a **.NET 10 Backend-For-Frontend** pl
 All three upstream contract stubs are merged on `main` as of 2026-05-16 — Epic 1's upstream-readiness gate is fully met today.
 
 **Exit condition (DoD)**:
-- The BFF (`src/chn/CAP.CHN.001.DSH-bff/`) is runnable via `dotnet run`; it declares queues `chn.001.dsh.q.score-recomputed`, `chn.001.dsh.q.tier-upgrade-recorded`, `chn.001.dsh.q.envelope-consumption-recorded` bound to the three upstream topic exchanges with the routing-key patterns from `process/CAP.CHN.001.DSH/bus.yaml`.
+- The BFF (`sources/CAP.CHN.001.DSH/bff/`) is runnable via `dotnet run`; it declares queues `chn.001.dsh.q.score-recomputed`, `chn.001.dsh.q.tier-upgrade-recorded`, `chn.001.dsh.q.envelope-consumption-recorded` bound to the three upstream topic exchanges with the routing-key patterns from `process/CAP.CHN.001.DSH/bus.yaml`.
 - The aggregate `AGG.BENEFICIARY_DASHBOARD` is materialised lazily on the first inbound RVT for a `case_id`. The three policy commands (`SYNCHRONIZE_SCORE`, `SYNCHRONIZE_TIER`, `RECORD_ENVELOPE_CONSUMPTION`) are wired and enforce `INV.DSH.002` (idempotency by `event_id`, 30-day window) and `INV.DSH.003` (monotonic timestamps — out-of-order RVTs are ack-and-dropped).
 - The frontend shell (`sources/CAP.CHN.001.DSH/frontend/`) loads, polls `GET /dashboard`, displays an empty-state placeholder, and falls back gracefully on `404` (aggregate not yet materialised).
 - OpenTelemetry traces span the inbound RVT → policy → command → aggregate path with the `environment` tag carrying the branch slug.

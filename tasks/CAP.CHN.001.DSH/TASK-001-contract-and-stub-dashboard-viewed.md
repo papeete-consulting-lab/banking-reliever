@@ -13,7 +13,7 @@ superseded_by: TASK-002
 superseded_reason: |
   Sequencing inversion — TASK-002 (Epic 1, real BFF foundation) shipped first
   (PR #17, in review on 2026-05-16). TASK-002 writes to the same canonical
-  paths (src/chn/CAP.CHN.001.DSH-bff/ and sources/CAP.CHN.001.DSH/frontend/)
+  paths (sources/CAP.CHN.001.DSH/bff/ and sources/CAP.CHN.001.DSH/frontend/)
   with the production-shape implementation, which subsumes the canned stub
   this task would have produced. The decommissioning clause already baked
   into TASK-001's DoD ("the stub bundle's README states that the stub is
@@ -42,7 +42,7 @@ with canned cold data, so downstream consumers — the analytical rail
 harness on the HTTP side — can develop in complete isolation.
 
 Per `ADR-TECH-TACT-001` the CHANNEL stack is fixed: **.NET 10 Minimal
-API BFF** under `src/chn/CAP.CHN.001.DSH-bff/` and **vanilla HTML5 /
+API BFF** under `sources/CAP.CHN.001.DSH/bff/` and **vanilla HTML5 /
 CSS3 / JS frontend** under `sources/CAP.CHN.001.DSH/frontend/`. Stage 4
 routes any `task_type: contract-stub` to a bundle that produces both
 halves with canned data — the same agents (`create-bff` +
@@ -65,7 +65,7 @@ halves with canned data — the same agents (`create-bff` +
 A runnable development stub spanning the BFF + the frontend, under the
 canonical CHANNEL-zone layout:
 
-1. **BFF stub** (`src/chn/CAP.CHN.001.DSH-bff/`):
+1. **BFF stub** (`sources/CAP.CHN.001.DSH/bff/`):
    - On startup, declares the topic exchange `chn.001.dsh-events`
      (durable=true, owned by `CAP.CHN.001.DSH`) per `bus.yaml`.
    - Publishes synthetic `RVT.CHN.001.DASHBOARD_VIEWED` envelopes on the
@@ -145,7 +145,7 @@ None — the stub is a producer + HTTP server, not a consumer. The real
 BFF (TASK-002) wires three upstream subscriptions; the stub does not.
 
 ## Definition of Done
-- [ ] BFF stub source under `src/chn/CAP.CHN.001.DSH-bff/` (.NET 10
+- [ ] BFF stub source under `sources/CAP.CHN.001.DSH/bff/` (.NET 10
       Minimal API per `ADR-TECH-TACT-001`)
 - [ ] Frontend stub source under `sources/CAP.CHN.001.DSH/frontend/`
       (vanilla HTML5/CSS3/JS — no framework, no CDN)

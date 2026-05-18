@@ -26,7 +26,7 @@ Six stages, each owned by a single skill, each writing to a single folder:
 [3] /sort-task     tasks/BOARD.md             read-only kanban (hook-driven)
     /launch-task   /tmp/kanban-worktrees/…    scheduler — spawns /code agents
 [4] /code          sources/<CAP_ID>/…         zone-aware implementation
-                   src/<zone>/<CAP_ID>-bff/   (CHANNEL BFF)
+                                              (backend/ | stub/ | bff/ | frontend/)
 [5] /test-*        tests/<CAP_ID>/…           pytest + report.html
 ```
 
@@ -41,8 +41,8 @@ the next pending stage. Idempotent: re-invoke after each stage completes.
                           read-models.yaml, bus.yaml, api.yaml, schemas/*.schema.json
 /roadmap/<CAP_ID>/        Stage 1 — roadmap.md
 /tasks/                   Stages 2-3 — BOARD.md + <CAP_ID>/TASK-NNN-*.md
-/sources/<CAP_ID>/        Stage 4 — backend/ (Mode A microservice) | stub/ (Mode B) | frontend/
-/src/<zone-abbrev>/<CAP_ID>-bff/   Stage 4 — CHANNEL BFFs
+/sources/<CAP_ID>/        Stage 4 — backend/ (Mode A microservice) | stub/ (Mode B)
+                                  | bff/ (CHANNEL BFF) | frontend/ (CHANNEL SPA)
 /tests/<CAP_ID>/TASK-NNN-{slug}/   Stage 5 — generated pytest suite + report.html
 /docs/c4/                 Structurizr DSL — enterprise/workspace.dsl, enterprise/zone-*.dsl,
                           <CAP_L2>/workspace.dsl (owned by /c4-export)
@@ -86,7 +86,7 @@ falls back to the .NET agent with a warning.
 | `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `process/<CAP_ID>/schemas/` |
 | zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTIQUE`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika |
 | same zones + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ |
-| zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `src/<zone>/<CAP_ID>-bff/` (.NET 10 Minimal API BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS) — language fixed; TECH-TACT tags ignored for CHANNEL |
+| zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 Minimal API BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS) — language fixed; TECH-TACT tags ignored for CHANNEL |
 
 Post-implementation:
 - Stage 5 runs automatically (`test-business-capability` for non-CHANNEL,

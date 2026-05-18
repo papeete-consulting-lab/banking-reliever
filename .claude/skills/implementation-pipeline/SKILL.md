@@ -124,7 +124,7 @@ upstream artifacts — it consumes them.
          skipped for Path B (CHANNEL — create-bff owns its surface) and Path C (contract-stub)
 
 [4b] create-bff agent              (.NET 10 ASP.NET Core BFF — CHANNEL zone only)
-         output: src/{zone-abbrev}/{capability-id}-bff/
+         output: sources/{CAP_ID}/bff/
          allocates BFF_PORT + RabbitMQ ports, writes .env.local with branch slug
          per L3: dedicated endpoints, ETag/304, Cache-Control: no-store
          per consumed event: RabbitMQ consumer + state cache update
@@ -199,7 +199,7 @@ ls process/$CAP_ID/{README.md,aggregates.yaml,commands.yaml,policies.yaml,read-m
 ls /roadmap/$CAP_ID/roadmap.md                          # Stage 1
 ls /tasks/$CAP_ID/TASK-*.md                        # Stage 2
 ls /tasks/BOARD.md                                       # Stage 3 (sort-task / launch-task)
-ls sources/*/backend/ src/*/*-bff/ sources/*/frontend/  # Stage 4 artifacts
+ls sources/*/{backend,stub,bff,frontend}/ 2>/dev/null  # Stage 4 artifacts
 ls tests/*/TASK-*-*/report.html                         # Stage 5 reports
 ```
 
@@ -392,7 +392,7 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
    - **Path B (CHANNEL)** — the `create-bff` agent (senior backend engineer, BFF
      specialist) and the `code-web-frontend` agent (senior frontend engineer,
      vanilla web specialist) run in **parallel**:
-     - `create-bff` produces `src/{zone-abbrev}/{capability-id}-bff/`: ASP.NET Core Minimal
+     - `create-bff` produces `sources/{CAP_ID}/bff/`: ASP.NET Core Minimal
        API, one endpoint file per L3, one consumer per consumed event, an in-memory state
        cache with ETag/`If-None-Match`/`Cache-Control: no-store`, OTel instrumentation
        carrying `capability_id`, `zone`, `deployable`, `environment={branch}`. Allocates
@@ -459,7 +459,7 @@ Runs in a **temporary, isolated `/tmp/test-{cap-id}-XXXXXX` directory**:
 Runs in a **temporary, isolated `/tmp/test-app-{cap-id}-XXXXXX` directory**:
 1. Copies frontend artifacts (originals are never touched).
 2. Picks a free HTTP port and launches `python -m http.server` for the static frontend.
-3. If `src/{zone-abbrev}/{capability-id}-bff/.env.local` exists, starts the BFF on its
+3. If `sources/{CAP_ID}/bff/.env.local` exists, starts the BFF on its
    recorded `BFF_PORT` and waits up to 15s for `/health` to return 200.
 4. Generates `tests/{capability-id}/TASK-NNN-{slug}/`:
    - `conftest.py` — Playwright fixtures, mocked routes derived from `STUB_DATA`,
@@ -495,7 +495,7 @@ under the same `tests/{capability-id}/TASK-NNN-{slug}/` directory.
 | 2 (Task) | Stage 1 prerequisite + local `/roadmap/{capability-id}/roadmap.md` has at least one epic with an exit condition |
 | 3 (sort-task / launch-task) | At least one `TASK-NNN-*.md` in local `/tasks/*/` with valid frontmatter |
 | 4 (Code) | Task status is `todo` (or `in_progress` re-entry); all `depends_on` are `done`; no open questions; not `stalled`; `process/{capability-id}/` is present (task references AGG/CMD/POL/PRJ/QRY identifiers from there) |
-| 5 (Test) | An implementation artifact exists in `sources/{cap}/`, `src/*/{cap-id}-bff/`, or `sources/{cap-id}/frontend/` |
+| 5 (Test) | An implementation artifact exists in `sources/{CAP_ID}/{backend,stub,bff,frontend}/` |
 
 If a prerequisite is missing, explain which earlier stage must be completed
 first. If the gap is upstream (any required `bcm-pack` slice is empty), point

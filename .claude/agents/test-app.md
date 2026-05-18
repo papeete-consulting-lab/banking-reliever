@@ -132,8 +132,8 @@ artifact discovery when multiple branches co-exist on the same machine.
 Scan, in this priority order:
 
 ```
-Frontend : sources/{capability-id}/frontend/        ← code-web-frontend output
-BFF      : src/{zone-abbrev}/{capability-id}-bff/   ← create-bff output
+Frontend : sources/{CAP_ID}/frontend/   ← code-web-frontend output
+BFF      : sources/{CAP_ID}/bff/        ← create-bff output
 ```
 
 Pick the mode that matches what's actually present:
@@ -144,9 +144,10 @@ Pick the mode that matches what's actually present:
 | **frontend + BFF** | present | present | CHANNEL task with BFF — start the BFF on its `.env.local` port, frontend talks to it directly, Playwright observes both layers |
 | **bff-only** | absent | present | Rare — only if the TASK explicitly delivers a BFF without its frontend (e.g., contract-first iteration). Tests focus on BFF endpoints, ETag/304, OTel tags |
 
-Auto-detect BFF presence if `src/{zone-abbrev}/{capability-id}-bff/*.csproj`
-exists (no `--bff` flag needed). If a BFF directory exists but `.env.local`
-is missing, surface that as a gap — `create-bff` did not finish.
+Auto-detect BFF presence if `sources/{CAP_ID}/bff/*.sln` (or any
+`*.csproj` under `sources/{CAP_ID}/bff/`) exists (no `--bff` flag needed).
+If a BFF directory exists but `.env.local` is missing, surface that as a
+gap — `create-bff` did not finish.
 
 If **no CHANNEL artifact** matches the TASK (neither frontend nor BFF),
 **stop and report**:
@@ -233,7 +234,7 @@ fi
 
 # BFF: start on its .env.local-assigned port (branch-scoped)
 BFF_PID=""
-BFF_DIR="src/{zone-abbrev}/{capability-id}-bff"
+BFF_DIR="sources/{CAP_ID}/bff"
 if [ -f "$BFF_DIR/.env.local" ]; then
   source "$BFF_DIR/.env.local"   # exports BFF_PORT, BRANCH, RABBIT_PORT, RABBIT_MGMT_PORT
   dotnet run --project "$BFF_DIR" --urls "http://localhost:$BFF_PORT" &
@@ -427,7 +428,7 @@ python3 -m http.server 3000
 # Open http://localhost:3000?beneficiaireId=BEN-001
 
 # If a BFF is present:
-cd src/{zone-abbrev}/{capability-id}-bff
+cd sources/{CAP_ID}/bff
 docker compose up -d
 dotnet run
 

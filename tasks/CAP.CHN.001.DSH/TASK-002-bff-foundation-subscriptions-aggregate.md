@@ -29,7 +29,7 @@ even though the frontend chrome only displays an empty-state placeholder
 until Epic 2 (TASK-003) renders the synthesised view.
 
 The CHANNEL stack is fixed by `ADR-TECH-TACT-001`: .NET 10 Minimal API
-BFF under `src/chn/CAP.CHN.001.DSH-bff/`, vanilla HTML5/CSS3/JS frontend
+BFF under `sources/CAP.CHN.001.DSH/bff/`, vanilla HTML5/CSS3/JS frontend
 under `sources/CAP.CHN.001.DSH/frontend/`. The aggregate IS the
 projection — no separate read store — per the Framing Decisions section
 of the roadmap.
@@ -139,7 +139,7 @@ None in this task. The single emitted RVT
   `CMD.RECORD_ENVELOPE_CONSUMPTION`
 
 ## Definition of Done
-- [ ] BFF source under `src/chn/CAP.CHN.001.DSH-bff/` (.NET 10
+- [ ] BFF source under `sources/CAP.CHN.001.DSH/bff/` (.NET 10
       Minimal API, MassTransit/RabbitMQ client, in-process aggregate
       store) — runnable via `dotnet run`
 - [ ] Frontend shell under `sources/CAP.CHN.001.DSH/frontend/`

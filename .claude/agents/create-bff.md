@@ -32,7 +32,7 @@ description: |
   The agent reads the FUNC ADR for CAP.CAN.001, derives the L3 endpoints
   (TAB, ACH, NOT…), the upstream events to consume from BSP/REF, the events
   the BFF itself publishes, allocates a fresh BFF_PORT + RabbitMQ ports,
-  and emits a runnable .NET 10 ASP.NET Core BFF under src/can/can001-bff/.
+  and emits a runnable .NET 10 ASP.NET Core BFF under sources/CAP.CAN.001/bff/.
   </commentary>
   </example>
 
@@ -78,8 +78,13 @@ You do **not** mechanically run a checklist — you read the functional and
 tactical context, exercise judgment, and produce a coherent BFF with
 explicit design choices.
 
-Your output goes under `src/{zone-abbrev}/{capability-id}-bff/` relative to
-the current working directory.
+Your output goes under `sources/{CAP_ID}/bff/` relative to the current
+working directory, where `{CAP_ID}` is the dotted capability identifier
+(e.g. `CAP.CAN.001`). This mirrors the sibling layout used by the
+`code-web-frontend` agent (`sources/{CAP_ID}/frontend/`) and the
+`implement-capability` agents (`sources/{CAP_ID}/backend/`,
+`sources/{CAP_ID}/stub/`) — every artifact for a capability lives under
+the same `sources/{CAP_ID}/` umbrella.
 
 **Architecture principles (non-negotiable):**
 - No domain logic — the BFF aggregates and translates, never decides
@@ -204,7 +209,7 @@ Before scaffolding, output a single block to the caller:
 ```
 🛠 BFF plan for [CAP.ID — L2 Name]
 - Namespace:         [chosen, e.g. Reliever.Canal.Can001Bff]
-- Output dir:        src/{zone-abbrev}/{capability-id}-bff/
+- Output dir:        sources/{CAP_ID}/bff/   (e.g. sources/CAP.CAN.001/bff/)
 - L3 endpoints:      [list, one group per L3]
 - Events consumed:   [list of {EventName} ← from {SourceCapId}]
 - Events published:  [list of {EventName} on {capability-id}.exchange]
@@ -228,9 +233,8 @@ You are a senior engineer, not a transcription machine. Refuse to scaffold when:
   `implement-capability` agent, not this one.
 - The FUNC ADR is missing or doesn't list the events the task names.
 - The TASK file mixes responsibilities from multiple L2 capabilities.
-- The output directory `src/{zone-abbrev}/{capability-id}-bff/` already
-  exists with content — refuse to overwrite; ask the caller to delete or
-  rename it.
+- The output directory `sources/{CAP_ID}/bff/` already exists with
+  content — refuse to overwrite; ask the caller to delete or rename it.
 - A tactical ADR mandates a stack you can't honor (e.g. non-.NET runtime
   for the BFF) — surface and stop.
 
@@ -275,11 +279,13 @@ never collide.
 
 ### Pattern 3 — Determine output directory + .env.local
 
-Output path: `src/{zone-abbrev}/{capability-id}-bff/` (e.g.
-`src/can/can001-bff/`). If `src/` does not exist in the project root,
-create it.
+Output path: `sources/{CAP_ID}/bff/` (e.g. `sources/CAP.CAN.001/bff/`),
+where `{CAP_ID}` is the dotted capability identifier. If
+`sources/{CAP_ID}/` does not exist in the project root (no sibling
+`frontend/` / `backend/` / `stub/` yet), create it. The `code-web-frontend`
+agent running in parallel will populate the sibling `frontend/` folder.
 
-After allocating ports, write `src/{zone-abbrev}/{capability-id}-bff/.env.local`
+After allocating ports, write `sources/{CAP_ID}/bff/.env.local`
 (gitignored — make sure `.gitignore` covers it):
 
 ```
@@ -440,7 +446,7 @@ The BFF must propagate the W3C `traceparent` header:
 When scaffolding succeeds:
 
 ```
-✓ BFF scaffolded: src/{zone-abbrev}/{capability-id}-bff/
+✓ BFF scaffolded: sources/{CAP_ID}/bff/
 
   Capability:           [CAP.ID — L2 Name]
   Namespace:            [Namespace]
@@ -459,7 +465,7 @@ Publishers (RabbitMQ):
   [list each publisher: {EventName} → {capability-id}.exchange (key: {routing-key})]
 
 To start the local stack:
-  cd src/{zone-abbrev}/{capability-id}-bff
+  cd sources/{CAP_ID}/bff
   docker compose up -d
   dotnet run --urls http://localhost:{BFF_PORT}
 
@@ -486,7 +492,7 @@ already exists, stack mismatch):
 Reason:    [precise gap]
 Missing:   [files / decisions / context]
 Suggested next step: [what the caller should do — refine the FUNC ADR?
-                      clarify the TASK? remove the existing src/ folder?]
+                      clarify the TASK? remove the existing sources/{CAP_ID}/bff/ folder?]
 ```
 
 Always return one of these two blocks — never finish silently.

@@ -184,7 +184,7 @@ Pure observation. Never modifies tasks, never launches agents.
 |---|---|---|---|
 | `task_type: contract-stub` (any zone) | C | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker that publishes RVT events on RabbitMQ. **Reads** the JSON Schemas from `process/<CAP_ID>/schemas/RVT.*.schema.json` (does not regenerate them) |
 | `BUSINESS_SERVICE_PRODUCTION` `SUPPORT` `REFERENTIAL` `EXCHANGE_B2B` `DATA_ANALYTIQUE` `STEERING` | A | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ, `GET /health` |
-| `CHANNEL` | B | `create-bff` ∥ `code-web-frontend` (parallel) | `src/<zone-abbrev>/<CAP_ID>-bff/` (.NET 10 ASP.NET Core BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5 + CSS3 + JS) |
+| `CHANNEL` | B | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 ASP.NET Core BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5 + CSS3 + JS) |
 
 After implementation, `/code` invokes the matching test skill (Stage 5) and
 runs a remediation loop: failing tests feed back into the implementation
@@ -248,8 +248,8 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 /sources/                             local — implementation artifacts (Stage 4)
    <CAP_ID>/backend/                  non-CHANNEL .NET 10 microservice
    <CAP_ID>/stub/                     contract-stub Mode B worker
+   <CAP_ID>/bff/                      CHANNEL .NET 10 ASP.NET Core BFF
    <CAP_ID>/frontend/                 CHANNEL vanilla HTML/CSS/JS
-/src/<zone-abbrev>/<CAP_ID>-bff/      CHANNEL .NET 10 ASP.NET Core BFF
 /tests/<CAP_ID>/TASK-NNN-{slug}/      generated pytest suite + report.html
 /.claude/
    skills/                            Claude Code skills (this orchestrator + the workers)

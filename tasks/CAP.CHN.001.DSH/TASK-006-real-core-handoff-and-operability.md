@@ -55,7 +55,7 @@ Five orthogonal hardening axes, each measurable.
      `STUB_ACTIVE=false`) in its own capability — coordinate the
      decommission, do not delete upstream code from this task.
 2. **OpenTelemetry dashboards-as-code** under
-   `src/chn/CAP.CHN.001.DSH-bff/observability/` (Grafana JSON or the
+   `sources/CAP.CHN.001.DSH/bff/observability/` (Grafana JSON or the
    deployment platform's equivalent), exposing at minimum:
    - Subscription queue depth per upstream RVT (3 panels).
    - End-to-end latency: RVT received → aggregate updated → next
@@ -78,7 +78,7 @@ Five orthogonal hardening axes, each measurable.
      the BFF returns `403 Forbidden` and never reaches the
      aggregate.
 4. **DLQ runbook** under
-   `src/chn/CAP.CHN.001.DSH-bff/README.md#runbook--dead-letter-queues`.
+   `sources/CAP.CHN.001.DSH/bff/README.md#runbook--dead-letter-queues`.
    `EVENT_ALREADY_PROCESSED` (`INV.DSH.002`) and `STALE_EVENT`
    (`INV.DSH.003`) are ack-and-drop by design — they never DLQ.
    The DLQ scenario is **out-of-spec payloads** (schema-validation
@@ -123,7 +123,7 @@ implementations swap from stub to real).
       producer's stub is documented as retired in its own
       capability's stub README (coordination, not direct edit)
 - [ ] **OTel dashboards-as-code** under
-      `src/chn/CAP.CHN.001.DSH-bff/observability/` cover the five
+      `sources/CAP.CHN.001.DSH/bff/observability/` cover the five
       panels enumerated above; a `make dashboards` target (or the
       deployment platform's equivalent) renders them locally for
       review
@@ -135,7 +135,7 @@ implementations swap from stub to real).
       gate on the frontend reads the agreed claim and exits to the
       explanatory view when the claim is missing or revoked
 - [ ] **DLQ runbook** present in
-      `src/chn/CAP.CHN.001.DSH-bff/README.md` covering schema-
+      `sources/CAP.CHN.001.DSH/bff/README.md` covering schema-
       validation failures on inbound RVTs (the only legitimate DLQ
       scenario for this capability)
 - [ ] **Polling economics load test** at 100+ concurrent dashboards

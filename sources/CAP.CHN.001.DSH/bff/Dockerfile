@@ -4,18 +4,18 @@
 #   - Upstream RVT JSON Schemas live OUTSIDE this folder (process/CAP.BSP.*/schemas/).
 #     The .csproj <Content Include="..\..\..\..\..\process\..."/> relies on the repo
 #     root being the build context. Run from the repo root:
-#       docker build -f src/chn/CAP.CHN.001.DSH-bff/Dockerfile -t chn-001-dsh-bff:dev .
+#       docker build -f sources/CAP.CHN.001.DSH/bff/Dockerfile -t chn-001-dsh-bff:dev .
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /repo
 
 # Copy project + read-only process schemas (mounted at the right relative path).
-COPY src/chn/CAP.CHN.001.DSH-bff /repo/src/chn/CAP.CHN.001.DSH-bff
+COPY sources/CAP.CHN.001.DSH/bff /repo/sources/CAP.CHN.001.DSH/bff
 COPY process/CAP.BSP.001.SCO/schemas /repo/process/CAP.BSP.001.SCO/schemas
 COPY process/CAP.BSP.001.TIE/schemas /repo/process/CAP.BSP.001.TIE/schemas
 COPY process/CAP.BSP.004.ENV/schemas /repo/process/CAP.BSP.004.ENV/schemas
 
-WORKDIR /repo/src/chn/CAP.CHN.001.DSH-bff
+WORKDIR /repo/sources/CAP.CHN.001.DSH/bff
 RUN dotnet restore Reliever.BeneficiaryDashboard.Bff.sln
 RUN dotnet publish src/Reliever.BeneficiaryDashboard.Bff/Reliever.BeneficiaryDashboard.Bff.csproj \
     -c Release -o /out --no-restore

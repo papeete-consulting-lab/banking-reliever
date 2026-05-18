@@ -2,7 +2,7 @@
 
 Vanilla HTML5 / CSS3 / JS frontend shell for the **Beneficiary Dashboard**
 capability. Pairs with the .NET 10 BFF under
-`src/chn/CAP.CHN.001.DSH-bff/` (scaffolded in parallel by the `create-bff`
+sibling `bff/` folder under `sources/CAP.CHN.001.DSH/` (scaffolded in parallel by the `create-bff`
 agent).
 
 > **Scope of TASK-002:** the *shell only* — header, branch badge, French

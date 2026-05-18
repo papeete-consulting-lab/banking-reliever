@@ -4,7 +4,7 @@ description: >
   Entry-point that dispatches a test-app agent run for a CHANNEL-zone TASK-NNN.
   Resolves the task, the active branch/environment, locates the artifacts
   produced by the code-web-frontend and create-bff agents (frontend under
-  sources/{capability-id}/frontend/, BFF under src/{zone-abbrev}/{capability-id}-bff/),
+  sources/{CAP_ID}/frontend/, BFF under sources/{CAP_ID}/bff/),
   then spawns the test-app agent (a senior test engineer specialized in
   vanilla web frontends + .NET BFF) to generate, run, and report tests
   against the Definition of Done, FUNC ADR rules, plan scoping, and
@@ -112,9 +112,8 @@ Quick existence check before spawning the agent (cheaper than letting the
 agent fail):
 
 ```bash
-ZONE_ABBREV=$(echo "$CAP_ID" | awk -F. '{print tolower($2)}')   # CAP.CAN.001 → can
 FRONTEND="sources/${CAP_ID}/frontend"
-BFF_DIR="src/${ZONE_ABBREV}/${CAP_ID}-bff"
+BFF_DIR="sources/${CAP_ID}/bff"
 
 [ -d "$FRONTEND" ] || [ -d "$BFF_DIR" ] \
   || { echo "✗ No CHANNEL artifact found for $CAP_ID — run /code TASK-NNN first."; exit 1; }
@@ -123,8 +122,8 @@ BFF_DIR="src/${ZONE_ABBREV}/${CAP_ID}-bff"
 If nothing exists, stop and tell the user:
 
 > "No CHANNEL implementation found for TASK-NNN (no frontend under
-> `sources/{cap-id}/frontend/` and no BFF under
-> `src/{zone-abbrev}/{cap-id}-bff/`). Run `/code TASK-NNN` first."
+> `sources/{CAP_ID}/frontend/` and no BFF under
+> `sources/{CAP_ID}/bff/`). Run `/code TASK-NNN` first."
 
 If a BFF directory exists but `.env.local` is missing, surface that as a
 gap before spawning — `create-bff` did not finish.

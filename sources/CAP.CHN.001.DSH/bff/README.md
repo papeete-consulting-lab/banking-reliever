@@ -15,10 +15,10 @@ Process contract: read-only at `process/CAP.CHN.001.DSH/`. Tactical anchor: ADR-
 
 ```bash
 # 1. Start RabbitMQ (branch-isolated host ports — see "Ports" below).
-docker compose -f src/chn/CAP.CHN.001.DSH-bff/docker-compose.yml up -d
+docker compose -f sources/CAP.CHN.001.DSH/bff/docker-compose.yml up -d
 
 # 2. Run the BFF.
-cd src/chn/CAP.CHN.001.DSH-bff
+cd sources/CAP.CHN.001.DSH/bff
 dotnet run --project src/Reliever.BeneficiaryDashboard.Bff
 
 # 3. Health probe.
@@ -99,7 +99,7 @@ The `sources/CAP.CHN.001.DSH/` capability folder may host a TASK-001 contract st
 ## Tests
 
 ```bash
-cd src/chn/CAP.CHN.001.DSH-bff
+cd sources/CAP.CHN.001.DSH/bff
 dotnet test
 ```
 

@@ -498,9 +498,9 @@ run concurrently in the same isolated worktree):
      description: "Scaffold frontend for [capability name]",
      prompt: <full context block: task identifier and task file content,
               capability ID, FUNC ADR content, product vision excerpts,
-              instruction to read src/{zone-abbrev}/{capability-id}-bff/ for the
-              API contract — or to infer it from endpoint paths derived by the
-              create-bff agent if the BFF is not yet written, Definition of Done>
+              instruction to read sources/{CAP_ID}/bff/ for the API contract —
+              or to infer it from endpoint paths derived by the create-bff
+              agent if the BFF is not yet written, Definition of Done>
    })
    ```
 
@@ -589,7 +589,7 @@ the capability zone:
 | Zone | Test skill | Test agent | Targets |
 |------|-----------|-----------|---------|
 | Non-CHANNEL (BUSINESS_SERVICE_PRODUCTION, SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTIQUE, STEERING) | `/test-business-capability` | `test-business-capability` | .NET microservice under `sources/{cap-name}/backend/` |
-| CHANNEL | `/test-app` | `test-app` | Frontend under `sources/{cap-id}/frontend/` and BFF under `src/{zone-abbrev}/{cap-id}-bff/` |
+| CHANNEL | `/test-app` | `test-app` | Frontend under `sources/{CAP_ID}/frontend/` and BFF under `sources/{CAP_ID}/bff/` |
 
 The test skill spawns its agent (senior test engineer) to validate that the
 delivered artifacts satisfy the Definition of Done, FUNC ADR rules, and the
@@ -788,7 +788,7 @@ After all tests pass (or after the remediation loop concludes):
    ### BFF (.NET Minimal API) — CHANNEL zone
 
    \`\`\`bash
-   cd src/{zone-abbrev}/{capability-id}-bff
+   cd sources/{CAP_ID}/bff
    docker compose up -d
    dotnet run
    \`\`\`

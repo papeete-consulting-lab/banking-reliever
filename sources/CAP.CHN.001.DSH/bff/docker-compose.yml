@@ -30,11 +30,11 @@ services:
     restart: unless-stopped
 
 # To start:
-#   docker compose -f src/chn/CAP.CHN.001.DSH-bff/docker-compose.yml up -d
+#   docker compose -f sources/CAP.CHN.001.DSH/bff/docker-compose.yml up -d
 #   AMQP    : amqp://guest:guest@localhost:6255/
 #   Mgmt UI : http://localhost:6256  (guest/guest)
 #
 # Then start the BFF:
-#   cd src/chn/CAP.CHN.001.DSH-bff
+#   cd sources/CAP.CHN.001.DSH/bff
 #   dotnet run --project src/Reliever.BeneficiaryDashboard.Bff
 # (uses appsettings.Development.json which already targets port 6255)

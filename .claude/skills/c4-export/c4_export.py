@@ -4,8 +4,8 @@ Structurizr DSL files.
 
 Reads upstream BCM via `bcm-pack` only — never touches /bcm/, /adr/,
 /func-adr/, /tech-adr/, /tech-vision/, /product-vision/, /business-vision/
-on disk. The implementation overlay is taken from `sources/` and `src/`
-in the working tree.
+on disk. The implementation overlay is taken from `sources/<CAP>/{backend,
+stub,bff,frontend}/` in the working tree.
 
 Outputs:
 
@@ -44,7 +44,6 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DOCS_C4 = REPO_ROOT / "docs" / "c4"
 SOURCES_DIR = REPO_ROOT / "sources"
-SRC_DIR = REPO_ROOT / "src"
 PROCESS_DIR = REPO_ROOT / "process"
 
 BANKING_KNOWLEDGE_BLOB = (
@@ -52,7 +51,9 @@ BANKING_KNOWLEDGE_BLOB = (
 )
 BANKING_BLOB = "https://github.com/Banking-Reliever/banking/blob/main"
 
-# Zone abbreviation used in src/<zone-abbrev>/ for CHANNEL BFFs.
+# Zone abbreviation used to name per-zone Structurizr files (zone-<abbrev>.dsl)
+# and the OTel `zone` resource tag — NOT the on-disk layout, which is uniformly
+# sources/<CAP_ID>/{backend,stub,bff,frontend}/ regardless of zone.
 ZONE_ABBREV = {
     "BUSINESS_SERVICE_PRODUCTION": "bsp",
     "SUPPORT": "sup",
@@ -119,7 +120,7 @@ class ImplStatus:
     has_mode_a: bool = False     # sources/<CAP>/backend/
     has_stub: bool = False       # sources/<CAP>/stub/
     has_frontend: bool = False   # sources/<CAP>/frontend/
-    has_bff: bool = False        # src/<zone-abbrev>/<CAP>-bff/
+    has_bff: bool = False        # sources/<CAP>/bff/
     has_process: bool = False    # process/<CAP>/
 
     @property
@@ -143,10 +144,7 @@ def detect_impl(cap_id: str, zone: str) -> ImplStatus:
         s.has_stub = True
     if (cap_dir / "frontend").is_dir():
         s.has_frontend = True
-
-    zone_abbrev = ZONE_ABBREV.get(zone, zone.lower())
-    bff_dir = SRC_DIR / zone_abbrev / f"{cap_id}-bff"
-    if bff_dir.is_dir():
+    if (cap_dir / "bff").is_dir():
         s.has_bff = True
 
     if (PROCESS_DIR / cap_id).is_dir():
@@ -529,8 +527,7 @@ def emit_l2_workspace(cap_id: str, pack: dict) -> str:
         container_idents.append("backend")
 
     if impl.has_bff:
-        zabbr = ZONE_ABBREV.get(zone, zone.lower())
-        loc = f"src/{zabbr}/{cap_id}-bff"
+        loc = f"sources/{cap_id}/bff"
         lines.extend(
             _emit_container(
                 "bff",

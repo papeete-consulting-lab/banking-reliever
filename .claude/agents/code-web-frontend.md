@@ -212,10 +212,10 @@ statically** into the generated HTML — no JavaScript lookup at runtime.
 
 Look for the upstream API in this priority order:
 
-1. **BFF (CHANNEL parallel path)** — `src/{zone-abbrev}/{capability-id}-bff/`
-   produced by `create-bff`. Read `Endpoints/{L3Name}Endpoints.cs` and
-   `.env.local` (BFF_PORT). The BFF is the canonical entry point for
-   CHANNEL-zone capabilities.
+1. **BFF (CHANNEL parallel path)** — `sources/{CAP_ID}/bff/` (sibling of
+   the frontend), produced by `create-bff`. Read
+   `Endpoints/{L3Name}Endpoints.cs` and `.env.local` (BFF_PORT). The BFF
+   is the canonical entry point for CHANNEL-zone capabilities.
 
 2. **Microservice (direct path)** — `sources/{capability-name-kebab}/backend/src/`:
    ```

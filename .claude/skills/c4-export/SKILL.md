@@ -108,7 +108,7 @@ both zoom out (Reliever in its environment) and zoom in (every L2 in each zone).
 |---|---|---|
 | `implemented:mode-a` | `sources/<CAP>/backend/` present | green |
 | `implemented:stub` | `sources/<CAP>/stub/` present | yellow |
-| `implemented:bff` | `src/<zone>/<CAP>-bff/` present | blue |
+| `implemented:bff` | `sources/<CAP>/bff/` present | blue |
 | `implemented:frontend` | `sources/<CAP>/frontend/` present | violet |
 | `not-scaffolded` | None of the above | grey, dashed border |
 
@@ -166,8 +166,8 @@ The script:
    `parent` property, and at the enterprise view as a zone grouping).
 3. For each L2 in scope, calls `bcm-pack pack <CAP> --deep --compact` to fetch
    the full slice set.
-4. Inspects `sources/<CAP>/{backend,stub,frontend}` and `src/<zone>/<CAP>-bff/`
-   to set the implementation overlay tag.
+4. Inspects `sources/<CAP>/{backend,stub,bff,frontend}` to set the
+   implementation overlay tag.
 5. Optionally reads `process/<CAP>/` (aggregates / read-models / policies /
    bus) to add DDD components.
 6. Builds GitHub URLs for every referenced ADR from the `files` slice
