@@ -5,3 +5,26 @@
 __pycache__/
 *.pyc
 tasks/BOARD.md
+
+# Python virtualenvs
+.venv/
+.venv-*/
+venv/
+env/
+
+# Runtime logs
+logs/
+**/logs/
+*.log
+
+# Secrets / local env
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.swp
