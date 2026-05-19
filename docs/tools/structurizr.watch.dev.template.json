@@ -1,0 +1,43 @@
+{
+  "dev_only": true,
+  "description": "DEV ONLY - Local Structurizr push settings. Copy to structurizr.watch.dev.json and fill in your private values.",
+  "server_url": "http://localhost:8081",
+  "api_url": "http://localhost:8081/api",
+  "poll_interval_seconds": 1.0,
+  "debounce_seconds": 1.5,
+  "cli": {
+    "mode": "docker",
+    "command": "structurizr",
+    "docker_image": "structurizr/structurizr:latest",
+    "push_style": "modern",
+    "docker_network_mode": "host"
+  },
+  "provisioning": {
+    "enabled": true,
+    "create_if_missing": true,
+    "regenerate_key_if_missing": true,
+    "admin_api_key": "REPLACE_ME_IF_SERVER_AUTH_ENABLED",
+    "persist_updates": true,
+    "require_secret": false,
+    "allow_unsupported_admin_api": true,
+    "manual_fallback_mode": "print",
+    "try_web_create_fallback": true
+  },
+  "workspaces": [
+    {
+      "type": "enterprise",
+      "dsl": "docs/c4/enterprise/workspace.dsl",
+      "id": "",
+      "key": "",
+      "secret": ""
+    },
+    {
+      "type": "cap",
+      "capability": "CAP.BSP.001.SCO",
+      "dsl": "docs/c4/CAP.BSP.001.SCO/workspace.dsl",
+      "id": "",
+      "key": "",
+      "secret": ""
+    }
+  ]
+}
