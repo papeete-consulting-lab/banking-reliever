@@ -1,10 +1,13 @@
-workspace "CAP.STR.001.KPI — Performance Monitoring" "Measure programme effectiveness at scale: progression rate, relapse rate, successful exit rate, perceived dignity. Consumes DAT.001.REP reports and produces ProgrammePerformance.Evaluated for governance decisions." {
+workspace "Performance Monitoring (CAP.STR.001.KPI)" "Measure programme effectiveness at scale: progression rate, relapse rate, successful exit rate, perceived dignity. Consumes DAT.001.REP reports and produces ProgrammePerformance.Evaluated for governance decisions." {
 
     !identifiers hierarchical
 
     model {
-        CAP_DAT_001_REP = softwareSystem "CAP.DAT.001.REP" "Upstream capability" {
+        CAP_DAT_001_REP = softwareSystem "Programme Reporting" "Upstream capability (CAP.DAT.001.REP)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.REP"
+            }
         }
 
         CAP_STR_001_KPI = softwareSystem "Performance Monitoring" "Measure programme effectiveness at scale: progression rate, relapse rate, successful exit rate, perceived dignity. Consumes DAT.001.REP reports and produces ProgrammePerformance.Evaluated for governance decisions." {
@@ -40,12 +43,12 @@ workspace "CAP.STR.001.KPI — Performance Monitoring" "Measure programme effect
             }
         }
 
-        CAP_DAT_001_REP -> CAP_STR_001_KPI.backend "EVT.DAT.001.PROGRAM_REPORT_GENERATED, RVT.DAT.001.REPORT_AVAILABLE" "RabbitMQ" "upstream-event"
+        CAP_DAT_001_REP -> CAP_STR_001_KPI.backend "PROGRAM REPORT GENERATED" "Business event subscription" "upstream-event"
 
-        CAP_STR_001_KPI_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_STR_001_KPI_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_STR_001_KPI.backend -> CAP_STR_001_KPI_downstream_consumers "RVT.STR.001.PERFORMANCE_EVALUATED" "RabbitMQ" "downstream-event"
+        CAP_STR_001_KPI.backend -> CAP_STR_001_KPI_downstream_consumers "PERFORMANCE EVALUATED" "Business event" "downstream-event"
     }
 
     views {

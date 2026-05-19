@@ -69,25 +69,34 @@ docs/c4/
 
 | C4 element | What it represents |
 |---|---|
-| Software System | The L2 capability itself |
+| Software System | The L2 capability itself — named by its BCM `name` (e.g. `Tier Management`), described by its BCM `description`, with the dotted `capability-id` (e.g. `CAP.BSP.001.TIE`) stored as a property |
 | Container | An implementation artifact: backend microservice (Mode A), contract stub (Mode B), BFF, frontend, or a `not-scaffolded` placeholder |
-| Component | A DDD element mined from `process/<CAP>/` — aggregates, read-models, policies, resource-event publishers |
+| Component | A DDD element mined from `process/<CAP>/` — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
 
-Upstream capabilities (other L2s that emit events this capability consumes)
-appear as `external-capability` Software Systems with `RVT.*` relationships
-pointing INTO this capability's container. The downstream side is summarised
-as a "Downstream consumers" Software System when this capability emits events.
+Upstream capabilities (other L2s that emit business events this capability
+subscribes to) appear as `external-capability` Software Systems named after
+their BCM `name` (e.g. `Behavioural Scoring`), with the dotted capability id
+as a property. Relationships are wired exclusively from
+`consumed_business_events` (`subscribed_event`) — resource-event
+subscriptions (`RVT.*` / `consumed_resource_events`) are intentionally
+hidden from the C4 view because they are a bus-rail implementation detail.
+The downstream side is summarised as a "Downstream consumers" Software
+System listing the emitted **business** event display labels.
 
 ### Per-zone file (`docs/c4/enterprise/zone-<abbrev>.dsl`)
 
 | C4 element | What it represents |
 |---|---|
-| Software System | The zone (BSP, SUP, REF, CHANNEL, EXCHANGE_B2B, DATA_ANALYTICS, STEERING) |
-| Container | An L2 capability in that zone — tagged with its current implementation status and a `parent:` property pointing at the L1 parent ID |
+| Software System | The zone, named by its pretty form (e.g. `Business Service Production`) with the raw code stored as the `zone-code` property |
+| Container | An L2 capability in that zone — named by its BCM `name`, described by its BCM `description`, tagged with its current implementation status, and carrying `capability-id` / `parent` / `detail-view` properties |
 
-Cross-zone event flows are drawn as relationships between containers, with
-the source side rendered as an `external-capability` Software System if the
-emitter lives in another zone.
+Cross-capability flows are drawn from `consumed_business_events` only.
+Each relationship is labelled with the comma-separated list of cleaned
+business-event display labels (e.g. `SCORE THRESHOLD REACHED,
+OVERRIDE REQUESTED`) and tagged with `"Business event subscription"` as
+its technology. The source side is rendered as an `external-capability`
+Software System if the emitter lives in another zone — named after its
+BCM `name`, with the dotted capability id as a property.
 
 ### Enterprise file (`docs/c4/enterprise/workspace.dsl`)
 
@@ -96,11 +105,14 @@ emitter lives in another zone.
 | Person | Beneficiary, Prescriber, Regulator |
 | External Software System | Partner bank |
 | Software System | Reliever (the whole programme) |
-| Container | A zone of Reliever |
-| Component | An L2 capability inside a zone |
+| Container | A zone of Reliever — display name is the pretty zone form (e.g. `Business Service Production`); raw code on `zone-code` property |
+| Component | An L2 capability inside a zone — named by its BCM `name`, described by its BCM `description`; raw `capability-id` on a property |
 
 A System Landscape view and per-zone Component views are emitted so you can
-both zoom out (Reliever in its environment) and zoom in (every L2 in each zone).
+both zoom out (Reliever in its environment) and zoom in (every L2 in each
+zone). Zone-to-zone edges are derived from cross-zone
+`consumed_business_events` only and carry `"Business events"` as their
+label.
 
 ## Implementation overlay — tags and colors
 

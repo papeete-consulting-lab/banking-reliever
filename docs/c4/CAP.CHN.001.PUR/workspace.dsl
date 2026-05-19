@@ -1,13 +1,19 @@
-workspace "CAP.CHN.001.PUR — Purchase Assistance" "Provide contextualised assistance at the point of purchase: budget availability check before payment, cheaper alternatives, price comparison. This capability is the UX manifestation of real-time behavioural control." {
+workspace "Purchase Assistance (CAP.CHN.001.PUR)" "Provide contextualised assistance at the point of purchase: budget availability check before payment, cheaper alternatives, price comparison. This capability is the UX manifestation of real-time behavioural control." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_004_ALT = softwareSystem "CAP.BSP.004.ALT" "Upstream capability" {
+        CAP_BSP_004_ALT = softwareSystem "Behavioural Alerts" "Upstream capability (CAP.BSP.004.ALT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ALT"
+            }
         }
-        CAP_BSP_004_AUT = softwareSystem "CAP.BSP.004.AUT" "Upstream capability" {
+        CAP_BSP_004_AUT = softwareSystem "Transaction Authorisation" "Upstream capability (CAP.BSP.004.AUT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.AUT"
+            }
         }
 
         CAP_CHN_001_PUR = softwareSystem "Purchase Assistance" "Provide contextualised assistance at the point of purchase: budget availability check before payment, cheaper alternatives, price comparison. This capability is the UX manifestation of real-time behavioural control." {
@@ -43,14 +49,14 @@ workspace "CAP.CHN.001.PUR — Purchase Assistance" "Provide contextualised assi
             }
         }
 
-        CAP_BSP_004_ALT -> CAP_CHN_001_PUR.backend "EVT.BSP.004.ALTERNATIVE_PROPOSED, RVT.BSP.004.ALTERNATIVE_IDENTIFIED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_ALT -> CAP_CHN_001_PUR.backend "ALTERNATIVE PROPOSED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_AUT -> CAP_CHN_001_PUR.backend "EVT.BSP.004.TRANSACTION_AUTHORIZED, EVT.BSP.004.TRANSACTION_REFUSED, RVT.BSP.004.PAYMENT_BLOCKED, RVT.BSP.004.PAYMENT_GRANTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_AUT -> CAP_CHN_001_PUR.backend "TRANSACTION AUTHORIZED, TRANSACTION REFUSED" "Business event subscription" "upstream-event"
 
-        CAP_CHN_001_PUR_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_CHN_001_PUR_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_CHN_001_PUR.backend -> CAP_CHN_001_PUR_downstream_consumers "RVT.CHN.001.ALTERNATIVE_ACCEPTED, RVT.CHN.001.PRODUCT_SCAN_INITIATED" "RabbitMQ" "downstream-event"
+        CAP_CHN_001_PUR.backend -> CAP_CHN_001_PUR_downstream_consumers "ALTERNATIVE ACCEPTED, PRODUCT SCAN INITIATED" "Business event" "downstream-event"
     }
 
     views {

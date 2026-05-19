@@ -1,10 +1,13 @@
-workspace "CAP.BSP.002.ELI — Eligibility" "Verify that an individual meets the entry criteria for the Reliever programme (demonstrated financial vulnerability, valid prescription) before any enrolment." {
+workspace "Eligibility (CAP.BSP.002.ELI)" "Verify that an individual meets the entry criteria for the Reliever programme (demonstrated financial vulnerability, valid prescription) before any enrolment." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_003_COD = softwareSystem "CAP.BSP.003.COD" "Upstream capability" {
+        CAP_BSP_003_COD = softwareSystem "Co-Decision" "Upstream capability (CAP.BSP.003.COD)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.003.COD"
+            }
         }
 
         CAP_BSP_002_ELI = softwareSystem "Eligibility" "Verify that an individual meets the entry criteria for the Reliever programme (demonstrated financial vulnerability, valid prescription) before any enrolment." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.002.ELI — Eligibility" "Verify that an individual meets the
             }
         }
 
-        CAP_BSP_003_COD -> CAP_BSP_002_ELI.backend "EVT.BSP.003.OVERRIDE_REQUESTED, RVT.BSP.003.CODECISION_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_003_COD -> CAP_BSP_002_ELI.backend "OVERRIDE REQUESTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_ELI_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_002_ELI_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_002_ELI.backend -> CAP_BSP_002_ELI_downstream_consumers "RVT.BSP.002.ELIGIBILITY_RECORDED, RVT.BSP.002.ELIGIBILITY_REFUSED" "RabbitMQ" "downstream-event"
+        CAP_BSP_002_ELI.backend -> CAP_BSP_002_ELI_downstream_consumers "ELIGIBILITY REFUSED, ELIGIBILITY VALIDATED" "Business event" "downstream-event"
     }
 
     views {

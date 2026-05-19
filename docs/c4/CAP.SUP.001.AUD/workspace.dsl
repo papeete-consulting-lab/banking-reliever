@@ -1,4 +1,4 @@
-workspace "CAP.SUP.001.AUD — Audit & Traceability" "Log all accesses and actions on beneficiary data, across all capabilities. Cross-cutting capability: 100% of beneficiary data accesses must produce DataAccess.Logged — a GDPR regulatory obligation." {
+workspace "Audit & Traceability (CAP.SUP.001.AUD)" "Log all accesses and actions on beneficiary data, across all capabilities. Cross-cutting capability: 100% of beneficiary data accesses must produce DataAccess.Logged — a GDPR regulatory obligation." {
 
     !identifiers hierarchical
 
@@ -37,10 +37,10 @@ workspace "CAP.SUP.001.AUD — Audit & Traceability" "Log all accesses and actio
             }
         }
 
-        CAP_SUP_001_AUD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_SUP_001_AUD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_SUP_001_AUD.backend -> CAP_SUP_001_AUD_downstream_consumers "RVT.SUP.001.TRACE_RECORDED" "RabbitMQ" "downstream-event"
+        CAP_SUP_001_AUD.backend -> CAP_SUP_001_AUD_downstream_consumers "ACCESS LOGGED" "Business event" "downstream-event"
     }
 
     views {

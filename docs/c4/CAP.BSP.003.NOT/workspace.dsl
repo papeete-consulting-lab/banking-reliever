@@ -1,16 +1,25 @@
-workspace "CAP.BSP.003.NOT — Prescriber Notification & Communication" "Notify the relevant prescribers of significant events in the beneficiary's journey (behavioural alert, tier change, co-decision request) according to their rights and channel preferences." {
+workspace "Prescriber Notification & Communication (CAP.BSP.003.NOT)" "Notify the relevant prescribers of significant events in the beneficiary's journey (behavioural alert, tier change, co-decision request) according to their rights and channel preferences." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_SIG = softwareSystem "CAP.BSP.001.SIG" "Upstream capability" {
+        CAP_BSP_001_SIG = softwareSystem "Signal Detection" "Upstream capability (CAP.BSP.001.SIG)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SIG"
+            }
         }
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
-        CAP_BSP_004_ENV = softwareSystem "CAP.BSP.004.ENV" "Upstream capability" {
+        CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "Upstream capability (CAP.BSP.004.ENV)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ENV"
+            }
         }
 
         CAP_BSP_003_NOT = softwareSystem "Prescriber Notification & Communication" "Notify the relevant prescribers of significant events in the beneficiary's journey (behavioural alert, tier change, co-decision request) according to their rights and channel preferences." {
@@ -46,16 +55,16 @@ workspace "CAP.BSP.003.NOT — Prescriber Notification & Communication" "Notify 
             }
         }
 
-        CAP_BSP_001_SIG -> CAP_BSP_003_NOT.backend "EVT.BSP.001.RELAPSE_SIGNAL_DETECTED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SIG -> CAP_BSP_003_NOT.backend "RELAPSE SIGNAL DETECTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_TIE -> CAP_BSP_003_NOT.backend "EVT.BSP.001.TIER_DOWNGRADED, EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_DOWNGRADE_RECORDED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_BSP_003_NOT.backend "TIER DOWNGRADED, TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_ENV -> CAP_BSP_003_NOT.backend "EVT.BSP.004.ENVELOPE_UNCONSUMED, RVT.BSP.004.ENVELOPE_PERIOD_WITHOUT_CONSUMPTION" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_ENV -> CAP_BSP_003_NOT.backend "ENVELOPE UNCONSUMED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_003_NOT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_003_NOT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_003_NOT.backend -> CAP_BSP_003_NOT_downstream_consumers "RVT.BSP.003.PRESCRIBER_ALERTED" "RabbitMQ" "downstream-event"
+        CAP_BSP_003_NOT.backend -> CAP_BSP_003_NOT_downstream_consumers "PRESCRIBER ALERTED" "Business event" "downstream-event"
     }
 
     views {

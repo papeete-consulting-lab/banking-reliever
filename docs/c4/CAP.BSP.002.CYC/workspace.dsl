@@ -1,13 +1,19 @@
-workspace "CAP.BSP.002.CYC — Lifecycle Monitoring" "Maintain the beneficiary's current state within the programme: active tier, prescriber statuses, history of key events. Reference point for all other L2 capabilities requiring the beneficiary's current state." {
+workspace "Lifecycle Monitoring (CAP.BSP.002.CYC)" "Maintain the beneficiary's current state within the programme: active tier, prescriber statuses, history of key events. Reference point for all other L2 capabilities requiring the beneficiary's current state." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_SIG = softwareSystem "CAP.BSP.001.SIG" "Upstream capability" {
+        CAP_BSP_001_SIG = softwareSystem "Signal Detection" "Upstream capability (CAP.BSP.001.SIG)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SIG"
+            }
         }
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "Upstream capability" {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "Upstream capability (CAP.BSP.002.ENR)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
 
         CAP_BSP_002_CYC = softwareSystem "Lifecycle Monitoring" "Maintain the beneficiary's current state within the programme: active tier, prescriber statuses, history of key events. Reference point for all other L2 capabilities requiring the beneficiary's current state." {
@@ -43,14 +49,14 @@ workspace "CAP.BSP.002.CYC — Lifecycle Monitoring" "Maintain the beneficiary's
             }
         }
 
-        CAP_BSP_001_SIG -> CAP_BSP_002_CYC.backend "EVT.BSP.001.RELAPSE_SIGNAL_DETECTED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SIG -> CAP_BSP_002_CYC.backend "RELAPSE SIGNAL DETECTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_ENR -> CAP_BSP_002_CYC.backend "EVT.BSP.002.BENEFICIARY_ENROLLED, RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> CAP_BSP_002_CYC.backend "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_CYC_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_002_CYC_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_002_CYC.backend -> CAP_BSP_002_CYC_downstream_consumers "RVT.BSP.002.BENEFICIARY_REACTIVATED, RVT.BSP.002.BENEFICIARY_SUSPENDED" "RabbitMQ" "downstream-event"
+        CAP_BSP_002_CYC.backend -> CAP_BSP_002_CYC_downstream_consumers "BENEFICIARY REACTIVATED, BENEFICIARY SUSPENDED" "Business event" "downstream-event"
     }
 
     views {

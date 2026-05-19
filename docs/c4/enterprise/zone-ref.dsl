@@ -1,20 +1,25 @@
-workspace "Zone REFERENTIAL" "C4 container view of the REFERENTIAL zone — each L2 capability is a container." {
+workspace "Zone — Referential" "C4 container view of the Referential zone — each L2 capability is a container." {
 
     !identifiers hierarchical
 
     model {
-        zone_REF = softwareSystem "REFERENTIAL" "REFERENTIAL zone of the Reliever business capability model." {
+        zone_REF = softwareSystem "Referential" "Referential zone of the Reliever business capability model." {
             tags "capability-self" "zone:REF"
-            CAP_REF_001_PRE = container "CAP.REF.001.PRE" "Prescriber Referential" "stack-tbd" {
+            properties {
+                "zone-code" "REFERENTIAL"
+            }
+            CAP_REF_001_PRE = container "Prescriber Referential" "Hold and maintain the canonical identity of prescribers and their organisations. Distinguishes prescriber types (banker, doctor, social worker) and their respective authorisations within the programme." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.REF.001"
                 properties {
+                    "capability-id" "CAP.REF.001.PRE"
                     "detail-view" "../CAP.REF.001.PRE/workspace.dsl"
                     "parent" "CAP.REF.001"
                 }
             }
-            CAP_REF_001_TIE = container "CAP.REF.001.TIE" "Tier Referential" "stack-tbd" {
+            CAP_REF_001_TIE = container "Tier Referential" "Hold and maintain the canonical tier definitions: usage rules, transition thresholds, associated rights. Any modification goes through this L2 and triggers Tier.DefinitionUpdated, consumed in cascade by BSP.001, BSP.004 and B2B.001." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.REF.001"
                 properties {
+                    "capability-id" "CAP.REF.001.TIE"
                     "detail-view" "../CAP.REF.001.TIE/workspace.dsl"
                     "parent" "CAP.REF.001"
                 }

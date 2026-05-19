@@ -1,10 +1,13 @@
-workspace "CAP.STR.001.GOV — Programme Governance" "Define and evolve programme governance policies: eligibility rules, tier thresholds, co-decision protocols. Validates scoring model updates (ScoreModel.Updated from DAT.001.MOD) before any production deployment." {
+workspace "Programme Governance (CAP.STR.001.GOV)" "Define and evolve programme governance policies: eligibility rules, tier thresholds, co-decision protocols. Validates scoring model updates (ScoreModel.Updated from DAT.001.MOD) before any production deployment." {
 
     !identifiers hierarchical
 
     model {
-        CAP_DAT_001_MOD = softwareSystem "CAP.DAT.001.MOD" "Upstream capability" {
+        CAP_DAT_001_MOD = softwareSystem "Score Analytics Model" "Upstream capability (CAP.DAT.001.MOD)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.MOD"
+            }
         }
 
         CAP_STR_001_GOV = softwareSystem "Programme Governance" "Define and evolve programme governance policies: eligibility rules, tier thresholds, co-decision protocols. Validates scoring model updates (ScoreModel.Updated from DAT.001.MOD) before any production deployment." {
@@ -40,12 +43,12 @@ workspace "CAP.STR.001.GOV — Programme Governance" "Define and evolve programm
             }
         }
 
-        CAP_DAT_001_MOD -> CAP_STR_001_GOV.backend "EVT.DAT.001.SCORE_MODEL_UPDATED, RVT.DAT.001.MODEL_SUBMITTED_TO_GOVERNANCE" "RabbitMQ" "upstream-event"
+        CAP_DAT_001_MOD -> CAP_STR_001_GOV.backend "SCORE MODEL UPDATED" "Business event subscription" "upstream-event"
 
-        CAP_STR_001_GOV_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_STR_001_GOV_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_STR_001_GOV.backend -> CAP_STR_001_GOV_downstream_consumers "RVT.STR.001.GOVERNANCE_POLICY_UPDATED" "RabbitMQ" "downstream-event"
+        CAP_STR_001_GOV.backend -> CAP_STR_001_GOV_downstream_consumers "GOVERNANCE POLICY UPDATED" "Business event" "downstream-event"
     }
 
     views {

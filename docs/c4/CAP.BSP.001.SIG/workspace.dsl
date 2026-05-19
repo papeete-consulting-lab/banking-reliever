@@ -1,13 +1,19 @@
-workspace "CAP.BSP.001.SIG — Signal Detection" "Detect abnormal behavioural signals surfaced by BSP.004 (notably unconsumed budget envelopes as a relapse signal) and transform them into actionable events for scoring and prescriber coordination." {
+workspace "Signal Detection (CAP.BSP.001.SIG)" "Detect abnormal behavioural signals surfaced by BSP.004 (notably unconsumed budget envelopes as a relapse signal) and transform them into actionable events for scoring and prescriber coordination." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_004_AUT = softwareSystem "CAP.BSP.004.AUT" "Upstream capability" {
+        CAP_BSP_004_AUT = softwareSystem "Transaction Authorisation" "Upstream capability (CAP.BSP.004.AUT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.AUT"
+            }
         }
-        CAP_BSP_004_ENV = softwareSystem "CAP.BSP.004.ENV" "Upstream capability" {
+        CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "Upstream capability (CAP.BSP.004.ENV)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ENV"
+            }
         }
 
         CAP_BSP_001_SIG = softwareSystem "Signal Detection" "Detect abnormal behavioural signals surfaced by BSP.004 (notably unconsumed budget envelopes as a relapse signal) and transform them into actionable events for scoring and prescriber coordination." {
@@ -43,14 +49,14 @@ workspace "CAP.BSP.001.SIG — Signal Detection" "Detect abnormal behavioural si
             }
         }
 
-        CAP_BSP_004_AUT -> CAP_BSP_001_SIG.backend "EVT.BSP.004.TRANSACTION_AUTHORIZED, RVT.BSP.004.PAYMENT_GRANTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_AUT -> CAP_BSP_001_SIG.backend "TRANSACTION AUTHORIZED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_ENV -> CAP_BSP_001_SIG.backend "EVT.BSP.004.ENVELOPE_UNCONSUMED, RVT.BSP.004.ENVELOPE_PERIOD_WITHOUT_CONSUMPTION" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_ENV -> CAP_BSP_001_SIG.backend "ENVELOPE UNCONSUMED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_SIG_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_001_SIG_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_001_SIG.backend -> CAP_BSP_001_SIG_downstream_consumers "RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED" "RabbitMQ" "downstream-event"
+        CAP_BSP_001_SIG.backend -> CAP_BSP_001_SIG_downstream_consumers "PROGRESSION SIGNAL DETECTED, RELAPSE SIGNAL DETECTED" "Business event" "downstream-event"
     }
 
     views {

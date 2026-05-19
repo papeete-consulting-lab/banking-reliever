@@ -1,10 +1,13 @@
-workspace "CAP.BSP.004.ALT — Behavioural Alerts" "Detect and surface abnormal behavioural patterns from the transaction stream to BSP.001.SIG: bypass attempts, recurring declines, systematically unconsumed budgets. These signals feed the scoring without directly modifying operations." {
+workspace "Behavioural Alerts (CAP.BSP.004.ALT)" "Detect and surface abnormal behavioural patterns from the transaction stream to BSP.001.SIG: bypass attempts, recurring declines, systematically unconsumed budgets. These signals feed the scoring without directly modifying operations." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_004_AUT = softwareSystem "CAP.BSP.004.AUT" "Upstream capability" {
+        CAP_BSP_004_AUT = softwareSystem "Transaction Authorisation" "Upstream capability (CAP.BSP.004.AUT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.AUT"
+            }
         }
 
         CAP_BSP_004_ALT = softwareSystem "Behavioural Alerts" "Detect and surface abnormal behavioural patterns from the transaction stream to BSP.001.SIG: bypass attempts, recurring declines, systematically unconsumed budgets. These signals feed the scoring without directly modifying operations." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.004.ALT — Behavioural Alerts" "Detect and surface abnormal 
             }
         }
 
-        CAP_BSP_004_AUT -> CAP_BSP_004_ALT.backend "EVT.BSP.004.TRANSACTION_REFUSED, RVT.BSP.004.PAYMENT_BLOCKED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_AUT -> CAP_BSP_004_ALT.backend "TRANSACTION REFUSED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_ALT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_004_ALT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_004_ALT.backend -> CAP_BSP_004_ALT_downstream_consumers "RVT.BSP.004.ALTERNATIVE_IDENTIFIED" "RabbitMQ" "downstream-event"
+        CAP_BSP_004_ALT.backend -> CAP_BSP_004_ALT_downstream_consumers "ALTERNATIVE PROPOSED" "Business event" "downstream-event"
     }
 
     views {

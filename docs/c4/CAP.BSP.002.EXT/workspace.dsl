@@ -1,10 +1,13 @@
-workspace "CAP.BSP.002.EXT — Programme Exit" "Manage the beneficiary's exit: successful exit (transfer to standard banking application at the final tier), administrative exit, or voluntary dropout. Triggers card termination (B2B.001.CRD) and rights review (SUP.001.RET)." {
+workspace "Programme Exit (CAP.BSP.002.EXT)" "Manage the beneficiary's exit: successful exit (transfer to standard banking application at the final tier), administrative exit, or voluntary dropout. Triggers card termination (B2B.001.CRD) and rights review (SUP.001.RET)." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
 
         CAP_BSP_002_EXT = softwareSystem "Programme Exit" "Manage the beneficiary's exit: successful exit (transfer to standard banking application at the final tier), administrative exit, or voluntary dropout. Triggers card termination (B2B.001.CRD) and rights review (SUP.001.RET)." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.002.EXT — Programme Exit" "Manage the beneficiary's exit: s
             }
         }
 
-        CAP_BSP_001_TIE -> CAP_BSP_002_EXT.backend "EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_BSP_002_EXT.backend "TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_EXT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_002_EXT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_002_EXT.backend -> CAP_BSP_002_EXT_downstream_consumers "RVT.BSP.002.CASE_CLOSED, RVT.BSP.002.STANDARD_APP_TRANSFER_RECORDED" "RabbitMQ" "downstream-event"
+        CAP_BSP_002_EXT.backend -> CAP_BSP_002_EXT_downstream_consumers "BENEFICIARY EXITED, BENEFICIARY TRANSFERRED TO STANDARD APP" "Business event" "downstream-event"
     }
 
     views {

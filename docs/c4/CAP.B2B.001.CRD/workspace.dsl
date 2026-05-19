@@ -1,16 +1,25 @@
-workspace "CAP.B2B.001.CRD — Dedicated Card Management" "Drive the complete lifecycle of the Reliever dedicated card — issuance, activation, suspension, termination — in liaison with an approved issuing partner. Card usage rules (limits, categories) are synchronised with the current tier." {
+workspace "Dedicated Card Management (CAP.B2B.001.CRD)" "Drive the complete lifecycle of the Reliever dedicated card — issuance, activation, suspension, termination — in liaison with an approved issuing partner. Card usage rules (limits, categories) are synchronised with the current tier." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "Upstream capability" {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "Upstream capability (CAP.BSP.002.ENR)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
-        CAP_BSP_002_EXT = softwareSystem "CAP.BSP.002.EXT" "Upstream capability" {
+        CAP_BSP_002_EXT = softwareSystem "Programme Exit" "Upstream capability (CAP.BSP.002.EXT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.EXT"
+            }
         }
 
         CAP_B2B_001_CRD = softwareSystem "Dedicated Card Management" "Drive the complete lifecycle of the Reliever dedicated card — issuance, activation, suspension, termination — in liaison with an approved issuing partner. Card usage rules (limits, categories) are synchronised with the current tier." {
@@ -46,16 +55,16 @@ workspace "CAP.B2B.001.CRD — Dedicated Card Management" "Drive the complete li
             }
         }
 
-        CAP_BSP_001_TIE -> CAP_B2B_001_CRD.backend "EVT.BSP.001.TIER_DOWNGRADED, EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_DOWNGRADE_RECORDED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_B2B_001_CRD.backend "TIER DOWNGRADED, TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_ENR -> CAP_B2B_001_CRD.backend "EVT.BSP.002.BENEFICIARY_ENROLLED, RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> CAP_B2B_001_CRD.backend "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_EXT -> CAP_B2B_001_CRD.backend "EVT.BSP.002.BENEFICIARY_EXITED, RVT.BSP.002.CASE_CLOSED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_EXT -> CAP_B2B_001_CRD.backend "BENEFICIARY EXITED" "Business event subscription" "upstream-event"
 
-        CAP_B2B_001_CRD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_B2B_001_CRD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_B2B_001_CRD.backend -> CAP_B2B_001_CRD_downstream_consumers "RVT.B2B.001.CARD_ISSUED, RVT.B2B.001.CARD_PERMANENTLY_CLOSED, RVT.B2B.001.CARD_PUT_IN_SERVICE, RVT.B2B.001.CARD_PUT_ON_HOLD" "RabbitMQ" "downstream-event"
+        CAP_B2B_001_CRD.backend -> CAP_B2B_001_CRD_downstream_consumers "CARD ACTIVATED, CARD CANCELLED, CARD ISSUED, CARD SUSPENDED" "Business event" "downstream-event"
     }
 
     views {

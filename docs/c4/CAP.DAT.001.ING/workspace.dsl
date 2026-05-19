@@ -1,4 +1,4 @@
-workspace "CAP.DAT.001.ING — Event Ingestion" "Collect and consolidate in decoupled analytics mode all behavioural events produced by the programme (BSP.001, BSP.002, BSP.003, BSP.004) to feed the analytics pipelines. Strict separation from the operational transactional pipeline." {
+workspace "Event Ingestion (CAP.DAT.001.ING)" "Collect and consolidate in decoupled analytics mode all behavioural events produced by the programme (BSP.001, BSP.002, BSP.003, BSP.004) to feed the analytics pipelines. Strict separation from the operational transactional pipeline." {
 
     !identifiers hierarchical
 
@@ -37,10 +37,10 @@ workspace "CAP.DAT.001.ING — Event Ingestion" "Collect and consolidate in deco
             }
         }
 
-        CAP_DAT_001_ING_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_DAT_001_ING_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_DAT_001_ING.backend -> CAP_DAT_001_ING_downstream_consumers "RVT.DAT.001.BATCH_AVAILABLE" "RabbitMQ" "downstream-event"
+        CAP_DAT_001_ING.backend -> CAP_DAT_001_ING_downstream_consumers "BEHAVIORAL DATA INGESTED" "Business event" "downstream-event"
     }
 
     views {

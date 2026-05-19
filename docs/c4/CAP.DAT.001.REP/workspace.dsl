@@ -1,13 +1,19 @@
-workspace "CAP.DAT.001.REP — Programme Reporting" "Produce dashboards and monitoring reports on the overall effectiveness of the remediation programme: progression rate, relapse rate, exit rate. This data feeds STR.001.KPI for programme governance decisions." {
+workspace "Programme Reporting (CAP.DAT.001.REP)" "Produce dashboards and monitoring reports on the overall effectiveness of the remediation programme: progression rate, relapse rate, exit rate. This data feeds STR.001.KPI for programme governance decisions." {
 
     !identifiers hierarchical
 
     model {
-        CAP_DAT_001_ING = softwareSystem "CAP.DAT.001.ING" "Upstream capability" {
+        CAP_DAT_001_ING = softwareSystem "Event Ingestion" "Upstream capability (CAP.DAT.001.ING)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.ING"
+            }
         }
-        CAP_DAT_001_MOD = softwareSystem "CAP.DAT.001.MOD" "Upstream capability" {
+        CAP_DAT_001_MOD = softwareSystem "Score Analytics Model" "Upstream capability (CAP.DAT.001.MOD)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.MOD"
+            }
         }
 
         CAP_DAT_001_REP = softwareSystem "Programme Reporting" "Produce dashboards and monitoring reports on the overall effectiveness of the remediation programme: progression rate, relapse rate, exit rate. This data feeds STR.001.KPI for programme governance decisions." {
@@ -43,14 +49,14 @@ workspace "CAP.DAT.001.REP — Programme Reporting" "Produce dashboards and moni
             }
         }
 
-        CAP_DAT_001_ING -> CAP_DAT_001_REP.backend "EVT.DAT.001.BEHAVIORAL_DATA_INGESTED, RVT.DAT.001.BATCH_AVAILABLE" "RabbitMQ" "upstream-event"
+        CAP_DAT_001_ING -> CAP_DAT_001_REP.backend "BEHAVIORAL DATA INGESTED" "Business event subscription" "upstream-event"
 
-        CAP_DAT_001_MOD -> CAP_DAT_001_REP.backend "EVT.DAT.001.SCORE_MODEL_UPDATED, RVT.DAT.001.MODEL_DEPLOYED_TO_PRODUCTION" "RabbitMQ" "upstream-event"
+        CAP_DAT_001_MOD -> CAP_DAT_001_REP.backend "SCORE MODEL UPDATED" "Business event subscription" "upstream-event"
 
-        CAP_DAT_001_REP_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_DAT_001_REP_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_DAT_001_REP.backend -> CAP_DAT_001_REP_downstream_consumers "RVT.DAT.001.REPORT_AVAILABLE" "RabbitMQ" "downstream-event"
+        CAP_DAT_001_REP.backend -> CAP_DAT_001_REP_downstream_consumers "PROGRAM REPORT GENERATED" "Business event" "downstream-event"
     }
 
     views {

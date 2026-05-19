@@ -1,10 +1,13 @@
-workspace "CAP.DAT.001.MOD — Score Analytics Model" "Analyse aggregated behavioural patterns, improve the scoring model and propose tier threshold updates. ScoreModel.Updated is sent to STR.001.GOV for validation — never directly to BSP.001.SCO, preventing any uncontrolled feedback loop." {
+workspace "Score Analytics Model (CAP.DAT.001.MOD)" "Analyse aggregated behavioural patterns, improve the scoring model and propose tier threshold updates. ScoreModel.Updated is sent to STR.001.GOV for validation — never directly to BSP.001.SCO, preventing any uncontrolled feedback loop." {
 
     !identifiers hierarchical
 
     model {
-        CAP_DAT_001_ING = softwareSystem "CAP.DAT.001.ING" "Upstream capability" {
+        CAP_DAT_001_ING = softwareSystem "Event Ingestion" "Upstream capability (CAP.DAT.001.ING)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.ING"
+            }
         }
 
         CAP_DAT_001_MOD = softwareSystem "Score Analytics Model" "Analyse aggregated behavioural patterns, improve the scoring model and propose tier threshold updates. ScoreModel.Updated is sent to STR.001.GOV for validation — never directly to BSP.001.SCO, preventing any uncontrolled feedback loop." {
@@ -40,12 +43,12 @@ workspace "CAP.DAT.001.MOD — Score Analytics Model" "Analyse aggregated behavi
             }
         }
 
-        CAP_DAT_001_ING -> CAP_DAT_001_MOD.backend "EVT.DAT.001.BEHAVIORAL_DATA_INGESTED, RVT.DAT.001.BATCH_AVAILABLE" "RabbitMQ" "upstream-event"
+        CAP_DAT_001_ING -> CAP_DAT_001_MOD.backend "BEHAVIORAL DATA INGESTED" "Business event subscription" "upstream-event"
 
-        CAP_DAT_001_MOD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_DAT_001_MOD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_DAT_001_MOD.backend -> CAP_DAT_001_MOD_downstream_consumers "RVT.DAT.001.MODEL_DEPLOYED_TO_PRODUCTION, RVT.DAT.001.MODEL_SUBMITTED_TO_GOVERNANCE" "RabbitMQ" "downstream-event"
+        CAP_DAT_001_MOD.backend -> CAP_DAT_001_MOD_downstream_consumers "SCORE MODEL UPDATED" "Business event" "downstream-event"
     }
 
     views {

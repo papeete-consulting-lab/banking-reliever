@@ -1,10 +1,13 @@
-workspace "CAP.SUP.001.CON — Consent Management" "Collect, store, manage and honour the beneficiary's GDPR consents for each type of data sharing. Consent.Granted is a blocking precondition for enrolment, open banking, and any prescriber consultation." {
+workspace "Consent Management (CAP.SUP.001.CON)" "Collect, store, manage and honour the beneficiary's GDPR consents for each type of data sharing. Consent.Granted is a blocking precondition for enrolment, open banking, and any prescriber consultation." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "Upstream capability" {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "Upstream capability (CAP.BSP.002.ENR)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
 
         CAP_SUP_001_CON = softwareSystem "Consent Management" "Collect, store, manage and honour the beneficiary's GDPR consents for each type of data sharing. Consent.Granted is a blocking precondition for enrolment, open banking, and any prescriber consultation." {
@@ -40,12 +43,12 @@ workspace "CAP.SUP.001.CON — Consent Management" "Collect, store, manage and h
             }
         }
 
-        CAP_BSP_002_ENR -> CAP_SUP_001_CON.backend "EVT.BSP.002.BENEFICIARY_ENROLLED, RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> CAP_SUP_001_CON.backend "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
 
-        CAP_SUP_001_CON_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_SUP_001_CON_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_SUP_001_CON.backend -> CAP_SUP_001_CON_downstream_consumers "RVT.SUP.001.CONSENT_ACTIVATED, RVT.SUP.001.CONSENT_WITHDRAWN" "RabbitMQ" "downstream-event"
+        CAP_SUP_001_CON.backend -> CAP_SUP_001_CON_downstream_consumers "CONSENT GRANTED, CONSENT REVOKED" "Business event" "downstream-event"
     }
 
     views {

@@ -1,35 +1,41 @@
-workspace "Zone DATA_ANALYTICS" "C4 container view of the DATA_ANALYTICS zone — each L2 capability is a container." {
+workspace "Zone — Data Analytics" "C4 container view of the Data Analytics zone — each L2 capability is a container." {
 
     !identifiers hierarchical
 
     model {
-        zone_DAT = softwareSystem "DATA_ANALYTICS" "DATA_ANALYTICS zone of the Reliever business capability model." {
+        zone_DAT = softwareSystem "Data Analytics" "Data Analytics zone of the Reliever business capability model." {
             tags "capability-self" "zone:DAT"
-            CAP_DAT_001_ING = container "CAP.DAT.001.ING" "Event Ingestion" "stack-tbd" {
+            properties {
+                "zone-code" "DATA_ANALYTICS"
+            }
+            CAP_DAT_001_ING = container "Event Ingestion" "Collect and consolidate in decoupled analytics mode all behavioural events produced by the programme (BSP.001, BSP.002, BSP.003, BSP.004) to feed the analytics pipelines. Strict separation from the operational transactional pipeline." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.DAT.001"
                 properties {
+                    "capability-id" "CAP.DAT.001.ING"
                     "detail-view" "../CAP.DAT.001.ING/workspace.dsl"
                     "parent" "CAP.DAT.001"
                 }
             }
-            CAP_DAT_001_MOD = container "CAP.DAT.001.MOD" "Score Analytics Model" "stack-tbd" {
+            CAP_DAT_001_MOD = container "Score Analytics Model" "Analyse aggregated behavioural patterns, improve the scoring model and propose tier threshold updates. ScoreModel.Updated is sent to STR.001.GOV for validation — never directly to BSP.001.SCO, preventing any uncontrolled feedback loop." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.DAT.001"
                 properties {
+                    "capability-id" "CAP.DAT.001.MOD"
                     "detail-view" "../CAP.DAT.001.MOD/workspace.dsl"
                     "parent" "CAP.DAT.001"
                 }
             }
-            CAP_DAT_001_REP = container "CAP.DAT.001.REP" "Programme Reporting" "stack-tbd" {
+            CAP_DAT_001_REP = container "Programme Reporting" "Produce dashboards and monitoring reports on the overall effectiveness of the remediation programme: progression rate, relapse rate, exit rate. This data feeds STR.001.KPI for programme governance decisions." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.DAT.001"
                 properties {
+                    "capability-id" "CAP.DAT.001.REP"
                     "detail-view" "../CAP.DAT.001.REP/workspace.dsl"
                     "parent" "CAP.DAT.001"
                 }
             }
         }
-        zone_DAT.CAP_DAT_001_ING -> zone_DAT.CAP_DAT_001_MOD "RVT.DAT.001.BATCH_AVAILABLE" "RabbitMQ" "upstream-event"
-        zone_DAT.CAP_DAT_001_ING -> zone_DAT.CAP_DAT_001_REP "RVT.DAT.001.BATCH_AVAILABLE" "RabbitMQ" "upstream-event"
-        zone_DAT.CAP_DAT_001_MOD -> zone_DAT.CAP_DAT_001_REP "RVT.DAT.001.MODEL_DEPLOYED_TO_PRODUCTION" "RabbitMQ" "upstream-event"
+        zone_DAT.CAP_DAT_001_ING -> zone_DAT.CAP_DAT_001_MOD "BEHAVIORAL DATA INGESTED" "Business event subscription" "upstream-event"
+        zone_DAT.CAP_DAT_001_ING -> zone_DAT.CAP_DAT_001_REP "BEHAVIORAL DATA INGESTED" "Business event subscription" "upstream-event"
+        zone_DAT.CAP_DAT_001_MOD -> zone_DAT.CAP_DAT_001_REP "SCORE MODEL UPDATED" "Business event subscription" "upstream-event"
     }
 
     views {

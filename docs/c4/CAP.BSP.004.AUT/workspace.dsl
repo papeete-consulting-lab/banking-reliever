@@ -1,10 +1,13 @@
-workspace "CAP.BSP.004.AUT — Transaction Authorisation" "Authorise or decline each transaction on the dedicated card by applying the current tier rules (limits, authorised categories, authorised merchants) in real time. This is the universal and non-bypassable control point of the programme." {
+workspace "Transaction Authorisation (CAP.BSP.004.AUT)" "Authorise or decline each transaction on the dedicated card by applying the current tier rules (limits, authorised categories, authorised merchants) in real time. This is the universal and non-bypassable control point of the programme." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
 
         CAP_BSP_004_AUT = softwareSystem "Transaction Authorisation" "Authorise or decline each transaction on the dedicated card by applying the current tier rules (limits, authorised categories, authorised merchants) in real time. This is the universal and non-bypassable control point of the programme." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.004.AUT — Transaction Authorisation" "Authorise or decline 
             }
         }
 
-        CAP_BSP_001_TIE -> CAP_BSP_004_AUT.backend "EVT.BSP.001.TIER_DOWNGRADED, EVT.BSP.001.TIER_OVERRIDE_APPLIED, EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.OVERRIDE_ACTIVATED, RVT.BSP.001.TIER_DOWNGRADE_RECORDED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_BSP_004_AUT.backend "TIER DOWNGRADED, TIER OVERRIDE APPLIED, TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_AUT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_004_AUT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_004_AUT.backend -> CAP_BSP_004_AUT_downstream_consumers "RVT.BSP.004.PAYMENT_BLOCKED, RVT.BSP.004.PAYMENT_GRANTED" "RabbitMQ" "downstream-event"
+        CAP_BSP_004_AUT.backend -> CAP_BSP_004_AUT_downstream_consumers "TRANSACTION AUTHORIZED, TRANSACTION REFUSED" "Business event" "downstream-event"
     }
 
     views {

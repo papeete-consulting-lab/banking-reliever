@@ -19,8 +19,14 @@ Outputs:
             workspace.dsl          per-L2 detail — implementation artifacts
                                    (backend / stub / BFF / frontend) as
                                    containers, DDD elements (aggregates,
-                                   read-models, bus publishers) as
-                                   components. ADR refs as properties.
+                                   read-models, business-event publishers)
+                                   as components. ADR refs as properties.
+
+All cross-capability flows are drawn from BUSINESS event subscriptions
+only — `consumed_business_events` / `emitted_business_events` slices and
+`paired_business_event:` entries of `process/<CAP>/bus.yaml`. The
+resource-event layer (RVT.*) is intentionally hidden as it is an
+implementation detail of the bus rail.
 
 Run from the repo root:
 
@@ -200,10 +206,17 @@ def mine_ddd(cap_id: str) -> DddComponents:
     out.policies = _scan_yaml_ids(cap_dir / "policies.yaml", ("POL.",))
     bus_path = cap_dir / "bus.yaml"
     if bus_path.is_file():
-        # Routing keys = one publisher concept each.
+        # One publisher concept per published business event. Pull from
+        # `paired_business_event:` (under each routing key) or a top-level
+        # `business_event:` form — never from resource events (RVT.*).
+        seen: set[str] = set()
         for line in bus_path.read_text(encoding="utf-8").splitlines():
-            m = re.match(r"\s*-\s+resource_event:\s*(RVT\.[A-Z0-9._-]+)", line)
-            if m:
+            m = re.match(
+                r"\s*(?:paired_business_event|business_event):\s*(EVT\.[A-Z0-9._-]+)",
+                line,
+            )
+            if m and m.group(1) not in seen:
+                seen.add(m.group(1))
                 out.publishers.append(m.group(1))
     return out
 
@@ -265,6 +278,28 @@ def dsl_str(s: str | None) -> str:
     s = s.replace("\\", "\\\\").replace("\"", "\\\"")
     s = re.sub(r"\s+", " ", s).strip()
     return f"\"{s}\""
+
+
+def display_label(raw_id: str) -> str:
+    """Strip the namespace prefix of a dotted process/BCM ID and turn
+    underscores into spaces. Examples:
+
+        EVT.BSP.001.TIER_UPGRADED → "TIER UPGRADED"
+        AGG.BSP.001.TIER_MANAGEMENT → "TIER MANAGEMENT"
+        POL.BSP.001.AUTO_DEMOTE → "AUTO DEMOTE"
+        SUB.BUSINESS.BSP.001.005 → "005"
+    """
+    if not raw_id:
+        return raw_id
+    last = raw_id.rsplit(".", 1)[-1]
+    return last.replace("_", " ")
+
+
+def zone_display(zone: str) -> str:
+    """Pretty-print a zone code: BUSINESS_SERVICE_PRODUCTION → 'Business Service Production'."""
+    if not zone:
+        return zone
+    return " ".join(w.capitalize() for w in zone.split("_"))
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -365,7 +400,9 @@ _STYLES_BLOCK = """\
         }"""
 
 
-def emit_l2_workspace(cap_id: str, pack: dict) -> str:
+def emit_l2_workspace(
+    cap_id: str, pack: dict, cap_names: dict[str, str] | None = None
+) -> str:
     self_slice = (pack.get("slices", {}).get("capability_self") or [{}])[0]
     name = self_slice.get("name", cap_id)
     parent = self_slice.get("parent")
@@ -409,7 +446,9 @@ def emit_l2_workspace(cap_id: str, pack: dict) -> str:
                 referenced.append(item["id"])
     adr_props = adr_urls(pack, referenced)
 
-    # Upstream capabilities (consumed events).
+    # Upstream capabilities (consumed BUSINESS events only — resource
+    # subscriptions are an implementation detail of the bus layer and are
+    # intentionally hidden from the C4 view).
     upstream: dict[str, dict] = {}
     for sub in slices.get("consumed_business_events", []) or []:
         ev = sub.get("subscribed_event", {})
@@ -418,37 +457,38 @@ def emit_l2_workspace(cap_id: str, pack: dict) -> str:
             continue
         upstream.setdefault(emitter, {"events": []})
         upstream[emitter]["events"].append(ev.get("id", ""))
-    for sub in slices.get("consumed_resource_events", []) or []:
-        ev = sub.get("subscribed_resource_event", {})
-        emitter = ev.get("emitting_capability")
-        if not emitter or emitter == cap_id:
-            continue
-        upstream.setdefault(emitter, {"events": []})
-        upstream[emitter]["events"].append(ev.get("id", ""))
 
     emitted_events = [
-        e.get("id") for e in slices.get("emitted_resource_events", []) or []
+        e.get("id") for e in slices.get("emitted_business_events", []) or []
     ]
 
     self_ident = dsl_id(cap_id)
 
     lines: list[str] = []
-    lines.append(f"workspace {dsl_str(f'{cap_id} — {name}')} {dsl_str(description)} {{")
+    lines.append(f"workspace {dsl_str(f'{name} ({cap_id})')} {dsl_str(description)} {{")
     lines.append("")
     lines.append("    !identifiers hierarchical")
     lines.append("")
     lines.append("    model {")
 
-    # External upstream capabilities.
+    # External upstream capabilities (emitters of business events this
+    # capability subscribes to).
+    names = cap_names or {}
     upstream_idents: dict[str, str] = {}
     for ext_id in sorted(upstream.keys()):
         ident = dsl_id(ext_id)
         upstream_idents[ext_id] = ident
+        ext_name = names.get(ext_id) or display_label(ext_id)
         lines.append(
-            f"        {ident} = softwareSystem {dsl_str(ext_id)} "
-            f"{dsl_str('Upstream capability')} {{"
+            f"        {ident} = softwareSystem {dsl_str(ext_name)} "
+            f"{dsl_str(f'Upstream capability ({ext_id}).')} {{"
         )
         lines.append(f"            tags \"external-capability\"")
+        lines.append("            properties {")
+        lines.append(
+            f"                {dsl_str('capability-id')} {dsl_str(ext_id)}"
+        )
+        lines.append("            }")
         lines.append("        }")
 
     # The capability itself, with implementation containers.
@@ -564,32 +604,37 @@ def emit_l2_workspace(cap_id: str, pack: dict) -> str:
         # Pick the first sensible target container (backend / stub / bff).
         target = container_idents[0] if container_idents else None
         target_path = f"{self_ident}.{target}" if target else self_ident
-        events_desc = ", ".join(sorted({e for e in info["events"] if e})) or "events"
+        events_desc = (
+            ", ".join(sorted({display_label(e) for e in info["events"] if e}))
+            or "business events"
+        )
         lines.append("")
         lines.append(
             f"        {ext_ident} -> {target_path} "
-            f"{dsl_str(events_desc)} \"RabbitMQ\" \"upstream-event\""
+            f"{dsl_str(events_desc)} \"Business event subscription\" \"upstream-event\""
         )
 
-    # Outgoing relationships — note emitted events on the self node via a
-    # synthetic "downstream consumers" software system, so the view still
-    # shows we publish something.
+    # Outgoing relationships — note emitted business events on the self node
+    # via a synthetic "downstream consumers" software system, so the view
+    # still shows we publish something.
     if emitted_events:
         cons_ident = f"{self_ident}_downstream_consumers"
         lines.append("")
         lines.append(
             f"        {cons_ident} = softwareSystem "
             f"{dsl_str('Downstream consumers')} "
-            f"{dsl_str('Any capability subscribed to the events emitted by this one.')} {{"
+            f"{dsl_str('Any capability subscribed to the business events emitted by this one.')} {{"
         )
         lines.append("            tags \"external-capability\"")
         lines.append("        }")
         target = container_idents[0] if container_idents else None
         src_path = f"{self_ident}.{target}" if target else self_ident
-        events_desc = ", ".join(sorted({e for e in emitted_events if e}))
+        events_desc = ", ".join(
+            sorted({display_label(e) for e in emitted_events if e})
+        )
         lines.append(
             f"        {src_path} -> {cons_ident} "
-            f"{dsl_str(events_desc)} \"RabbitMQ\" \"downstream-event\""
+            f"{dsl_str(events_desc)} \"Business event\" \"downstream-event\""
         )
 
     lines.append("    }")  # close model
@@ -645,34 +690,46 @@ def _emit_container(
         for agg in ddd.aggregates:
             cid = dsl_id(agg)
             out.append(
-                f"{indent}    {cid} = component {dsl_str(agg)} "
-                f"{dsl_str('Aggregate (DDD)')} {{"
+                f"{indent}    {cid} = component {dsl_str(display_label(agg))} "
+                f"{dsl_str(f'Aggregate (DDD) — {agg}')} {{"
             )
             out.append(f"{indent}        tags \"ddd:aggregate\"")
+            out.append(
+                f"{indent}        properties {{ {dsl_str('id')} {dsl_str(agg)} }}"
+            )
             out.append(f"{indent}    }}")
         for rm in ddd.read_models:
             cid = dsl_id(rm)
             out.append(
-                f"{indent}    {cid} = component {dsl_str(rm)} "
-                f"{dsl_str('Read model (CQRS)')} {{"
+                f"{indent}    {cid} = component {dsl_str(display_label(rm))} "
+                f"{dsl_str(f'Read model / CQRS — {rm}')} {{"
             )
             out.append(f"{indent}        tags \"ddd:read-model\"")
+            out.append(
+                f"{indent}        properties {{ {dsl_str('id')} {dsl_str(rm)} }}"
+            )
             out.append(f"{indent}    }}")
         for pol in ddd.policies:
             cid = dsl_id(pol)
             out.append(
-                f"{indent}    {cid} = component {dsl_str(pol)} "
-                f"{dsl_str('Policy / reactive saga')} {{"
+                f"{indent}    {cid} = component {dsl_str(display_label(pol))} "
+                f"{dsl_str(f'Policy / reactive saga — {pol}')} {{"
             )
             out.append(f"{indent}        tags \"ddd:policy\"")
+            out.append(
+                f"{indent}        properties {{ {dsl_str('id')} {dsl_str(pol)} }}"
+            )
             out.append(f"{indent}    }}")
         for pub in ddd.publishers:
             cid = dsl_id(pub)
             out.append(
-                f"{indent}    {cid} = component {dsl_str(pub)} "
-                f"{dsl_str('Resource-event publisher')} {{"
+                f"{indent}    {cid} = component {dsl_str(display_label(pub))} "
+                f"{dsl_str(f'Business event publisher — {pub}')} {{"
             )
             out.append(f"{indent}        tags \"ddd:publisher\"")
+            out.append(
+                f"{indent}        properties {{ {dsl_str('id')} {dsl_str(pub)} }}"
+            )
             out.append(f"{indent}    }}")
     out.append(f"{indent}}}")
     return out
@@ -683,28 +740,38 @@ def _emit_container(
 # ─────────────────────────────────────────────────────────────────────
 
 
-def emit_zone_workspace(zone: str, l2_caps: list[dict], packs: dict[str, dict]) -> str:
+def emit_zone_workspace(
+    zone: str,
+    l2_caps: list[dict],
+    packs: dict[str, dict],
+    cap_names: dict[str, str] | None = None,
+) -> str:
     """One zone = one Software System; each L2 in the zone is a Container.
-    Cross-cap event flows wired from each pack's emitted/consumed events."""
+    Cross-cap flows are wired exclusively from business-event subscriptions
+    (resource events are not surfaced at this level)."""
     zabbr = ZONE_ABBREV.get(zone, zone.lower()).upper()
     system_ident = dsl_id(f"zone_{zabbr}")
+    zone_label = zone_display(zone)
 
     lines: list[str] = []
     lines.append(
-        f"workspace {dsl_str(f'Zone {zone}')} "
-        f"{dsl_str(f'C4 container view of the {zone} zone — each L2 capability is a container.')} {{"
+        f"workspace {dsl_str(f'Zone — {zone_label}')} "
+        f"{dsl_str(f'C4 container view of the {zone_label} zone — each L2 capability is a container.')} {{"
     )
     lines.append("")
     lines.append("    !identifiers hierarchical")
     lines.append("")
     lines.append("    model {")
     lines.append(
-        f"        {system_ident} = softwareSystem {dsl_str(zone)} "
-        f"{dsl_str(f'{zone} zone of the Reliever business capability model.')} {{"
+        f"        {system_ident} = softwareSystem {dsl_str(zone_label)} "
+        f"{dsl_str(f'{zone_label} zone of the Reliever business capability model.')} {{"
     )
     lines.append(
         f"            tags \"capability-self\" \"zone:{zabbr}\""
     )
+    lines.append("            properties {")
+    lines.append(f"                {dsl_str('zone-code')} {dsl_str(zone)}")
+    lines.append("            }")
 
     # Each L2 cap = a container.
     cap_idents: dict[str, str] = {}
@@ -714,6 +781,8 @@ def emit_zone_workspace(zone: str, l2_caps: list[dict], packs: dict[str, dict]) 
         cap_idents[cap_id] = ident
         pack = packs.get(cap_id, {})
         self_slice = (pack.get("slices", {}).get("capability_self") or [{}])[0]
+        cap_name = self_slice.get("name") or cap["name"]
+        cap_description = (self_slice.get("description") or "").strip() or cap_name
         impl = detect_impl(cap_id, zone)
         tactical_tags = (
             ((pack.get("slices", {}).get("tactical_stack") or [{}])[0]).get("tags", [])
@@ -727,11 +796,14 @@ def emit_zone_workspace(zone: str, l2_caps: list[dict], packs: dict[str, dict]) 
         impl_tag = f"implemented:{impl.label}" if impl.label != "not-scaffolded" else "not-scaffolded"
         tags = [impl_tag, f"tech:{tech}", f"parent:{parent}"]
         lines.append(
-            f"            {ident} = container {dsl_str(cap_id)} "
-            f"{dsl_str(cap['name'])} {dsl_str(tech)} {{"
+            f"            {ident} = container {dsl_str(cap_name)} "
+            f"{dsl_str(cap_description)} {dsl_str(tech)} {{"
         )
         lines.append(f"                tags {' '.join(dsl_str(t) for t in tags)}")
         lines.append(f"                properties {{")
+        lines.append(
+            f"                    {dsl_str('capability-id')} {dsl_str(cap_id)}"
+        )
         lines.append(
             f"                    {dsl_str('detail-view')} "
             f"{dsl_str(f'../{cap_id}/workspace.dsl')}"
@@ -744,17 +816,18 @@ def emit_zone_workspace(zone: str, l2_caps: list[dict], packs: dict[str, dict]) 
     lines.append("        }")  # close zone softwareSystem
 
     # External capabilities (emitters in other zones).
-    external_caps: dict[str, str] = {}
+    external_caps: dict[str, tuple[str, str]] = {}  # emitter_id -> (ident, name)
     relationships: list[tuple[str, str, str]] = []  # (src, dst, label)
 
-    # Inbound: each cap consumes events from emitters; if the emitter is in
-    # another zone (or another cap in this zone), draw a relationship.
+    # Inbound: each cap consumes business events from emitters; if the
+    # emitter is in another zone (or another cap in this zone), draw a
+    # relationship. Resource subscriptions are intentionally omitted.
     for cap in l2_caps:
         cap_id = cap["id"]
         pack = packs.get(cap_id, {})
         cap_ident = cap_idents[cap_id]
-        for sub in pack.get("slices", {}).get("consumed_resource_events", []) or []:
-            ev = sub.get("subscribed_resource_event", {})
+        for sub in pack.get("slices", {}).get("consumed_business_events", []) or []:
+            ev = sub.get("subscribed_event", {})
             emitter = ev.get("emitting_capability")
             if not emitter or emitter == cap_id:
                 continue
@@ -762,28 +835,41 @@ def emit_zone_workspace(zone: str, l2_caps: list[dict], packs: dict[str, dict]) 
                 src_path = f"{system_ident}.{cap_idents[emitter]}"
             else:
                 if emitter not in external_caps:
-                    external_caps[emitter] = dsl_id(emitter)
-                src_path = external_caps[emitter]
-            relationships.append((src_path, f"{system_ident}.{cap_ident}", ev.get("id", "RVT")))
+                    ext_name = (cap_names or {}).get(emitter) or display_label(emitter)
+                    external_caps[emitter] = (dsl_id(emitter), ext_name)
+                src_path = external_caps[emitter][0]
+            relationships.append(
+                (src_path, f"{system_ident}.{cap_ident}", display_label(ev.get("id", "")))
+            )
 
-    for emitter, ident in external_caps.items():
+    for emitter, (ident, ext_name) in external_caps.items():
         lines.append("")
         lines.append(
-            f"        {ident} = softwareSystem {dsl_str(emitter)} "
-            f"{dsl_str('External capability (other zone).')} {{"
+            f"        {ident} = softwareSystem {dsl_str(ext_name)} "
+            f"{dsl_str(f'External capability ({emitter}) — emits business events consumed by this zone.')} {{"
         )
         lines.append("            tags \"external-capability\"")
+        lines.append("            properties {")
+        lines.append(
+            f"                {dsl_str('capability-id')} {dsl_str(emitter)}"
+        )
+        lines.append("            }")
         lines.append("        }")
 
-    # Deduplicate relationships.
-    seen: set[tuple[str, str]] = set()
+    # Deduplicate relationships and merge labels for repeated (src, dst) pairs.
+    pair_labels: dict[tuple[str, str], set[str]] = {}
+    pair_order: list[tuple[str, str]] = []
     for src, dst, label in relationships:
         key = (src, dst)
-        if key in seen:
-            continue
-        seen.add(key)
+        if key not in pair_labels:
+            pair_labels[key] = set()
+            pair_order.append(key)
+        if label:
+            pair_labels[key].add(label)
+    for src, dst in pair_order:
+        label = ", ".join(sorted(pair_labels[(src, dst)])) or "business events"
         lines.append(
-            f"        {src} -> {dst} {dsl_str(label)} \"RabbitMQ\" \"upstream-event\""
+            f"        {src} -> {dst} {dsl_str(label)} \"Business event subscription\" \"upstream-event\""
         )
 
     lines.append("    }")  # close model
@@ -852,16 +938,25 @@ def emit_enterprise_workspace(
         zabbr = ZONE_ABBREV.get(zone, zone.lower()).upper()
         zone_ident = dsl_id(f"zone_{zabbr}")
         zone_idents[zone] = zone_ident
+        zone_label = zone_display(zone)
         lines.append(
-            f"            {zone_ident} = container {dsl_str(zone)} "
-            f"{dsl_str(f'{zone} zone')} {dsl_str('group')} {{"
+            f"            {zone_ident} = container {dsl_str(zone_label)} "
+            f"{dsl_str(f'{zone_label} zone of Reliever.')} {dsl_str('group')} {{"
         )
         lines.append(f"                tags \"zone:{zabbr}\" \"capability-self\"")
+        lines.append("                properties {")
+        lines.append(
+            f"                    {dsl_str('zone-code')} {dsl_str(zone)}"
+        )
+        lines.append("                }")
         for cap in sorted(by_zone[zone], key=lambda c: c["id"]):
             cap_id = cap["id"]
             ident = dsl_id(cap_id)
             cap_idents[cap_id] = ident
             pack = packs.get(cap_id, {})
+            self_slice = (pack.get("slices", {}).get("capability_self") or [{}])[0]
+            cap_name = self_slice.get("name") or cap["name"]
+            cap_description = (self_slice.get("description") or "").strip() or cap_name
             tactical_tags = (
                 ((pack.get("slices", {}).get("tactical_stack") or [{}])[0])
                 .get("tags", []) or []
@@ -877,12 +972,17 @@ def emit_enterprise_workspace(
                 else "not-scaffolded"
             )
             lines.append(
-                f"                {ident} = component {dsl_str(cap_id)} "
-                f"{dsl_str(cap['name'])} {dsl_str(tech)} {{"
+                f"                {ident} = component {dsl_str(cap_name)} "
+                f"{dsl_str(cap_description)} {dsl_str(tech)} {{"
             )
             lines.append(
                 f"                    tags {dsl_str(impl_tag)} {dsl_str('tech:' + tech)} {dsl_str('level:L2')}"
             )
+            lines.append("                    properties {")
+            lines.append(
+                f"                        {dsl_str('capability-id')} {dsl_str(cap_id)}"
+            )
+            lines.append("                    }")
             lines.append("                }")
         lines.append("            }")
 
@@ -917,14 +1017,14 @@ def emit_enterprise_workspace(
             )
 
     # Zone-to-zone relationships (one per directed pair where ≥1 cross-zone
-    # event flow exists).
+    # BUSINESS-event flow exists; resource subscriptions are not surfaced).
     zone_edges: set[tuple[str, str]] = set()
     cap_zone: dict[str, str] = {c["id"]: c["zone"] for c in l2_caps}
     for cap in l2_caps:
         cap_id = cap["id"]
         pack = packs.get(cap_id, {})
-        for sub in pack.get("slices", {}).get("consumed_resource_events", []) or []:
-            ev = sub.get("subscribed_resource_event", {})
+        for sub in pack.get("slices", {}).get("consumed_business_events", []) or []:
+            ev = sub.get("subscribed_event", {})
             emitter = ev.get("emitting_capability")
             if not emitter:
                 continue
@@ -939,7 +1039,7 @@ def emit_enterprise_workspace(
         if src and dst:
             lines.append(
                 f"        {reliever_ident}.{src} -> {reliever_ident}.{dst} "
-                f"\"Resource events\" \"RabbitMQ\" \"upstream-event\""
+                f"\"Business events\" \"Business event subscription\" \"upstream-event\""
             )
 
     lines.append("    }")  # close model
@@ -1006,6 +1106,9 @@ def main() -> int:
     args = ap.parse_args()
 
     caps = list_capabilities()
+    # Global name map (any level) so external-capability software systems
+    # show their real BCM name rather than just their last-segment label.
+    cap_names: dict[str, str] = {c["id"]: c["name"] for c in caps}
     l2_caps = [c for c in caps if c["level"] == "L2"]
     if args.cap:
         target = next((c for c in l2_caps if c["id"] == args.cap), None)
@@ -1027,7 +1130,7 @@ def main() -> int:
     if not args.enterprise_only:
         for cap in l2_caps:
             cap_id = cap["id"]
-            dsl = emit_l2_workspace(cap_id, packs[cap_id])
+            dsl = emit_l2_workspace(cap_id, packs[cap_id], cap_names)
             path = DOCS_C4 / cap_id / "workspace.dsl"
             log.append(write_file(path, dsl, args.dry_run))
 
@@ -1052,7 +1155,7 @@ def main() -> int:
         for cap in all_l2:
             by_zone.setdefault(cap["zone"], []).append(cap)
         for zone, zcaps in sorted(by_zone.items()):
-            dsl = emit_zone_workspace(zone, zcaps, packs)
+            dsl = emit_zone_workspace(zone, zcaps, packs, cap_names)
             abbrev = ZONE_ABBREV.get(zone, zone.lower())
             path = DOCS_C4 / "enterprise" / f"zone-{abbrev}.dsl"
             log.append(write_file(path, dsl, args.dry_run))

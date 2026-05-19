@@ -1,19 +1,31 @@
-workspace "CAP.CHN.002.VIE — Prescriber Beneficiary View" "Expose to prescribers a filtered view of the beneficiary case according to their role and rights. A doctor does not see the same data as a banker. Access requires Consent.Granted (SUP.001.CON) as a precondition." {
+workspace "Prescriber Beneficiary View (CAP.CHN.002.VIE)" "Expose to prescribers a filtered view of the beneficiary case according to their role and rights. A doctor does not see the same data as a banker. Access requires Consent.Granted (SUP.001.CON) as a precondition." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_SCO = softwareSystem "CAP.BSP.001.SCO" "Upstream capability" {
+        CAP_BSP_001_SCO = softwareSystem "Behavioural Scoring" "Upstream capability (CAP.BSP.001.SCO)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SCO"
+            }
         }
-        CAP_BSP_001_SIG = softwareSystem "CAP.BSP.001.SIG" "Upstream capability" {
+        CAP_BSP_001_SIG = softwareSystem "Signal Detection" "Upstream capability (CAP.BSP.001.SIG)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SIG"
+            }
         }
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
-        CAP_BSP_003_ROL = softwareSystem "CAP.BSP.003.ROL" "Upstream capability" {
+        CAP_BSP_003_ROL = softwareSystem "Prescriber Role Management" "Upstream capability (CAP.BSP.003.ROL)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.003.ROL"
+            }
         }
 
         CAP_CHN_002_VIE = softwareSystem "Prescriber Beneficiary View" "Expose to prescribers a filtered view of the beneficiary case according to their role and rights. A doctor does not see the same data as a banker. Access requires Consent.Granted (SUP.001.CON) as a precondition." {
@@ -49,18 +61,18 @@ workspace "CAP.CHN.002.VIE — Prescriber Beneficiary View" "Expose to prescribe
             }
         }
 
-        CAP_BSP_001_SCO -> CAP_CHN_002_VIE.backend "EVT.BSP.001.SCORE_RECOMPUTED, RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SCO -> CAP_CHN_002_VIE.backend "SCORE RECOMPUTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_SIG -> CAP_CHN_002_VIE.backend "EVT.BSP.001.RELAPSE_SIGNAL_DETECTED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SIG -> CAP_CHN_002_VIE.backend "RELAPSE SIGNAL DETECTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_TIE -> CAP_CHN_002_VIE.backend "EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_CHN_002_VIE.backend "TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_003_ROL -> CAP_CHN_002_VIE.backend "EVT.BSP.003.ROLE_ASSIGNED, RVT.BSP.003.AUTHORIZATION_ACTIVATED" "RabbitMQ" "upstream-event"
+        CAP_BSP_003_ROL -> CAP_CHN_002_VIE.backend "ROLE ASSIGNED" "Business event subscription" "upstream-event"
 
-        CAP_CHN_002_VIE_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_CHN_002_VIE_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_CHN_002_VIE.backend -> CAP_CHN_002_VIE_downstream_consumers "RVT.CHN.002.CASE_VIEWED_BY_PRESCRIBER" "RabbitMQ" "downstream-event"
+        CAP_CHN_002_VIE.backend -> CAP_CHN_002_VIE_downstream_consumers "CASE VIEWED" "Business event" "downstream-event"
     }
 
     views {

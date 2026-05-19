@@ -1,16 +1,25 @@
-workspace "CAP.CHN.001.DSH — Beneficiary Dashboard" "Expose to the beneficiary a synthetic view of their financial situation adapted to their tier: available balance, envelopes, transaction history. The interface is calibrated to encourage without patronising — dignity is a functional constraint." {
+workspace "Beneficiary Dashboard (CAP.CHN.001.DSH)" "Expose to the beneficiary a synthetic view of their financial situation adapted to their tier: available balance, envelopes, transaction history. The interface is calibrated to encourage without patronising — dignity is a functional constraint." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_SCO = softwareSystem "CAP.BSP.001.SCO" "Upstream capability" {
+        CAP_BSP_001_SCO = softwareSystem "Behavioural Scoring" "Upstream capability (CAP.BSP.001.SCO)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SCO"
+            }
         }
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
-        CAP_BSP_004_ENV = softwareSystem "CAP.BSP.004.ENV" "Upstream capability" {
+        CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "Upstream capability (CAP.BSP.004.ENV)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ENV"
+            }
         }
 
         CAP_CHN_001_DSH = softwareSystem "Beneficiary Dashboard" "Expose to the beneficiary a synthetic view of their financial situation adapted to their tier: available balance, envelopes, transaction history. The interface is calibrated to encourage without patronising — dignity is a functional constraint." {
@@ -48,8 +57,8 @@ workspace "CAP.CHN.001.DSH — Beneficiary Dashboard" "Expose to the beneficiary
             bff = container "Backend-for-Frontend" "Backend-for-Frontend" ".NET 10 Minimal API" {
                 tags "implemented:bff" "tech:dotnet"
                 properties {
-                    "loc" "src/chn/CAP.CHN.001.DSH-bff"
-                    "github" "https://github.com/Banking-Reliever/banking/blob/main/src/chn/CAP.CHN.001.DSH-bff"
+                    "loc" "sources/CAP.CHN.001.DSH/bff"
+                    "github" "https://github.com/Banking-Reliever/banking/blob/main/sources/CAP.CHN.001.DSH/bff"
                 }
             }
             frontend = container "Web frontend" "Web frontend" "vanilla HTML5 / CSS3 / JS" {
@@ -61,16 +70,16 @@ workspace "CAP.CHN.001.DSH — Beneficiary Dashboard" "Expose to the beneficiary
             }
         }
 
-        CAP_BSP_001_SCO -> CAP_CHN_001_DSH.bff "EVT.BSP.001.SCORE_RECOMPUTED, RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SCO -> CAP_CHN_001_DSH.bff "SCORE RECOMPUTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_TIE -> CAP_CHN_001_DSH.bff "EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_CHN_001_DSH.bff "TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_ENV -> CAP_CHN_001_DSH.bff "EVT.BSP.004.ENVELOPE_CONSUMED, RVT.BSP.004.CONSUMPTION_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_ENV -> CAP_CHN_001_DSH.bff "ENVELOPE CONSUMED" "Business event subscription" "upstream-event"
 
-        CAP_CHN_001_DSH_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_CHN_001_DSH_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_CHN_001_DSH.bff -> CAP_CHN_001_DSH_downstream_consumers "RVT.CHN.001.DASHBOARD_VIEWED" "RabbitMQ" "downstream-event"
+        CAP_CHN_001_DSH.bff -> CAP_CHN_001_DSH_downstream_consumers "DASHBOARD VIEWED" "Business event" "downstream-event"
     }
 
     views {

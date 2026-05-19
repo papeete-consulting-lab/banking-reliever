@@ -1,13 +1,19 @@
-workspace "CAP.BSP.004.ENV — Budget Envelope Management" "Allocate and track budget envelopes by spending category according to the current tier. Triggers card funding (B2B.001.FLW) and produces depletion signals. An unconsumed budget triggers a potential relapse signal." {
+workspace "Budget Envelope Management (CAP.BSP.004.ENV)" "Allocate and track budget envelopes by spending category according to the current tier. Triggers card funding (B2B.001.FLW) and produces depletion signals. An unconsumed budget triggers a potential relapse signal." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "Upstream capability" {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "Upstream capability (CAP.BSP.002.ENR)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
 
         CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "Allocate and track budget envelopes by spending category according to the current tier. Triggers card funding (B2B.001.FLW) and produces depletion signals. An unconsumed budget triggers a potential relapse signal." {
@@ -44,59 +50,73 @@ workspace "CAP.BSP.004.ENV — Budget Envelope Management" "Allocate and track b
                     "loc" "sources/CAP.BSP.004.ENV/stub"
                     "github" "https://github.com/Banking-Reliever/banking/blob/main/sources/CAP.BSP.004.ENV/stub"
                 }
-                AGG_BSP_004_ENV_PERIOD_BUDGET = component "AGG.BSP.004.ENV.PERIOD_BUDGET" "Aggregate (DDD)" {
+                AGG_BSP_004_ENV_PERIOD_BUDGET = component "PERIOD BUDGET" "Aggregate (DDD) — AGG.BSP.004.ENV.PERIOD_BUDGET" {
                     tags "ddd:aggregate"
+                    properties { "id" "AGG.BSP.004.ENV.PERIOD_BUDGET" }
                 }
-                PRJ_BSP_004_ENV_CURRENT_PERIOD_BUDGET_VIEW = component "PRJ.BSP.004.ENV.CURRENT_PERIOD_BUDGET_VIEW" "Read model (CQRS)" {
+                PRJ_BSP_004_ENV_CURRENT_PERIOD_BUDGET_VIEW = component "CURRENT PERIOD BUDGET VIEW" "Read model / CQRS — PRJ.BSP.004.ENV.CURRENT_PERIOD_BUDGET_VIEW" {
                     tags "ddd:read-model"
+                    properties { "id" "PRJ.BSP.004.ENV.CURRENT_PERIOD_BUDGET_VIEW" }
                 }
-                PRJ_BSP_004_ENV_ENVELOPE_HISTORY = component "PRJ.BSP.004.ENV.ENVELOPE_HISTORY" "Read model (CQRS)" {
+                PRJ_BSP_004_ENV_ENVELOPE_HISTORY = component "ENVELOPE HISTORY" "Read model / CQRS — PRJ.BSP.004.ENV.ENVELOPE_HISTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "PRJ.BSP.004.ENV.ENVELOPE_HISTORY" }
                 }
-                QRY_BSP_004_ENV_GET_CURRENT_PERIOD_BUDGET = component "QRY.BSP.004.ENV.GET_CURRENT_PERIOD_BUDGET" "Read model (CQRS)" {
+                QRY_BSP_004_ENV_GET_CURRENT_PERIOD_BUDGET = component "GET CURRENT PERIOD BUDGET" "Read model / CQRS — QRY.BSP.004.ENV.GET_CURRENT_PERIOD_BUDGET" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.BSP.004.ENV.GET_CURRENT_PERIOD_BUDGET" }
                 }
-                QRY_BSP_004_ENV_GET_ENVELOPE_BY_CATEGORY = component "QRY.BSP.004.ENV.GET_ENVELOPE_BY_CATEGORY" "Read model (CQRS)" {
+                QRY_BSP_004_ENV_GET_ENVELOPE_BY_CATEGORY = component "GET ENVELOPE BY CATEGORY" "Read model / CQRS — QRY.BSP.004.ENV.GET_ENVELOPE_BY_CATEGORY" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.BSP.004.ENV.GET_ENVELOPE_BY_CATEGORY" }
                 }
-                QRY_BSP_004_ENV_LIST_ENVELOPE_HISTORY = component "QRY.BSP.004.ENV.LIST_ENVELOPE_HISTORY" "Read model (CQRS)" {
+                QRY_BSP_004_ENV_LIST_ENVELOPE_HISTORY = component "LIST ENVELOPE HISTORY" "Read model / CQRS — QRY.BSP.004.ENV.LIST_ENVELOPE_HISTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.BSP.004.ENV.LIST_ENVELOPE_HISTORY" }
                 }
-                POL_BSP_004_ENV_ON_BENEFICIARY_ENROLLED = component "POL.BSP.004.ENV.ON_BENEFICIARY_ENROLLED" "Policy / reactive saga" {
+                POL_BSP_004_ENV_ON_BENEFICIARY_ENROLLED = component "ON BENEFICIARY ENROLLED" "Policy / reactive saga — POL.BSP.004.ENV.ON_BENEFICIARY_ENROLLED" {
                     tags "ddd:policy"
+                    properties { "id" "POL.BSP.004.ENV.ON_BENEFICIARY_ENROLLED" }
                 }
-                POL_BSP_004_ENV_ON_TIER_UPGRADED = component "POL.BSP.004.ENV.ON_TIER_UPGRADED" "Policy / reactive saga" {
+                POL_BSP_004_ENV_ON_TIER_UPGRADED = component "ON TIER UPGRADED" "Policy / reactive saga — POL.BSP.004.ENV.ON_TIER_UPGRADED" {
                     tags "ddd:policy"
+                    properties { "id" "POL.BSP.004.ENV.ON_TIER_UPGRADED" }
                 }
-                POL_BSP_004_ENV_ON_TRANSACTION_AUTHORIZED = component "POL.BSP.004.ENV.ON_TRANSACTION_AUTHORIZED" "Policy / reactive saga" {
+                POL_BSP_004_ENV_ON_TRANSACTION_AUTHORIZED = component "ON TRANSACTION AUTHORIZED" "Policy / reactive saga — POL.BSP.004.ENV.ON_TRANSACTION_AUTHORIZED" {
                     tags "ddd:policy"
+                    properties { "id" "POL.BSP.004.ENV.ON_TRANSACTION_AUTHORIZED" }
                 }
-                POL_BSP_004_ENV_ON_PERIOD_END_DUE = component "POL.BSP.004.ENV.ON_PERIOD_END_DUE" "Policy / reactive saga" {
+                POL_BSP_004_ENV_ON_PERIOD_END_DUE = component "ON PERIOD END DUE" "Policy / reactive saga — POL.BSP.004.ENV.ON_PERIOD_END_DUE" {
                     tags "ddd:policy"
+                    properties { "id" "POL.BSP.004.ENV.ON_PERIOD_END_DUE" }
                 }
-                RVT_BSP_004_ENVELOPE_INITIALIZED = component "RVT.BSP.004.ENVELOPE_INITIALIZED" "Resource-event publisher" {
+                EVT_BSP_004_ENVELOPE_ALLOCATED = component "ENVELOPE ALLOCATED" "Business event publisher — EVT.BSP.004.ENVELOPE_ALLOCATED" {
                     tags "ddd:publisher"
+                    properties { "id" "EVT.BSP.004.ENVELOPE_ALLOCATED" }
                 }
-                RVT_BSP_004_CONSUMPTION_RECORDED = component "RVT.BSP.004.CONSUMPTION_RECORDED" "Resource-event publisher" {
+                EVT_BSP_004_ENVELOPE_CONSUMED = component "ENVELOPE CONSUMED" "Business event publisher — EVT.BSP.004.ENVELOPE_CONSUMED" {
                     tags "ddd:publisher"
+                    properties { "id" "EVT.BSP.004.ENVELOPE_CONSUMED" }
                 }
-                RVT_BSP_004_ENVELOPE_CAP_REACHED = component "RVT.BSP.004.ENVELOPE_CAP_REACHED" "Resource-event publisher" {
+                EVT_BSP_004_ENVELOPE_DEPLETED = component "ENVELOPE DEPLETED" "Business event publisher — EVT.BSP.004.ENVELOPE_DEPLETED" {
                     tags "ddd:publisher"
+                    properties { "id" "EVT.BSP.004.ENVELOPE_DEPLETED" }
                 }
-                RVT_BSP_004_ENVELOPE_PERIOD_WITHOUT_CONSUMPTION = component "RVT.BSP.004.ENVELOPE_PERIOD_WITHOUT_CONSUMPTION" "Resource-event publisher" {
+                EVT_BSP_004_ENVELOPE_UNCONSUMED = component "ENVELOPE UNCONSUMED" "Business event publisher — EVT.BSP.004.ENVELOPE_UNCONSUMED" {
                     tags "ddd:publisher"
+                    properties { "id" "EVT.BSP.004.ENVELOPE_UNCONSUMED" }
                 }
             }
         }
 
-        CAP_BSP_001_TIE -> CAP_BSP_004_ENV.stub "EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_BSP_004_ENV.stub "TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_ENR -> CAP_BSP_004_ENV.stub "EVT.BSP.002.BENEFICIARY_ENROLLED, RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> CAP_BSP_004_ENV.stub "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_ENV_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_004_ENV_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_004_ENV.stub -> CAP_BSP_004_ENV_downstream_consumers "RVT.BSP.004.CONSUMPTION_RECORDED, RVT.BSP.004.ENVELOPE_CAP_REACHED, RVT.BSP.004.ENVELOPE_INITIALIZED, RVT.BSP.004.ENVELOPE_PERIOD_WITHOUT_CONSUMPTION" "RabbitMQ" "downstream-event"
+        CAP_BSP_004_ENV.stub -> CAP_BSP_004_ENV_downstream_consumers "ENVELOPE ALLOCATED, ENVELOPE CONSUMED, ENVELOPE DEPLETED, ENVELOPE UNCONSUMED" "Business event" "downstream-event"
     }
 
     views {

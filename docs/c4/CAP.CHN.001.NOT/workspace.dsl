@@ -1,19 +1,31 @@
-workspace "CAP.CHN.001.NOT — Beneficiary Notifications" "Notify the beneficiary of relevant events in their journey: declined transaction, tier change, message from a prescriber, budget alert. Tone and content respect the dignity constraint." {
+workspace "Beneficiary Notifications (CAP.CHN.001.NOT)" "Notify the beneficiary of relevant events in their journey: declined transaction, tier change, message from a prescriber, budget alert. Tone and content respect the dignity constraint." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
-        CAP_BSP_002_EXT = softwareSystem "CAP.BSP.002.EXT" "Upstream capability" {
+        CAP_BSP_002_EXT = softwareSystem "Programme Exit" "Upstream capability (CAP.BSP.002.EXT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.EXT"
+            }
         }
-        CAP_BSP_004_AUT = softwareSystem "CAP.BSP.004.AUT" "Upstream capability" {
+        CAP_BSP_004_AUT = softwareSystem "Transaction Authorisation" "Upstream capability (CAP.BSP.004.AUT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.AUT"
+            }
         }
-        CAP_BSP_004_ENV = softwareSystem "CAP.BSP.004.ENV" "Upstream capability" {
+        CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "Upstream capability (CAP.BSP.004.ENV)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ENV"
+            }
         }
 
         CAP_CHN_001_NOT = softwareSystem "Beneficiary Notifications" "Notify the beneficiary of relevant events in their journey: declined transaction, tier change, message from a prescriber, budget alert. Tone and content respect the dignity constraint." {
@@ -49,18 +61,18 @@ workspace "CAP.CHN.001.NOT — Beneficiary Notifications" "Notify the beneficiar
             }
         }
 
-        CAP_BSP_001_TIE -> CAP_CHN_001_NOT.backend "EVT.BSP.001.TIER_UPGRADED, RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_CHN_001_NOT.backend "TIER UPGRADED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_EXT -> CAP_CHN_001_NOT.backend "EVT.BSP.002.BENEFICIARY_TRANSFERRED_TO_STANDARD_APP, RVT.BSP.002.STANDARD_APP_TRANSFER_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_EXT -> CAP_CHN_001_NOT.backend "BENEFICIARY TRANSFERRED TO STANDARD APP" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_AUT -> CAP_CHN_001_NOT.backend "EVT.BSP.004.TRANSACTION_REFUSED, RVT.BSP.004.PAYMENT_BLOCKED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_AUT -> CAP_CHN_001_NOT.backend "TRANSACTION REFUSED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_ENV -> CAP_CHN_001_NOT.backend "EVT.BSP.004.ENVELOPE_DEPLETED, RVT.BSP.004.ENVELOPE_CAP_REACHED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_ENV -> CAP_CHN_001_NOT.backend "ENVELOPE DEPLETED" "Business event subscription" "upstream-event"
 
-        CAP_CHN_001_NOT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_CHN_001_NOT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_CHN_001_NOT.backend -> CAP_CHN_001_NOT_downstream_consumers "RVT.CHN.001.NOTIFICATION_EMITTED" "RabbitMQ" "downstream-event"
+        CAP_CHN_001_NOT.backend -> CAP_CHN_001_NOT_downstream_consumers "NOTIFICATION EMITTED" "Business event" "downstream-event"
     }
 
     views {

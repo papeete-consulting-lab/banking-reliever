@@ -1,47 +1,62 @@
-workspace "Zone STEERING" "C4 container view of the STEERING zone — each L2 capability is a container." {
+workspace "Zone — Steering" "C4 container view of the Steering zone — each L2 capability is a container." {
 
     !identifiers hierarchical
 
     model {
-        zone_STR = softwareSystem "STEERING" "STEERING zone of the Reliever business capability model." {
+        zone_STR = softwareSystem "Steering" "Steering zone of the Reliever business capability model." {
             tags "capability-self" "zone:STR"
-            CAP_STR_001_AUD = container "CAP.STR.001.AUD" "Programme Compliance Audit" "stack-tbd" {
+            properties {
+                "zone-code" "STEERING"
+            }
+            CAP_STR_001_AUD = container "Programme Compliance Audit" "Verify the programme's overall regulatory compliance (banking, medical and social frameworks). Distinct from SUP.001.AUD (technical GDPR audit): STR.001.AUD certifies programme-level regulatory compliance, with the Compliance Officer as the principal actor." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.STR.001"
                 properties {
+                    "capability-id" "CAP.STR.001.AUD"
                     "detail-view" "../CAP.STR.001.AUD/workspace.dsl"
                     "parent" "CAP.STR.001"
                 }
             }
-            CAP_STR_001_GOV = container "CAP.STR.001.GOV" "Programme Governance" "stack-tbd" {
+            CAP_STR_001_GOV = container "Programme Governance" "Define and evolve programme governance policies: eligibility rules, tier thresholds, co-decision protocols. Validates scoring model updates (ScoreModel.Updated from DAT.001.MOD) before any production deployment." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.STR.001"
                 properties {
+                    "capability-id" "CAP.STR.001.GOV"
                     "detail-view" "../CAP.STR.001.GOV/workspace.dsl"
                     "parent" "CAP.STR.001"
                 }
             }
-            CAP_STR_001_KPI = container "CAP.STR.001.KPI" "Performance Monitoring" "stack-tbd" {
+            CAP_STR_001_KPI = container "Performance Monitoring" "Measure programme effectiveness at scale: progression rate, relapse rate, successful exit rate, perceived dignity. Consumes DAT.001.REP reports and produces ProgrammePerformance.Evaluated for governance decisions." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.STR.001"
                 properties {
+                    "capability-id" "CAP.STR.001.KPI"
                     "detail-view" "../CAP.STR.001.KPI/workspace.dsl"
                     "parent" "CAP.STR.001"
                 }
             }
         }
 
-        CAP_SUP_001_AUD = softwareSystem "CAP.SUP.001.AUD" "External capability (other zone)." {
+        CAP_SUP_001_AUD = softwareSystem "Audit & Traceability" "External capability (CAP.SUP.001.AUD) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.SUP.001.AUD"
+            }
         }
 
-        CAP_DAT_001_MOD = softwareSystem "CAP.DAT.001.MOD" "External capability (other zone)." {
+        CAP_DAT_001_MOD = softwareSystem "Score Analytics Model" "External capability (CAP.DAT.001.MOD) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.MOD"
+            }
         }
 
-        CAP_DAT_001_REP = softwareSystem "CAP.DAT.001.REP" "External capability (other zone)." {
+        CAP_DAT_001_REP = softwareSystem "Programme Reporting" "External capability (CAP.DAT.001.REP) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.DAT.001.REP"
+            }
         }
-        CAP_SUP_001_AUD -> zone_STR.CAP_STR_001_AUD "RVT.SUP.001.TRACE_RECORDED" "RabbitMQ" "upstream-event"
-        CAP_DAT_001_MOD -> zone_STR.CAP_STR_001_GOV "RVT.DAT.001.MODEL_SUBMITTED_TO_GOVERNANCE" "RabbitMQ" "upstream-event"
-        CAP_DAT_001_REP -> zone_STR.CAP_STR_001_KPI "RVT.DAT.001.REPORT_AVAILABLE" "RabbitMQ" "upstream-event"
+        CAP_SUP_001_AUD -> zone_STR.CAP_STR_001_AUD "ACCESS LOGGED" "Business event subscription" "upstream-event"
+        CAP_DAT_001_MOD -> zone_STR.CAP_STR_001_GOV "SCORE MODEL UPDATED" "Business event subscription" "upstream-event"
+        CAP_DAT_001_REP -> zone_STR.CAP_STR_001_KPI "PROGRAM REPORT GENERATED" "Business event subscription" "upstream-event"
     }
 
     views {

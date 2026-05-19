@@ -1,53 +1,71 @@
-workspace "Zone EXCHANGE_B2B" "C4 container view of the EXCHANGE_B2B zone — each L2 capability is a container." {
+workspace "Zone — Exchange B2b" "C4 container view of the Exchange B2b zone — each L2 capability is a container." {
 
     !identifiers hierarchical
 
     model {
-        zone_B2B = softwareSystem "EXCHANGE_B2B" "EXCHANGE_B2B zone of the Reliever business capability model." {
+        zone_B2B = softwareSystem "Exchange B2b" "Exchange B2b zone of the Reliever business capability model." {
             tags "capability-self" "zone:B2B"
-            CAP_B2B_001_CRD = container "CAP.B2B.001.CRD" "Dedicated Card Management" "stack-tbd" {
+            properties {
+                "zone-code" "EXCHANGE_B2B"
+            }
+            CAP_B2B_001_CRD = container "Dedicated Card Management" "Drive the complete lifecycle of the Reliever dedicated card — issuance, activation, suspension, termination — in liaison with an approved issuing partner. Card usage rules (limits, categories) are synchronised with the current tier." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.B2B.001"
                 properties {
+                    "capability-id" "CAP.B2B.001.CRD"
                     "detail-view" "../CAP.B2B.001.CRD/workspace.dsl"
                     "parent" "CAP.B2B.001"
                 }
             }
-            CAP_B2B_001_FLW = container "CAP.B2B.001.FLW" "Financial Flow Management" "stack-tbd" {
+            CAP_B2B_001_FLW = container "Financial Flow Management" "Orchestrate the funding of the dedicated card from the beneficiary's main account, ensure flow reconciliation and handle anomalies. Triggered by envelope events from BSP.004.ENV." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.B2B.001"
                 properties {
+                    "capability-id" "CAP.B2B.001.FLW"
                     "detail-view" "../CAP.B2B.001.FLW/workspace.dsl"
                     "parent" "CAP.B2B.001"
                 }
             }
-            CAP_B2B_001_OBK = container "CAP.B2B.001.OBK" "Open Banking Integration" "stack-tbd" {
+            CAP_B2B_001_OBK = container "Open Banking Integration" "Access and refresh the beneficiary's main account financial data via open banking APIs (PSD2). Requires prior Consent.Granted. Makes Reliever independent of inter-bank agreements." "stack-tbd" {
                 tags "not-scaffolded" "tech:stack-tbd" "parent:CAP.B2B.001"
                 properties {
+                    "capability-id" "CAP.B2B.001.OBK"
                     "detail-view" "../CAP.B2B.001.OBK/workspace.dsl"
                     "parent" "CAP.B2B.001"
                 }
             }
         }
 
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "External capability (other zone)." {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "External capability (CAP.BSP.002.ENR) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
 
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "External capability (other zone)." {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "External capability (CAP.BSP.001.TIE) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
 
-        CAP_BSP_002_EXT = softwareSystem "CAP.BSP.002.EXT" "External capability (other zone)." {
+        CAP_BSP_002_EXT = softwareSystem "Programme Exit" "External capability (CAP.BSP.002.EXT) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.EXT"
+            }
         }
 
-        CAP_BSP_004_ENV = softwareSystem "CAP.BSP.004.ENV" "External capability (other zone)." {
+        CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "External capability (CAP.BSP.004.ENV) — emits business events consumed by this zone." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ENV"
+            }
         }
-        CAP_BSP_002_ENR -> zone_B2B.CAP_B2B_001_CRD "RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
-        CAP_BSP_001_TIE -> zone_B2B.CAP_B2B_001_CRD "RVT.BSP.001.TIER_UPGRADE_RECORDED" "RabbitMQ" "upstream-event"
-        CAP_BSP_002_EXT -> zone_B2B.CAP_B2B_001_CRD "RVT.BSP.002.CASE_CLOSED" "RabbitMQ" "upstream-event"
-        CAP_BSP_004_ENV -> zone_B2B.CAP_B2B_001_FLW "RVT.BSP.004.ENVELOPE_INITIALIZED" "RabbitMQ" "upstream-event"
-        CAP_BSP_002_ENR -> zone_B2B.CAP_B2B_001_OBK "RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> zone_B2B.CAP_B2B_001_CRD "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
+        CAP_BSP_001_TIE -> zone_B2B.CAP_B2B_001_CRD "TIER DOWNGRADED, TIER UPGRADED" "Business event subscription" "upstream-event"
+        CAP_BSP_002_EXT -> zone_B2B.CAP_B2B_001_CRD "BENEFICIARY EXITED" "Business event subscription" "upstream-event"
+        CAP_BSP_004_ENV -> zone_B2B.CAP_B2B_001_FLW "ENVELOPE ALLOCATED, ENVELOPE DEPLETED" "Business event subscription" "upstream-event"
+        CAP_BSP_002_ENR -> zone_B2B.CAP_B2B_001_OBK "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
     }
 
     views {

@@ -1,10 +1,13 @@
-workspace "CAP.B2B.001.FLW — Financial Flow Management" "Orchestrate the funding of the dedicated card from the beneficiary's main account, ensure flow reconciliation and handle anomalies. Triggered by envelope events from BSP.004.ENV." {
+workspace "Financial Flow Management (CAP.B2B.001.FLW)" "Orchestrate the funding of the dedicated card from the beneficiary's main account, ensure flow reconciliation and handle anomalies. Triggered by envelope events from BSP.004.ENV." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_004_ENV = softwareSystem "CAP.BSP.004.ENV" "Upstream capability" {
+        CAP_BSP_004_ENV = softwareSystem "Budget Envelope Management" "Upstream capability (CAP.BSP.004.ENV)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.ENV"
+            }
         }
 
         CAP_B2B_001_FLW = softwareSystem "Financial Flow Management" "Orchestrate the funding of the dedicated card from the beneficiary's main account, ensure flow reconciliation and handle anomalies. Triggered by envelope events from BSP.004.ENV." {
@@ -40,12 +43,12 @@ workspace "CAP.B2B.001.FLW — Financial Flow Management" "Orchestrate the fundi
             }
         }
 
-        CAP_BSP_004_ENV -> CAP_B2B_001_FLW.backend "EVT.BSP.004.ENVELOPE_ALLOCATED, EVT.BSP.004.ENVELOPE_DEPLETED, RVT.BSP.004.ENVELOPE_CAP_REACHED, RVT.BSP.004.ENVELOPE_INITIALIZED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_ENV -> CAP_B2B_001_FLW.backend "ENVELOPE ALLOCATED, ENVELOPE DEPLETED" "Business event subscription" "upstream-event"
 
-        CAP_B2B_001_FLW_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_B2B_001_FLW_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_B2B_001_FLW.backend -> CAP_B2B_001_FLW_downstream_consumers "RVT.B2B.001.FUNDING_EXECUTED" "RabbitMQ" "downstream-event"
+        CAP_B2B_001_FLW.backend -> CAP_B2B_001_FLW_downstream_consumers "FUNDING EXECUTED" "Business event" "downstream-event"
     }
 
     views {

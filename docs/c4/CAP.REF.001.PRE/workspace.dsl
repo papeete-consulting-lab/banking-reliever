@@ -1,4 +1,4 @@
-workspace "CAP.REF.001.PRE — Prescriber Referential" "Hold and maintain the canonical identity of prescribers and their organisations. Distinguishes prescriber types (banker, doctor, social worker) and their respective authorisations within the programme." {
+workspace "Prescriber Referential (CAP.REF.001.PRE)" "Hold and maintain the canonical identity of prescribers and their organisations. Distinguishes prescriber types (banker, doctor, social worker) and their respective authorisations within the programme." {
 
     !identifiers hierarchical
 
@@ -37,10 +37,10 @@ workspace "CAP.REF.001.PRE — Prescriber Referential" "Hold and maintain the ca
             }
         }
 
-        CAP_REF_001_PRE_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_REF_001_PRE_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_REF_001_PRE.backend -> CAP_REF_001_PRE_downstream_consumers "RVT.REF.001.PRESCRIBER_REFERENTIAL_UPDATED" "RabbitMQ" "downstream-event"
+        CAP_REF_001_PRE.backend -> CAP_REF_001_PRE_downstream_consumers "PRESCRIBER REFERENTIAL UPDATED" "Business event" "downstream-event"
     }
 
     views {

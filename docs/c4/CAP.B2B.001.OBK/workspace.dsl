@@ -1,10 +1,13 @@
-workspace "CAP.B2B.001.OBK — Open Banking Integration" "Access and refresh the beneficiary's main account financial data via open banking APIs (PSD2). Requires prior Consent.Granted. Makes Reliever independent of inter-bank agreements." {
+workspace "Open Banking Integration (CAP.B2B.001.OBK)" "Access and refresh the beneficiary's main account financial data via open banking APIs (PSD2). Requires prior Consent.Granted. Makes Reliever independent of inter-bank agreements." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "Upstream capability" {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "Upstream capability (CAP.BSP.002.ENR)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
 
         CAP_B2B_001_OBK = softwareSystem "Open Banking Integration" "Access and refresh the beneficiary's main account financial data via open banking APIs (PSD2). Requires prior Consent.Granted. Makes Reliever independent of inter-bank agreements." {
@@ -40,12 +43,12 @@ workspace "CAP.B2B.001.OBK — Open Banking Integration" "Access and refresh the
             }
         }
 
-        CAP_BSP_002_ENR -> CAP_B2B_001_OBK.backend "EVT.BSP.002.BENEFICIARY_ENROLLED, RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> CAP_B2B_001_OBK.backend "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
 
-        CAP_B2B_001_OBK_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_B2B_001_OBK_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_B2B_001_OBK.backend -> CAP_B2B_001_OBK_downstream_consumers "RVT.B2B.001.FINANCIAL_DATA_REFRESHED" "RabbitMQ" "downstream-event"
+        CAP_B2B_001_OBK.backend -> CAP_B2B_001_OBK_downstream_consumers "FINANCIAL DATA REFRESHED" "Business event" "downstream-event"
     }
 
     views {

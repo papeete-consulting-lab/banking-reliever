@@ -1,10 +1,13 @@
-workspace "CAP.CHN.002.ACT — Prescriber Actions" "Allow authorised prescribers to take actions on a case: manual tier override, co-decision initiation, envelope rule adjustment. These actions are forwarded to BSP.003.COD or BSP.001.ARB." {
+workspace "Prescriber Actions (CAP.CHN.002.ACT)" "Allow authorised prescribers to take actions on a case: manual tier override, co-decision initiation, envelope rule adjustment. These actions are forwarded to BSP.003.COD or BSP.001.ARB." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_003_COD = softwareSystem "CAP.BSP.003.COD" "Upstream capability" {
+        CAP_BSP_003_COD = softwareSystem "Co-Decision" "Upstream capability (CAP.BSP.003.COD)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.003.COD"
+            }
         }
 
         CAP_CHN_002_ACT = softwareSystem "Prescriber Actions" "Allow authorised prescribers to take actions on a case: manual tier override, co-decision initiation, envelope rule adjustment. These actions are forwarded to BSP.003.COD or BSP.001.ARB." {
@@ -40,12 +43,12 @@ workspace "CAP.CHN.002.ACT — Prescriber Actions" "Allow authorised prescribers
             }
         }
 
-        CAP_BSP_003_COD -> CAP_CHN_002_ACT.backend "EVT.BSP.003.OVERRIDE_COVALIDATED, EVT.BSP.003.OVERRIDE_REFUSED, RVT.BSP.003.DECISION_COVALIDATED, RVT.BSP.003.DECISION_REJECTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_003_COD -> CAP_CHN_002_ACT.backend "OVERRIDE COVALIDATED, OVERRIDE REFUSED" "Business event subscription" "upstream-event"
 
-        CAP_CHN_002_ACT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_CHN_002_ACT_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_CHN_002_ACT.backend -> CAP_CHN_002_ACT_downstream_consumers "RVT.CHN.002.OVERRIDE_UX_INITIATED" "RabbitMQ" "downstream-event"
+        CAP_CHN_002_ACT.backend -> CAP_CHN_002_ACT_downstream_consumers "OVERRIDE UX TRIGGERED" "Business event" "downstream-event"
     }
 
     views {

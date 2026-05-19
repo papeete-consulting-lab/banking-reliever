@@ -1,10 +1,13 @@
-workspace "CAP.BSP.003.COD — Co-Decision" "Formalise decisions requiring agreement from multiple prescribers: collect positions, resolve disagreements, produce a validated collective decision transmitted to BSP.001.TIE for application." {
+workspace "Co-Decision (CAP.BSP.003.COD)" "Formalise decisions requiring agreement from multiple prescribers: collect positions, resolve disagreements, produce a validated collective decision transmitted to BSP.001.TIE for application." {
 
     !identifiers hierarchical
 
     model {
-        CAP_CHN_002_ACT = softwareSystem "CAP.CHN.002.ACT" "Upstream capability" {
+        CAP_CHN_002_ACT = softwareSystem "Prescriber Actions" "Upstream capability (CAP.CHN.002.ACT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.CHN.002.ACT"
+            }
         }
 
         CAP_BSP_003_COD = softwareSystem "Co-Decision" "Formalise decisions requiring agreement from multiple prescribers: collect positions, resolve disagreements, produce a validated collective decision transmitted to BSP.001.TIE for application." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.003.COD — Co-Decision" "Formalise decisions requiring agree
             }
         }
 
-        CAP_CHN_002_ACT -> CAP_BSP_003_COD.backend "EVT.CHN.002.OVERRIDE_UX_TRIGGERED, RVT.CHN.002.OVERRIDE_UX_INITIATED" "RabbitMQ" "upstream-event"
+        CAP_CHN_002_ACT -> CAP_BSP_003_COD.backend "OVERRIDE UX TRIGGERED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_003_COD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_003_COD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_003_COD.backend -> CAP_BSP_003_COD_downstream_consumers "RVT.BSP.003.CODECISION_OPENED, RVT.BSP.003.DECISION_COVALIDATED, RVT.BSP.003.DECISION_REJECTED" "RabbitMQ" "downstream-event"
+        CAP_BSP_003_COD.backend -> CAP_BSP_003_COD_downstream_consumers "OVERRIDE COVALIDATED, OVERRIDE REFUSED, OVERRIDE REQUESTED" "Business event" "downstream-event"
     }
 
     views {

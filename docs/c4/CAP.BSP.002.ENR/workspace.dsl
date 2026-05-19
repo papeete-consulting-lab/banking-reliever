@@ -1,10 +1,13 @@
-workspace "CAP.BSP.002.ENR — Enrolment" "Formalise the beneficiary's entry into the programme after eligibility verification and GDPR consent. Triggers the creation of the dedicated card (B2B.001.CRD) and the initialisation of open banking access (B2B.001.OBK)." {
+workspace "Enrolment (CAP.BSP.002.ENR)" "Formalise the beneficiary's entry into the programme after eligibility verification and GDPR consent. Triggers the creation of the dedicated card (B2B.001.CRD) and the initialisation of open banking access (B2B.001.OBK)." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_002_ELI = softwareSystem "CAP.BSP.002.ELI" "Upstream capability" {
+        CAP_BSP_002_ELI = softwareSystem "Eligibility" "Upstream capability (CAP.BSP.002.ELI)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ELI"
+            }
         }
 
         CAP_BSP_002_ENR = softwareSystem "Enrolment" "Formalise the beneficiary's entry into the programme after eligibility verification and GDPR consent. Triggers the creation of the dedicated card (B2B.001.CRD) and the initialisation of open banking access (B2B.001.OBK)." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.002.ENR — Enrolment" "Formalise the beneficiary's entry int
             }
         }
 
-        CAP_BSP_002_ELI -> CAP_BSP_002_ENR.backend "EVT.BSP.002.ELIGIBILITY_VALIDATED, RVT.BSP.002.ELIGIBILITY_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ELI -> CAP_BSP_002_ENR.backend "ELIGIBILITY VALIDATED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_002_ENR_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_002_ENR_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_002_ENR.backend -> CAP_BSP_002_ENR_downstream_consumers "RVT.BSP.002.CASE_OPENED, RVT.BSP.002.INITIAL_TIER_ACTIVATED" "RabbitMQ" "downstream-event"
+        CAP_BSP_002_ENR.backend -> CAP_BSP_002_ENR_downstream_consumers "BENEFICIARY ENROLLED, INITIAL TIER ACTIVATED" "Business event" "downstream-event"
     }
 
     views {

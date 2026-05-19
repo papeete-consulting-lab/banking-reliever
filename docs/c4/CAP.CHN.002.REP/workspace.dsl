@@ -1,10 +1,13 @@
-workspace "CAP.CHN.002.REP — Prescriber Reporting" "Provide prescribers with aggregated monitoring reports on the beneficiary: score evolution, tier history, behavioural trends. Data comes from DAT.001.REP and is filtered by the prescriber's rights." {
+workspace "Prescriber Reporting (CAP.CHN.002.REP)" "Provide prescribers with aggregated monitoring reports on the beneficiary: score evolution, tier history, behavioural trends. Data comes from DAT.001.REP and is filtered by the prescriber's rights." {
 
     !identifiers hierarchical
 
     model {
-        CAP_CHN_002_VIE = softwareSystem "CAP.CHN.002.VIE" "Upstream capability" {
+        CAP_CHN_002_VIE = softwareSystem "Prescriber Beneficiary View" "Upstream capability (CAP.CHN.002.VIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.CHN.002.VIE"
+            }
         }
 
         CAP_CHN_002_REP = softwareSystem "Prescriber Reporting" "Provide prescribers with aggregated monitoring reports on the beneficiary: score evolution, tier history, behavioural trends. Data comes from DAT.001.REP and is filtered by the prescriber's rights." {
@@ -40,12 +43,12 @@ workspace "CAP.CHN.002.REP — Prescriber Reporting" "Provide prescribers with a
             }
         }
 
-        CAP_CHN_002_VIE -> CAP_CHN_002_REP.backend "EVT.CHN.002.CASE_VIEWED, RVT.CHN.002.CASE_VIEWED_BY_PRESCRIBER" "RabbitMQ" "upstream-event"
+        CAP_CHN_002_VIE -> CAP_CHN_002_REP.backend "CASE VIEWED" "Business event subscription" "upstream-event"
 
-        CAP_CHN_002_REP_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_CHN_002_REP_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_CHN_002_REP.backend -> CAP_CHN_002_REP_downstream_consumers "RVT.CHN.002.REPORT_GENERATED" "RabbitMQ" "downstream-event"
+        CAP_CHN_002_REP.backend -> CAP_CHN_002_REP_downstream_consumers "REPORT GENERATED" "Business event" "downstream-event"
     }
 
     views {

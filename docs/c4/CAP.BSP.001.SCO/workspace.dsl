@@ -1,13 +1,19 @@
-workspace "CAP.BSP.001.SCO — Behavioural Scoring" "Compute the beneficiary's behavioural score in real time from each transaction and incoming signal. The score is the sole source of truth for tier-change decisions, except for explicitly validated prescriber overrides." {
+workspace "Behavioural Scoring (CAP.BSP.001.SCO)" "Compute the beneficiary's behavioural score in real time from each transaction and incoming signal. The score is the sole source of truth for tier-change decisions, except for explicitly validated prescriber overrides." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_SIG = softwareSystem "CAP.BSP.001.SIG" "Upstream capability" {
+        CAP_BSP_001_SIG = softwareSystem "Signal Detection" "Upstream capability (CAP.BSP.001.SIG)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SIG"
+            }
         }
-        CAP_BSP_004_AUT = softwareSystem "CAP.BSP.004.AUT" "Upstream capability" {
+        CAP_BSP_004_AUT = softwareSystem "Transaction Authorisation" "Upstream capability (CAP.BSP.004.AUT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.004.AUT"
+            }
         }
 
         CAP_BSP_001_SCO = softwareSystem "Behavioural Scoring" "Compute the beneficiary's behavioural score in real time from each transaction and incoming signal. The score is the sole source of truth for tier-change decisions, except for explicitly validated prescriber overrides." {
@@ -50,47 +56,53 @@ workspace "CAP.BSP.001.SCO — Behavioural Scoring" "Compute the beneficiary's b
                     "loc" "sources/CAP.BSP.001.SCO/stub"
                     "github" "https://github.com/Banking-Reliever/banking/blob/main/sources/CAP.BSP.001.SCO/stub"
                 }
-                AGG_BSP_001_SCO_SCORE_OF_BENEFICIARY = component "AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY" "Aggregate (DDD)" {
+                AGG_BSP_001_SCO_SCORE_OF_BENEFICIARY = component "SCORE OF BENEFICIARY" "Aggregate (DDD) — AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY" {
                     tags "ddd:aggregate"
+                    properties { "id" "AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY" }
                 }
-                PRJ_BSP_001_SCO_CURRENT_SCORE_VIEW = component "PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW" "Read model (CQRS)" {
+                PRJ_BSP_001_SCO_CURRENT_SCORE_VIEW = component "CURRENT SCORE VIEW" "Read model / CQRS — PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW" {
                     tags "ddd:read-model"
+                    properties { "id" "PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW" }
                 }
-                PRJ_BSP_001_SCO_SCORE_HISTORY = component "PRJ.BSP.001.SCO.SCORE_HISTORY" "Read model (CQRS)" {
+                PRJ_BSP_001_SCO_SCORE_HISTORY = component "SCORE HISTORY" "Read model / CQRS — PRJ.BSP.001.SCO.SCORE_HISTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "PRJ.BSP.001.SCO.SCORE_HISTORY" }
                 }
-                QRY_BSP_001_SCO_GET_CURRENT_SCORE = component "QRY.BSP.001.SCO.GET_CURRENT_SCORE" "Read model (CQRS)" {
+                QRY_BSP_001_SCO_GET_CURRENT_SCORE = component "GET CURRENT SCORE" "Read model / CQRS — QRY.BSP.001.SCO.GET_CURRENT_SCORE" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.BSP.001.SCO.GET_CURRENT_SCORE" }
                 }
-                QRY_BSP_001_SCO_LIST_SCORE_HISTORY = component "QRY.BSP.001.SCO.LIST_SCORE_HISTORY" "Read model (CQRS)" {
+                QRY_BSP_001_SCO_LIST_SCORE_HISTORY = component "LIST SCORE HISTORY" "Read model / CQRS — QRY.BSP.001.SCO.LIST_SCORE_HISTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.BSP.001.SCO.LIST_SCORE_HISTORY" }
                 }
-                POL_BSP_001_SCO_ON_BEHAVIOURAL_TRIGGER = component "POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER" "Policy / reactive saga" {
+                POL_BSP_001_SCO_ON_BEHAVIOURAL_TRIGGER = component "ON BEHAVIOURAL TRIGGER" "Policy / reactive saga — POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER" {
                     tags "ddd:policy"
+                    properties { "id" "POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER" }
                 }
-                POL_BSP_001_SCO_ON_ENROLMENT_COMPLETED = component "POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED" "Policy / reactive saga" {
+                POL_BSP_001_SCO_ON_ENROLMENT_COMPLETED = component "ON ENROLMENT COMPLETED" "Policy / reactive saga — POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED" {
                     tags "ddd:policy"
+                    properties { "id" "POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED" }
                 }
-                RVT_BSP_001_ENTRY_SCORE_COMPUTED = component "RVT.BSP.001.ENTRY_SCORE_COMPUTED" "Resource-event publisher" {
+                EVT_BSP_001_SCORE_RECOMPUTED = component "SCORE RECOMPUTED" "Business event publisher — EVT.BSP.001.SCORE_RECOMPUTED" {
                     tags "ddd:publisher"
+                    properties { "id" "EVT.BSP.001.SCORE_RECOMPUTED" }
                 }
-                RVT_BSP_001_CURRENT_SCORE_RECOMPUTED = component "RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" "Resource-event publisher" {
+                EVT_BSP_001_SCORE_THRESHOLD_REACHED = component "SCORE THRESHOLD REACHED" "Business event publisher — EVT.BSP.001.SCORE_THRESHOLD_REACHED" {
                     tags "ddd:publisher"
-                }
-                RVT_BSP_001_SCORE_THRESHOLD_REACHED = component "RVT.BSP.001.SCORE_THRESHOLD_REACHED" "Resource-event publisher" {
-                    tags "ddd:publisher"
+                    properties { "id" "EVT.BSP.001.SCORE_THRESHOLD_REACHED" }
                 }
             }
         }
 
-        CAP_BSP_001_SIG -> CAP_BSP_001_SCO.stub "EVT.BSP.001.PROGRESSION_SIGNAL_DETECTED, EVT.BSP.001.RELAPSE_SIGNAL_DETECTED, RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SIG -> CAP_BSP_001_SCO.stub "PROGRESSION SIGNAL DETECTED, RELAPSE SIGNAL DETECTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_004_AUT -> CAP_BSP_001_SCO.stub "EVT.BSP.004.TRANSACTION_AUTHORIZED, EVT.BSP.004.TRANSACTION_REFUSED, RVT.BSP.004.PAYMENT_BLOCKED, RVT.BSP.004.PAYMENT_GRANTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_004_AUT -> CAP_BSP_001_SCO.stub "TRANSACTION AUTHORIZED, TRANSACTION REFUSED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_SCO_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_001_SCO_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_001_SCO.stub -> CAP_BSP_001_SCO_downstream_consumers "RVT.BSP.001.CURRENT_SCORE_RECOMPUTED, RVT.BSP.001.ENTRY_SCORE_COMPUTED, RVT.BSP.001.SCORE_THRESHOLD_REACHED" "RabbitMQ" "downstream-event"
+        CAP_BSP_001_SCO.stub -> CAP_BSP_001_SCO_downstream_consumers "SCORE RECOMPUTED, SCORE THRESHOLD REACHED" "Business event" "downstream-event"
     }
 
     views {

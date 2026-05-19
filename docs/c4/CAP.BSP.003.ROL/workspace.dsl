@@ -1,10 +1,13 @@
-workspace "CAP.BSP.003.ROL — Prescriber Role Management" "Define and maintain prescriber roles on each beneficiary case: who can see what, who can act, who co-decides. Visibility is filtered by role to respect distinct professional confidentiality obligations (medical, social, banking)." {
+workspace "Prescriber Role Management (CAP.BSP.003.ROL)" "Define and maintain prescriber roles on each beneficiary case: who can see what, who can act, who co-decides. Visibility is filtered by role to respect distinct professional confidentiality obligations (medical, social, banking)." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_002_ENR = softwareSystem "CAP.BSP.002.ENR" "Upstream capability" {
+        CAP_BSP_002_ENR = softwareSystem "Enrolment" "Upstream capability (CAP.BSP.002.ENR)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.ENR"
+            }
         }
 
         CAP_BSP_003_ROL = softwareSystem "Prescriber Role Management" "Define and maintain prescriber roles on each beneficiary case: who can see what, who can act, who co-decides. Visibility is filtered by role to respect distinct professional confidentiality obligations (medical, social, banking)." {
@@ -40,12 +43,12 @@ workspace "CAP.BSP.003.ROL — Prescriber Role Management" "Define and maintain 
             }
         }
 
-        CAP_BSP_002_ENR -> CAP_BSP_003_ROL.backend "EVT.BSP.002.BENEFICIARY_ENROLLED, RVT.BSP.002.CASE_OPENED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_ENR -> CAP_BSP_003_ROL.backend "BENEFICIARY ENROLLED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_003_ROL_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_003_ROL_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_003_ROL.backend -> CAP_BSP_003_ROL_downstream_consumers "RVT.BSP.003.AUTHORIZATION_ACTIVATED, RVT.BSP.003.ROLE_REVOKED" "RabbitMQ" "downstream-event"
+        CAP_BSP_003_ROL.backend -> CAP_BSP_003_ROL_downstream_consumers "ROLE ASSIGNED, ROLE REVOKED" "Business event" "downstream-event"
     }
 
     views {

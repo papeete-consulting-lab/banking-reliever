@@ -1,4 +1,4 @@
-workspace "CAP.SUP.002.BEN — Beneficiary Identity Anchor" "Hold the canonical beneficiary identity record, mint its UUIDv7 with a no-recycle-forever guarantee, and operate the GDPR Art. 17 pseudonymisation-at-anchor mechanics. Sole L2 of CAP.SUP.002. Relocated from CAP.REF.001 on 2026-05-15 per ADR-BCM-FUNC-0016 — golden record rule preserved." {
+workspace "Beneficiary Identity Anchor (CAP.SUP.002.BEN)" "Hold the canonical beneficiary identity record, mint its UUIDv7 with a no-recycle-forever guarantee, and operate the GDPR Art. 17 pseudonymisation-at-anchor mechanics. Sole L2 of CAP.SUP.002. Relocated from CAP.REF.001 on 2026-05-15 per ADR-BCM-FUNC-0016 — golden record rule preserved." {
 
     !identifiers hierarchical
 
@@ -44,31 +44,37 @@ workspace "CAP.SUP.002.BEN — Beneficiary Identity Anchor" "Hold the canonical 
                     "loc" "sources/CAP.SUP.002.BEN/backend"
                     "github" "https://github.com/Banking-Reliever/banking/blob/main/sources/CAP.SUP.002.BEN/backend"
                 }
-                AGG_SUP_002_BEN_IDENTITY_ANCHOR = component "AGG.SUP.002.BEN.IDENTITY_ANCHOR" "Aggregate (DDD)" {
+                AGG_SUP_002_BEN_IDENTITY_ANCHOR = component "IDENTITY ANCHOR" "Aggregate (DDD) — AGG.SUP.002.BEN.IDENTITY_ANCHOR" {
                     tags "ddd:aggregate"
+                    properties { "id" "AGG.SUP.002.BEN.IDENTITY_ANCHOR" }
                 }
-                PRJ_SUP_002_BEN_ANCHOR_DIRECTORY = component "PRJ.SUP.002.BEN.ANCHOR_DIRECTORY" "Read model (CQRS)" {
+                PRJ_SUP_002_BEN_ANCHOR_DIRECTORY = component "ANCHOR DIRECTORY" "Read model / CQRS — PRJ.SUP.002.BEN.ANCHOR_DIRECTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "PRJ.SUP.002.BEN.ANCHOR_DIRECTORY" }
                 }
-                PRJ_SUP_002_BEN_ANCHOR_HISTORY = component "PRJ.SUP.002.BEN.ANCHOR_HISTORY" "Read model (CQRS)" {
+                PRJ_SUP_002_BEN_ANCHOR_HISTORY = component "ANCHOR HISTORY" "Read model / CQRS — PRJ.SUP.002.BEN.ANCHOR_HISTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "PRJ.SUP.002.BEN.ANCHOR_HISTORY" }
                 }
-                QRY_SUP_002_BEN_GET_ANCHOR = component "QRY.SUP.002.BEN.GET_ANCHOR" "Read model (CQRS)" {
+                QRY_SUP_002_BEN_GET_ANCHOR = component "GET ANCHOR" "Read model / CQRS — QRY.SUP.002.BEN.GET_ANCHOR" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.SUP.002.BEN.GET_ANCHOR" }
                 }
-                QRY_SUP_002_BEN_GET_ANCHOR_HISTORY = component "QRY.SUP.002.BEN.GET_ANCHOR_HISTORY" "Read model (CQRS)" {
+                QRY_SUP_002_BEN_GET_ANCHOR_HISTORY = component "GET ANCHOR HISTORY" "Read model / CQRS — QRY.SUP.002.BEN.GET_ANCHOR_HISTORY" {
                     tags "ddd:read-model"
+                    properties { "id" "QRY.SUP.002.BEN.GET_ANCHOR_HISTORY" }
                 }
-                RVT_SUP_002_BENEFICIARY_ANCHOR_UPDATED = component "RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED" "Resource-event publisher" {
+                EVT_SUP_002_BENEFICIARY_ANCHOR_UPDATED = component "BENEFICIARY ANCHOR UPDATED" "Business event publisher — EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED" {
                     tags "ddd:publisher"
+                    properties { "id" "EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED" }
                 }
             }
         }
 
-        CAP_SUP_002_BEN_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_SUP_002_BEN_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_SUP_002_BEN.backend -> CAP_SUP_002_BEN_downstream_consumers "RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED" "RabbitMQ" "downstream-event"
+        CAP_SUP_002_BEN.backend -> CAP_SUP_002_BEN_downstream_consumers "BENEFICIARY ANCHOR UPDATED" "Business event" "downstream-event"
     }
 
     views {

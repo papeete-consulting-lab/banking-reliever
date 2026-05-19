@@ -1,10 +1,13 @@
-workspace "CAP.STR.001.AUD — Programme Compliance Audit" "Verify the programme's overall regulatory compliance (banking, medical and social frameworks). Distinct from SUP.001.AUD (technical GDPR audit): STR.001.AUD certifies programme-level regulatory compliance, with the Compliance Officer as the principal actor." {
+workspace "Programme Compliance Audit (CAP.STR.001.AUD)" "Verify the programme's overall regulatory compliance (banking, medical and social frameworks). Distinct from SUP.001.AUD (technical GDPR audit): STR.001.AUD certifies programme-level regulatory compliance, with the Compliance Officer as the principal actor." {
 
     !identifiers hierarchical
 
     model {
-        CAP_SUP_001_AUD = softwareSystem "CAP.SUP.001.AUD" "Upstream capability" {
+        CAP_SUP_001_AUD = softwareSystem "Audit & Traceability" "Upstream capability (CAP.SUP.001.AUD)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.SUP.001.AUD"
+            }
         }
 
         CAP_STR_001_AUD = softwareSystem "Programme Compliance Audit" "Verify the programme's overall regulatory compliance (banking, medical and social frameworks). Distinct from SUP.001.AUD (technical GDPR audit): STR.001.AUD certifies programme-level regulatory compliance, with the Compliance Officer as the principal actor." {
@@ -40,12 +43,12 @@ workspace "CAP.STR.001.AUD — Programme Compliance Audit" "Verify the programme
             }
         }
 
-        CAP_SUP_001_AUD -> CAP_STR_001_AUD.backend "EVT.SUP.001.ACCESS_LOGGED, RVT.SUP.001.TRACE_RECORDED" "RabbitMQ" "upstream-event"
+        CAP_SUP_001_AUD -> CAP_STR_001_AUD.backend "ACCESS LOGGED" "Business event subscription" "upstream-event"
 
-        CAP_STR_001_AUD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_STR_001_AUD_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_STR_001_AUD.backend -> CAP_STR_001_AUD_downstream_consumers "RVT.STR.001.COMPLIANCE_VERIFIED" "RabbitMQ" "downstream-event"
+        CAP_STR_001_AUD.backend -> CAP_STR_001_AUD_downstream_consumers "COMPLIANCE VERIFIED" "Business event" "downstream-event"
     }
 
     views {

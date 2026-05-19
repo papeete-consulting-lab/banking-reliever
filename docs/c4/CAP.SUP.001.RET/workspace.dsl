@@ -1,10 +1,13 @@
-workspace "CAP.SUP.001.RET — Beneficiary Rights" "Process the beneficiary's GDPR rights requests (access, rectification, erasure, portability, objection) within the legal timeframe (1 month). Triggered notably by programme exit (BSP.002.EXT)." {
+workspace "Beneficiary Rights (CAP.SUP.001.RET)" "Process the beneficiary's GDPR rights requests (access, rectification, erasure, portability, objection) within the legal timeframe (1 month). Triggered notably by programme exit (BSP.002.EXT)." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_002_EXT = softwareSystem "CAP.BSP.002.EXT" "Upstream capability" {
+        CAP_BSP_002_EXT = softwareSystem "Programme Exit" "Upstream capability (CAP.BSP.002.EXT)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.002.EXT"
+            }
         }
 
         CAP_SUP_001_RET = softwareSystem "Beneficiary Rights" "Process the beneficiary's GDPR rights requests (access, rectification, erasure, portability, objection) within the legal timeframe (1 month). Triggered notably by programme exit (BSP.002.EXT)." {
@@ -40,12 +43,12 @@ workspace "CAP.SUP.001.RET — Beneficiary Rights" "Process the beneficiary's GD
             }
         }
 
-        CAP_BSP_002_EXT -> CAP_SUP_001_RET.backend "EVT.BSP.002.BENEFICIARY_EXITED, RVT.BSP.002.CASE_CLOSED" "RabbitMQ" "upstream-event"
+        CAP_BSP_002_EXT -> CAP_SUP_001_RET.backend "BENEFICIARY EXITED" "Business event subscription" "upstream-event"
 
-        CAP_SUP_001_RET_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_SUP_001_RET_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_SUP_001_RET.backend -> CAP_SUP_001_RET_downstream_consumers "RVT.SUP.001.RIGHT_PROCESSED" "RabbitMQ" "downstream-event"
+        CAP_SUP_001_RET.backend -> CAP_SUP_001_RET_downstream_consumers "RIGHT PROCESSED" "Business event" "downstream-event"
     }
 
     views {

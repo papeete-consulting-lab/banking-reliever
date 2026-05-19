@@ -1,4 +1,4 @@
-workspace "CAP.REF.001.TIE — Tier Referential" "Hold and maintain the canonical tier definitions: usage rules, transition thresholds, associated rights. Any modification goes through this L2 and triggers Tier.DefinitionUpdated, consumed in cascade by BSP.001, BSP.004 and B2B.001." {
+workspace "Tier Referential (CAP.REF.001.TIE)" "Hold and maintain the canonical tier definitions: usage rules, transition thresholds, associated rights. Any modification goes through this L2 and triggers Tier.DefinitionUpdated, consumed in cascade by BSP.001, BSP.004 and B2B.001." {
 
     !identifiers hierarchical
 
@@ -37,10 +37,10 @@ workspace "CAP.REF.001.TIE — Tier Referential" "Hold and maintain the canonica
             }
         }
 
-        CAP_REF_001_TIE_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_REF_001_TIE_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_REF_001_TIE.backend -> CAP_REF_001_TIE_downstream_consumers "RVT.REF.001.TIER_DEFINITION_UPDATED" "RabbitMQ" "downstream-event"
+        CAP_REF_001_TIE.backend -> CAP_REF_001_TIE_downstream_consumers "TIER DEFINITION UPDATED" "Business event" "downstream-event"
     }
 
     views {

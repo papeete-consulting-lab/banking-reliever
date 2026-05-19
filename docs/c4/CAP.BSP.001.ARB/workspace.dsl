@@ -1,13 +1,19 @@
-workspace "CAP.BSP.001.ARB — Prescriber Arbitration" "Handle manual overrides initiated by a prescriber via CHN.002.ACT: apply the human decision, monitor actual outcomes, and return control to the algorithm when reality confirms or refutes the prescriber's decision." {
+workspace "Prescriber Arbitration (CAP.BSP.001.ARB)" "Handle manual overrides initiated by a prescriber via CHN.002.ACT: apply the human decision, monitor actual outcomes, and return control to the algorithm when reality confirms or refutes the prescriber's decision." {
 
     !identifiers hierarchical
 
     model {
-        CAP_BSP_001_SCO = softwareSystem "CAP.BSP.001.SCO" "Upstream capability" {
+        CAP_BSP_001_SCO = softwareSystem "Behavioural Scoring" "Upstream capability (CAP.BSP.001.SCO)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.SCO"
+            }
         }
-        CAP_BSP_001_TIE = softwareSystem "CAP.BSP.001.TIE" "Upstream capability" {
+        CAP_BSP_001_TIE = softwareSystem "Tier Management" "Upstream capability (CAP.BSP.001.TIE)." {
             tags "external-capability"
+            properties {
+                "capability-id" "CAP.BSP.001.TIE"
+            }
         }
 
         CAP_BSP_001_ARB = softwareSystem "Prescriber Arbitration" "Handle manual overrides initiated by a prescriber via CHN.002.ACT: apply the human decision, monitor actual outcomes, and return control to the algorithm when reality confirms or refutes the prescriber's decision." {
@@ -43,14 +49,14 @@ workspace "CAP.BSP.001.ARB — Prescriber Arbitration" "Handle manual overrides 
             }
         }
 
-        CAP_BSP_001_SCO -> CAP_BSP_001_ARB.backend "EVT.BSP.001.SCORE_RECOMPUTED, RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_SCO -> CAP_BSP_001_ARB.backend "SCORE RECOMPUTED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_TIE -> CAP_BSP_001_ARB.backend "EVT.BSP.001.TIER_OVERRIDE_APPLIED, RVT.BSP.001.OVERRIDE_ACTIVATED" "RabbitMQ" "upstream-event"
+        CAP_BSP_001_TIE -> CAP_BSP_001_ARB.backend "TIER OVERRIDE APPLIED" "Business event subscription" "upstream-event"
 
-        CAP_BSP_001_ARB_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the events emitted by this one." {
+        CAP_BSP_001_ARB_downstream_consumers = softwareSystem "Downstream consumers" "Any capability subscribed to the business events emitted by this one." {
             tags "external-capability"
         }
-        CAP_BSP_001_ARB.backend -> CAP_BSP_001_ARB_downstream_consumers "RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED, RVT.BSP.001.OVERRIDE_CLOSED" "RabbitMQ" "downstream-event"
+        CAP_BSP_001_ARB.backend -> CAP_BSP_001_ARB_downstream_consumers "ARBITRATION ALGORITHM REAFFIRMED, ARBITRATION OVERRIDE VALIDATED" "Business event" "downstream-event"
     }
 
     views {
