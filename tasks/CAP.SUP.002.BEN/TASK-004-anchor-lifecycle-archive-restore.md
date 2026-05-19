@@ -3,13 +3,15 @@ task_id: TASK-004
 capability_id: CAP.SUP.002.BEN
 capability_name: Beneficiary Identity Anchor
 epic: Epic 4 — Anchor lifecycle (archive / restore)
-status: todo
+status: in_progress
 priority: medium
 depends_on: [TASK-002]
 task_type: full-microservice
 loop_count: 0
 max_loops: 10
 ---
+
+> **Started on:** 2026-05-16 (redo after PR #18 closed — Copilot conflict-resolution untrusted)
 
 # TASK-004 — Anchor lifecycle: archive and restore
 
