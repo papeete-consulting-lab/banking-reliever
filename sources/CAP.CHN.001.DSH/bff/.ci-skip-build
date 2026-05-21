@@ -1,8 +1,0 @@
-Quarantined from CI .NET build/test pending Stage-4 regeneration.
-
-This BFF is a CONSUMER of the BSP.001.SCO / BSP.001.TIE / BSP.004.ENV process
-contracts. Those contracts are being re-namespaced to BNK.RLVR.* (bcm-pack
-v1.0.0). Until this BFF is regenerated (create-bff) against the prefixed
-contracts, its hardcoded routing keys, consumer bindings, schema $id consts and
-test fixtures are knowingly inconsistent with upstream. Remove this marker as
-part of the DSH Stage-4 regeneration.

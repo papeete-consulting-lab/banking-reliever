@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bsp-sco-stub"
+version = "0.2.0"
+description = "BNK.RLVR.CAP.BSP.001.SCO development stub — Python publisher of RVT.* resource events on RabbitMQ"
+requires-python = ">=3.12"
+authors = [
+    { name = "Reliever Banking" }
+]
+license = { text = "Proprietary" }
+dependencies = [
+    "aio-pika>=9.4,<10",
+    "jsonschema>=4.21,<5",
+    # python-dotenv is optional convenience; pinned but not required at runtime.
+    "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0,<9",
+    "pytest-asyncio>=0.23,<1",
+]
+
+[project.scripts]
+bsp-sco-stub = "bsp_sco_stub.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra -q"
