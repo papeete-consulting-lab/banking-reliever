@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.SUP.002.BEN
+  capability: BNK.RLVR.CAP.SUP.002.BEN
   layer: process-modelling
   version: 0.1.0
   derivation: >-

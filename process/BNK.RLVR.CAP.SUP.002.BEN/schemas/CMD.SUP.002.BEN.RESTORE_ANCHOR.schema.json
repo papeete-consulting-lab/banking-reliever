@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.RESTORE_ANCHOR.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.RESTORE_ANCHOR.schema.json",
   "title": "RestoreAnchorCommand",
   "description": "Payload for CMD.SUP.002.BEN.RESTORE_ANCHOR — flip anchor_status from ARCHIVED back to ACTIVE. Rare, audited operation.",
   "type": "object",

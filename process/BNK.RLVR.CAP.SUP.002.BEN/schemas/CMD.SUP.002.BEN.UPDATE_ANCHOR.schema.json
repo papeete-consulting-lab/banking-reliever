@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.UPDATE_ANCHOR.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.UPDATE_ANCHOR.schema.json",
   "title": "UpdateAnchorCommand",
   "description": "Payload for CMD.SUP.002.BEN.UPDATE_ANCHOR — partial PII update on an existing anchor. Sticky-PII rule (INV.BEN.003): absent fields are NOT applied.",
   "type": "object",

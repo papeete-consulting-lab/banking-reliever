@@ -1,0 +1,12 @@
+{
+  "capability_id": "BNK.RLVR.CAP.SUP.002.BEN",
+  "generated_by": "/process",
+  "knowledge_base": {
+    "package_version": "1.0.0",
+    "ref": "v1.0.0-1-gb06a4af",
+    "commit": "b06a4af02e501b2a83828f877c67f51f832df927",
+    "commit_short": "b06a4af",
+    "committed_at": "2026-05-21T13:57:08+02:00",
+    "dirty": false
+  }
+}

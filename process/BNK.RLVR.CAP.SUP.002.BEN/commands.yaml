@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.SUP.002.BEN
+  capability: BNK.RLVR.CAP.SUP.002.BEN
   layer: process-modelling
   version: 0.1.0
   governing_adrs:
@@ -19,7 +19,7 @@ meta:
 # Identifier: CMD.<ZONE>.<L1>.<L2>.<VERB>
 #
 # All five commands emit the SAME resource event family
-# (RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED) — the kind of
+# (BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED) — the kind of
 # transition is discriminated by the payload's `transition_kind`
 # field (MINTED | UPDATED | ARCHIVED | RESTORED | PSEUDONYMISED).
 # Consumers subscribe once to the event family and route on the
@@ -40,7 +40,7 @@ commands:
       aggregates.yaml).
     accepted_by: AGG.SUP.002.BEN.IDENTITY_ANCHOR
     issued_by:
-      - http-api-caller   # typically CAP.BSP.002.ENR (Enrolment) or admin tooling
+      - http-api-caller   # typically BNK.RLVR.CAP.BSP.002.ENR (Enrolment) or admin tooling
     payload_schema: schemas/CMD.SUP.002.BEN.MINT_ANCHOR.schema.json
     preconditions:
       - id: PRE.001
@@ -53,9 +53,9 @@ commands:
       - INV.BEN.007
       - INV.BEN.008
     emits:
-      - RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: MINTED
+      - BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: MINTED
       # business-event family pivot (no autonomous bus message — Rule 2 of ADR-TECH-STRAT-001):
-      # EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED
+      # BNK.RLVR.EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED
     errors:
       - code: REQUEST_ALREADY_PROCESSED
         when: client_request_id has been previously applied — returns the prior internal_id (200 OK) rather than 409.
@@ -92,7 +92,7 @@ commands:
       - INV.BEN.007
       - INV.BEN.008
     emits:
-      - RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: UPDATED
+      - BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: UPDATED
     errors:
       - code: ANCHOR_NOT_FOUND
         when: No anchor matches the given internal_id.
@@ -133,7 +133,7 @@ commands:
       - INV.BEN.007
       - INV.BEN.008
     emits:
-      - RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: ARCHIVED
+      - BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: ARCHIVED
     errors:
       - code: ANCHOR_NOT_FOUND
         when: No anchor matches the given internal_id.
@@ -172,7 +172,7 @@ commands:
       - INV.BEN.007
       - INV.BEN.008
     emits:
-      - RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: RESTORED
+      - BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: RESTORED
     errors:
       - code: ANCHOR_NOT_FOUND
         when: No anchor matches the given internal_id.
@@ -197,12 +197,12 @@ commands:
       internal_id is preserved so foreign-key integrity at downstream
       consumers is not broken — only the PII is destroyed. Irreversible.
       The command carries a `right_exercise_id` linking it to the upstream
-      right-to-be-forgotten request from CAP.SUP.001.RET (today supplied
+      right-to-be-forgotten request from BNK.RLVR.CAP.SUP.001.RET (today supplied
       by the HTTP caller; see Open Question #1 in aggregates.yaml for the
       future event-driven path).
     accepted_by: AGG.SUP.002.BEN.IDENTITY_ANCHOR
     issued_by:
-      - http-api-caller   # typically CAP.SUP.001.RET via REST, or DPO admin tooling
+      - http-api-caller   # typically BNK.RLVR.CAP.SUP.001.RET via REST, or DPO admin tooling
     payload_schema: schemas/CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR.schema.json
     preconditions:
       - id: PRE.001
@@ -219,7 +219,7 @@ commands:
       - INV.BEN.007
       - INV.BEN.008
     emits:
-      - RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: PSEUDONYMISED
+      - BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # transition_kind: PSEUDONYMISED
     errors:
       - code: ANCHOR_NOT_FOUND
         when: No anchor matches the given internal_id.
@@ -235,7 +235,7 @@ commands:
     api_binding: { method: POST, path: /anchors/{internal_id}/pseudonymise }
 
 # ──────────────────────────────────────────────────────────────
-# Transition kinds — discriminator for the single emitted RVT.
+# Transition kinds — discriminator for the single emitted BNK.RLVR.RVT.
 # Kept here so consumers and the schema can be type-checked
 # against the same enum.
 # ──────────────────────────────────────────────────────────────
