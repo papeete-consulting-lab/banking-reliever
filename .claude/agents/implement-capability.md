@@ -13,18 +13,18 @@ description: |
     `task_type: contract-stub` is set): produces a runnable development stub
     that covers the full consumer-facing surface of the capability — both
     publishes `RVT.*` events on the agreed bus topology AND serves the
-    HTTP query operations declared in `process/{cap}/api.yaml` with canned
-    cold-data fixtures. For use when only the contract is given and the
+    HTTP query operations declared in the process model's `.model.api` with
+    canned cold-data fixtures. For use when only the contract is given and the
     full implementation is deferred. The wire-format JSON Schemas are NOT
-    regenerated here — they are read from
-    `process/{capability-id}/schemas/` (already authored by `/process`).
+    regenerated here — they are read from `.schemas` of `bcm-pack process
+    <CAP_ID>` (already authored by `/process` in banking-knowledge).
     Mode B output is a minimal .NET host under `sources/{cap-name}/stub/`
     combining a Minimal-API surface and a BackgroundService publisher.
     No full microservice scaffold; no schema files written anywhere
-    (they live under `process/{capability-id}/schemas/`, owned by
-    `/process`). If `process/{cap}/api.yaml` is empty, only the event
-    half ships; if `process/{cap}/bus.yaml` is empty, only the query
-    half ships; if both are empty, Mode B aborts with a structured gap.
+    (they are served by `bcm-pack process`, authored by `/process`). If
+    `.model.api` declares no operations, only the event half ships; if
+    `.model.bus` declares no emitted events, only the query half ships; if
+    both are empty, Mode B aborts with a structured gap.
 
   In both modes, the agent reasons from the functional context (TASK file,
   FUNC ADR, plan, tactical ADR, BCM YAML, strategic tech ADRs) rather than
@@ -54,19 +54,23 @@ You scaffold production-ready bounded contexts for L2 or L3 business capabilitie
 
 You output goes under `sources/{capability-name}/backend/` relative to the current working directory.
 
-> **Read-only contract — `process/{capability-id}/`.**
-> The `process/{capability-id}/` folder (aggregates, commands, policies,
-> read-models, bus topology, JSON Schemas) is the **canonical contract** for
-> what you implement. Read it on entry — `aggregates.yaml`, `commands.yaml`,
-> `policies.yaml`, `read-models.yaml`, `bus.yaml`, `api.yaml`, and every
-> `schemas/*.schema.json`. Mirror its `AGG.*` / `CMD.*` / `POL.*` / `PRJ.*`
-> / `QRY.*` identifiers in your code. **Never write to it.** A PreToolUse
-> hook (`process-folder-guard.py`) blocks every Write/Edit attempt under
-> `process/**` from this agent — both in the main repo and inside any
-> kanban worktree. If you find that the contract is wrong (missing
-> aggregate, mis-paired routing key, schema field absent), abort and tell
-> the caller to run `/process <CAPABILITY_ID>` to amend the model. Your PR
-> must not contain any diff under `process/`.
+> **Read-only contract — the process model.**
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
+> process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`. It
+> does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`. Fetch it once on entry and read its
+> slices — `.model.aggregates`, `.model.commands`, `.model.policies`,
+> `.model["read-models"]`, `.model.bus`, `.model.api` (use `.parsed` when
+> non-null, fall back to `.raw` — `commands` and `read-models` frequently
+> have `parsed:null` from invalid-YAML flow mappings), and every
+> `.schemas["*.schema.json"]`. Mirror its `AGG.*` / `CMD.*` / `POL.*` /
+> `PRJ.*` / `QRY.*` identifiers in your code. If you find that the contract
+> is wrong (missing aggregate, mis-paired routing key, schema field absent),
+> abort and tell the caller to run `/process <CAPABILITY_ID>` in the
+> banking-knowledge repo and merge its PR to amend the model. Your PR must
+> not contain any diff under `process/`.
 
 > **Downstream — the contract harness.**
 > Right after you finish, the `/code` skill spawns the `harness-backend`
@@ -86,12 +90,12 @@ You output goes under `sources/{capability-name}/backend/` relative to the curre
 >    `sources/{capability-name}/backend/contracts/specs/` for the harness
 >    output (do not write spec files there yourself).
 > 3. Keep your controller route attributes literally aligned with the
->    `api_binding.{method, path}` declared in
->    `process/{cap}/api.yaml` and the `api_binding` of each command in
->    `commands.yaml` — the harness's runtime-alignment validator reflects
->    over your assemblies and will fail the build on any drift.
-> 4. Keep your bus consumers and publishers literally aligned with
->    `process/{cap}/bus.yaml` (queue names, routing keys, exchange names) —
+>    `api_binding.{method, path}` declared in the process model's `.model.api`
+>    and the `api_binding` of each command in `.model.commands` — the
+>    harness's runtime-alignment validator reflects over your assemblies and
+>    will fail the build on any drift.
+> 4. Keep your bus consumers and publishers literally aligned with the process
+>    model's `.model.bus` (queue names, routing keys, exchange names) —
 >    the harness's runtime-alignment validator inspects MassTransit /
 >    consumer registrations and will fail the build on any drift.
 > 5. Use the BCM `RES.*` resource shape (from `bcm-pack.carried_objects`) as
@@ -162,7 +166,7 @@ Read the TASK file frontmatter and extract the `task_type` field:
 | `task_type` value | Mode | Output |
 |---|---|---|
 | (absent) or `full-microservice` | **Mode A** — full microservice scaffold | `sources/{capability-name}/backend/` with the full Clean Architecture tree |
-| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal .NET host: Minimal-API serving canned `process/{cap}/api.yaml` responses + BackgroundService publishing `process/{cap}/bus.yaml` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `process/{capability-id}/schemas/` (already authored by `/process`). |
+| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal .NET host: Minimal-API serving canned `.model.api` responses + BackgroundService publishing `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `bcm-pack process <CAP_ID>` (already authored by `/process`). |
 
 Announce the chosen mode to the caller before any further action:
 
@@ -196,7 +200,7 @@ exit code 2.
 > `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
 > Use them **verbatim** for wire contracts: event class names map to the full ID,
 > RabbitMQ routing keys are the prefixed `<EVT-id>.<RVT-id>` from
-> `process/{cap}/bus.yaml`, and the topic-exchange / queue names derive from the
+> the process model's `.model.bus`, and the topic-exchange / queue names derive from the
 > **full lower-dotted capability ID** (e.g. `bnk.rlvr.cap.bsp.001.sco-events`).
 > Tactical IDs you invent locally (`CMD/AGG/POL/PRJ/QRY`) stay unprefixed.
 
@@ -281,8 +285,8 @@ You are a senior engineer, not a transcription machine. Refuse to scaffold when:
   (it would emit events in its own right), in which case Mode B applies and
   this agent handles it.
 - Mode B was requested but the capability has **no consumer-facing surface
-  at all** — `process/{cap}/bus.yaml` declares no emitted events AND
-  `process/{cap}/api.yaml` declares no query operations. There is nothing
+  at all** — the process model's `.model.bus` declares no emitted events AND
+  `.model.api` declares no query operations. There is nothing
   to stub. (A capability with only one of the two halves is still
   scaffold-able — Mode B materialises whichever half exists.)
 
@@ -412,12 +416,12 @@ endpoints over HTTP — with canned cold data, so any downstream consumer
 (BFFs, frontends, other capabilities) can develop in complete isolation.
 This is not the place to build real domain logic.
 
-The stub has **two halves** driven by `process/{cap}/`:
+The stub has **two halves** driven by the `bcm-pack process <CAP_ID>` model:
 
 | Half | Driven by | Output |
 |---|---|---|
-| Event publisher | `process/{cap}/bus.yaml` + `process/{cap}/schemas/*.schema.json` (resource-event files are `BNK.RLVR.RVT.*.schema.json`) | `BackgroundService` that publishes simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
-| Query API | `process/{cap}/api.yaml` + `process/{cap}/schemas/*.schema.json` (response schemas) + canned fixtures | ASP.NET Core Minimal-API serving each operation with deterministic canned responses |
+| Event publisher | `.model.bus` + `.schemas["*.schema.json"]` (resource-event files are `BNK.RLVR.RVT.*.schema.json`) | `BackgroundService` that publishes simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
+| Query API | `.model.api` + `.schemas["*.schema.json"]` (response schemas) + canned fixtures | ASP.NET Core Minimal-API serving each operation with deterministic canned responses |
 
 Both halves run in the **same .NET host** (one process, one solution).
 Either half may be empty when its source YAML declares nothing — ship
@@ -477,22 +481,24 @@ Schemas mirror these. Never read `/bcm/*.yaml` directly — go through
 
 ### B.3 — Read the process model — bus, api, schemas (do NOT regenerate)
 
-The wire-format schemas and the surface declarations both live under
-`process/{capability-id}/` — authored by the `/process` skill from the
-BCM corpus. Mode B is a **consumer** of those files; it never writes
-under `process/`.
+The wire-format schemas and the surface declarations are authored by the
+`/process` skill in the **banking-knowledge** repo from the BCM corpus and
+consumed here **read-only** via `bcm-pack process <CAP_ID>` — they do not
+live in this repo. Fetch the model once (`bcm-pack process {capability-id}
+--compact`, cache the JSON) and read its slices. Mode B is a **consumer** of
+the model; there is nothing to write under `process/`.
 
 **B.3.a — Event surface (publish side)**
 
-Read `process/{capability-id}/bus.yaml` and enumerate every emitted
-`RVT.*` entry. For each, read the paired schema:
+Read the model's `.model.bus` (use `.parsed`, fall back to `.raw`) and
+enumerate every emitted `RVT.*` entry. For each, read the paired schema from:
 
 ```
-process/{capability-id}/schemas/BNK.RLVR.RVT.{zone}.{nnn}.{event}.schema.json
+.schemas["BNK.RLVR.RVT.{zone}.{nnn}.{event}.schema.json"]
 ```
 
-(resource-event schema file names carry the full source-context-prefixed asset
-ID; glob `schemas/*.schema.json` and read each `$id` rather than guessing the name.)
+(resource-event schema keys carry the full source-context-prefixed asset
+ID; iterate the `.schemas` map and read each `$id` rather than guessing the key.)
 
 Required for the publisher:
 - the `$id` URL (used as the message envelope's `$schemaRef`)
@@ -502,16 +508,16 @@ Required for the publisher:
 - the correlation-key field (typically `identifiant_dossier`) — the stub
   produces a fresh value per message and never carries the canonical
   referential identifier (consumers resolve via the relevant referential).
-- the routing key declared in `bus.yaml` for that event (must follow
+- the routing key declared in `.model.bus` for that event (must follow
   `{BusinessEventName}.{ResourceEventName}` — ADR-TECH-STRAT-001 Rule 4).
 
 **B.3.b — Query surface (HTTP side)**
 
-Read `process/{capability-id}/api.yaml` and enumerate every operation
-(query / read endpoint). For each, capture:
+Read the model's `.model.api` (use `.parsed`, fall back to `.raw`) and
+enumerate every operation (query / read endpoint). For each, capture:
 - HTTP method + path (e.g. `GET /beneficiaries/{id}`)
-- The operation's response schema reference — read the file from
-  `process/{capability-id}/schemas/{schema-name}.schema.json`
+- The operation's response schema reference — read it from
+  `.schemas["{schema-name}.schema.json"]`
 - Any path / query parameters and their types
 - The status codes the API declares (e.g. 200, 404)
 
@@ -520,11 +526,12 @@ match — same role as the RVT schema for the publisher half.
 
 **B.3.c — Gap handling**
 
-If any schema referenced by `bus.yaml` or `api.yaml` is missing, **stop**:
-that is a `/process` problem. Tell the caller to run `/process <CAP_ID>`
-to refresh the model and merge the resulting PR before re-running this
-task. Do NOT attempt to write a fallback schema anywhere — the schemas
-are owned by `/process` and live under `process/{capability-id}/schemas/`.
+If any schema referenced by `.model.bus` or `.model.api` is missing from
+`.schemas`, **stop**: that is a `/process` problem. Tell the caller to run
+`/process <CAP_ID>` in the banking-knowledge repo to refresh the model and
+merge the resulting PR before re-running this task. Do NOT attempt to write a
+fallback schema anywhere — the schemas are owned by `/process` and served by
+`bcm-pack process`.
 
 If `bus.yaml` declares no emitted events: skip the publisher half and
 note it in the assumptions block (B.6). If `api.yaml` declares no
@@ -669,21 +676,21 @@ Before writing files, output:
 🛠 Mode B implementation plan for [CAP.ID — Name]
 - Mode:                   Contract + development stub (events + query API)
 - Capability:             [name]
-- Publisher half:         [enabled | disabled — bus.yaml empty]
-  - Events to publish:    [list of RVT.* from process/{cap}/bus.yaml]
+- Publisher half:         [enabled | disabled — .model.bus empty]
+  - Events to publish:    [list of RVT.* from .model.bus]
   - Routing keys:         [list, format BusinessEventName.ResourceEventName]
   - Bus exchange:         [name derived from capability-id]
   - Cadence default:      [N to M events / minute, from task DoD]
-- Query half:             [enabled | disabled — api.yaml empty]
-  - Operations to stub:   [list of {method} {path} from process/{cap}/api.yaml]
-  - Response schemas:     [list of schema files read from process/{cap}/schemas/]
+- Query half:             [enabled | disabled — .model.api empty]
+  - Operations to stub:   [list of {method} {path} from .model.api]
+  - Response schemas:     [list of schema keys read from .schemas]
   - Fixtures planned:     [N fixtures per operation (≥3 required)]
-- Schemas (read-only):    process/{capability-id}/schemas/*.schema.json
+- Schemas (read-only):    bcm-pack process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
 - Ports:                  HTTP=[LOCAL_PORT or n/a], AMQP=[RABBIT_PORT or n/a], MGMT=[RABBIT_MGMT_PORT or n/a]
 
-Sources of truth used: [list of files read — process/{cap}/bus.yaml,
-                       process/{cap}/api.yaml, process/{cap}/schemas/*,
+Sources of truth used: [list of slices read — bcm-pack process .model.bus,
+                       .model.api, .schemas[*],
                        ADR-TECH-STRAT-001, FUNC ADR]
 Assumptions taken:     [list, or "none"]
 ```
@@ -697,8 +704,8 @@ When Mode B succeeds:
 
   Capability:           [CAP.ID — Name]
   Mode:                 Contract + development stub (events + query API)
-  Schemas consumed (read-only, owned by /process):
-    process/{capability-id}/schemas/*.schema.json
+  Schemas consumed (read-only, owned by /process, via bcm-pack process):
+    bcm-pack process <CAP_ID> .schemas[*]
   Stub:                 sources/{capability-name}/stub/
 
   Publisher half:       [enabled | disabled]

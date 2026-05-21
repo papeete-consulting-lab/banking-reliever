@@ -1,13 +1,16 @@
 # Banking — Implementation Repo for Reliever
 
 This repo is the **implementation side** of Reliever, a financial-inclusion product.
-It contains the tactical process model of every business capability, its roadmap,
-its tasks, and the generated source code and tests.
+It holds the roadmap, tasks, and generated source code and tests of every business
+capability. The tactical **process model** is no longer authored here — it is
+consumed **read-only** via `bcm-pack process <CAP_ID>`.
 
 All upstream knowledge (BCM YAML, GOV / URBA / FUNC / TECH-STRAT / TECH-TACT ADRs,
 product / business / tech visions) lives in the external **`banking-knowledge`**
-repository and is consumed **read-only** through the `bcm-pack` CLI. This repo never
-authors or modifies upstream artifacts.
+repository and is consumed **read-only** through the `bcm-pack` CLI — including the
+DDD process model, authored by the `/process` skill in `banking-knowledge` and
+surfaced here via `bcm-pack process`. This repo never authors or modifies upstream
+artifacts.
 
 ---
 
@@ -22,20 +25,24 @@ authors or modifies upstream artifacts.
                  │             vision                                       │
                  │                              ↓                           │
                  │                          BCM YAML                        │
+                 │                              +                           │
+                 │            [0] process model (DDD tactical layer,        │
+                 │                authored by /process upstream)            │
                  └──────────────────────────────────────────────────────────┘
                                               │
                                               │  bcm-pack pack <CAP_ID> --deep
+                                              │  bcm-pack process <CAP_ID>
                                               ▼
    ┌────────────────────────────────────────────────────────────────────────┐
    │ This repo — the implementation pipeline                                 │
    │                                                                         │
-   │  [0] process   [1] roadmap [2] task    [3] sort-task    [4] code        │
-   │      ─────▶        ─────▶      ─────▶      / launch         ─────▶      │
-   │      │             │           │           │                │           │
-   │   process/      roadmap/    tasks/      tasks/           worktree       │
-   │   <CAP>/        <CAP>/      <CAP>/      BOARD.md         + agents       │
-   │   (PR gate)     roadmap.md  TASK-*.md  + scheduler          │           │
-   │                                                             ▼           │
+   │  [1] roadmap   [2] task    [3] sort-task    [4] code                    │
+   │      ─────▶        ─────▶      / launch         ─────▶                  │
+   │      │             │           │                │                       │
+   │   roadmap/      tasks/      tasks/           worktree                   │
+   │   <CAP>/        <CAP>/      BOARD.md         + agents                   │
+   │   roadmap.md    TASK-*.md  + scheduler          │                       │
+   │                                                 ▼                       │
    │                                                       [5] test          │
    │                                                       (zone-aware)      │
    │                                                             │           │
@@ -83,8 +90,8 @@ When you invoke the skill it:
 
    | Pending state | Action |
    |---|---|
-   | Capabilities with a complete `bcm-pack` slice but no `process/<CAP_ID>/` on `main` | Tells you to run `/process <CAP_ID>` (interactive — drives the modelling session and opens a PR) |
-   | Capabilities with `process/` merged but no `roadmap.md` | Spawns one `/roadmap` subagent per capability, in parallel |
+   | Capabilities with a complete `bcm-pack` slice but `bcm-pack process <CAP_ID>` does not resolve | Tells you to run `/process <CAP_ID>` in the **banking-knowledge** repo and merge its PR |
+   | Capabilities where `bcm-pack process <CAP_ID>` resolves but no `roadmap.md` | Spawns one `/roadmap` subagent per capability, in parallel |
    | Capabilities with a roadmap but no tasks | Spawns one `/task` subagent per capability, in parallel |
    | Tasks exist | Hands off to `/launch-task` (which calls `/sort-task` first) |
 
@@ -95,15 +102,14 @@ When you invoke the skill it:
 
 ## The six stages
 
-### Stage 0 — Process (DDD tactical model)
+### Stage 0 — Process (DDD tactical model) — **upstream**
 
 | | |
 |---|---|
-| **Skill** | `/process` |
+| **Skill** | `/process` — lives in the **banking-knowledge** repo, not here |
 | **Reads** | `bcm-pack pack <CAP_ID> --deep` (BCM + FUNC / URBA / TECH-STRAT ADRs + visions) |
-| **Writes** | `process/<CAP_ID>/` — `aggregates.yaml`, `commands.yaml`, `policies.yaml`, `read-models.yaml`, `bus.yaml`, `api.yaml`, `schemas/CMD.*.schema.json`, `schemas/RVT.*.schema.json`, `README.md` |
-| **Branch** | dedicated `process/<CAP_ID>` in a worktree under `/tmp/process-worktrees/<CAP_ID>/` |
-| **Publication** | the skill commits, pushes, and opens a PR titled `process(<CAP_ID>): …` against `main` |
+| **Produces** | the process model — `aggregates`, `commands`, `policies`, `read-models`, `bus`, `api`, JSON Schemas (`CMD.*` / `RVT.*`), `README.md` — published in `banking-knowledge` |
+| **Consumed here** | read-only via `bcm-pack process <CAP_ID>` (envelope: `.model.<stem>.{parsed,raw}`, `.schemas["X.schema.json"]`, `.meta`, `.readme`, `.knowledge_base`) |
 
 This is the **DDD tactical layer** that bridges Big-Picture Event Storming (the
 upstream BCM/ADR corpus) and Software Design (the rest of the pipeline). It
@@ -112,21 +118,26 @@ policies that wire consumed events to commands, the read-models that project
 the domain events, and the RabbitMQ topology of every event published or
 consumed — all in architecture-neutral YAML.
 
-`/process` is the **only** authority on `process/<CAP_ID>/`. A `PreToolUse`
-hook (`process-folder-guard.py`) blocks every Write/Edit attempt under
-`process/**` from any other skill or agent.
+The DDD process model is authored by the `/process` skill in the
+**banking-knowledge** repo and consumed here **read-only** via
+`bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+It does not live in this repo, so there is nothing to guard locally and nothing
+to write under `process/`. When reading it, use `.model.<stem>.parsed` and fall
+back to `.raw` when `parsed` is null (`commands` / `read-models` frequently
+parse to null because of invalid-YAML flow mappings).
 
 **Readiness gate** — `/roadmap`, `/task`, `/launch-task`, `/code`, and `/fix`
-all refuse to run for a capability whose `process/<CAP_ID>/` is missing on
-`main` or whose `process/<CAP_ID>` PR is still open. Downstream stages only
-consume process models that have been reviewed and merged.
+all refuse to run for a capability whose model does not resolve, i.e. whose
+`bcm-pack process <CAP_ID>` exits non-zero (its `/process` PR has not been
+merged upstream in **banking-knowledge** yet). Downstream stages only consume
+process models that have been reviewed and merged upstream.
 
 ### Stage 1 — Roadmap
 
 | | |
 |---|---|
 | **Skill** | `/roadmap` |
-| **Reads** | `bcm-pack pack <CAP_ID> --deep` + `process/<CAP_ID>/` (read-only) |
+| **Reads** | `bcm-pack pack <CAP_ID> --deep` + the process model via `bcm-pack process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) |
 | **Writes** | `roadmap/<CAP_ID>/roadmap.md` (epics, milestones, exit conditions) |
 | **Parallelism** | one subagent per capability |
 
@@ -140,7 +151,7 @@ model — it never re-derives them.
 | | |
 |---|---|
 | **Skill** | `/task` |
-| **Reads** | `roadmap/<CAP_ID>/roadmap.md` + `process/<CAP_ID>/` + `bcm-pack pack <CAP_ID> --compact` |
+| **Reads** | `roadmap/<CAP_ID>/roadmap.md` + the process model via `bcm-pack process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) + `bcm-pack pack <CAP_ID> --compact` |
 | **Writes** | `tasks/<CAP_ID>/TASK-NNN-*.md` (flat per-capability folder) |
 | **Frontmatter** | `task_id`, `capability_id`, `epic`, `status`, `priority`, `depends_on`, `task_type?`, `loop_count: 0`, `max_loops: 10` |
 | **Parallelism** | one subagent per capability |
@@ -177,12 +188,12 @@ Pure observation. Never modifies tasks, never launches agents.
 | | |
 |---|---|
 | **Skill** | `/code` |
-| **Reads** | task file + `process/<CAP_ID>/` + `bcm-pack pack <CAP_ID>` (for `zoning`) |
+| **Reads** | task file + the process model via `bcm-pack process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) + `bcm-pack pack <CAP_ID>` (for `zoning`) |
 | **Branches on** | `task_type` (`contract-stub` → Mode B), then capability `zoning` |
 
 | Routing | Path | Agent(s) | Output |
 |---|---|---|---|
-| `task_type: contract-stub` (any zone) | C | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker that publishes RVT events on RabbitMQ. **Reads** the JSON Schemas from `process/<CAP_ID>/schemas/RVT.*.schema.json` (does not regenerate them) |
+| `task_type: contract-stub` (any zone) | C | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker that publishes RVT events on RabbitMQ. **Reads** the JSON Schemas via `bcm-pack process <CAP_ID>` (`.schemas["RVT.*.schema.json"]`, does not regenerate them) |
 | `BUSINESS_SERVICE_PRODUCTION` `SUPPORT` `REFERENTIAL` `EXCHANGE_B2B` `DATA_ANALYTIQUE` `STEERING` | A | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ, `GET /health` |
 | `CHANNEL` | B | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 ASP.NET Core BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5 + CSS3 + JS) |
 
@@ -195,8 +206,9 @@ agent with a `── REMEDIATION CONTEXT ──` block. The loop is bounded by
 For non-CHANNEL Mode A, an optional **contract harness** can be attached
 post-implementation via `/harness-backend <CAP_ID>` — it scaffolds a
 `*.Contracts.Harness/` project that derives `openapi.yaml` and `asyncapi.yaml`
-from `process/<CAP_ID>/` and the BCM corpus, and asserts strict alignment
-with bidirectional `x-lineage` extensions.
+from the process model (via `bcm-pack process <CAP_ID>` — `.model.*`, `.schemas`)
+and the BCM corpus, and asserts strict alignment with bidirectional `x-lineage`
+extensions.
 
 **Branch isolation is end-to-end**: bus channels, RabbitMQ exchanges/queues,
 OTel `environment` tag, frontend branch badge all carry the branch slug.
@@ -230,16 +242,10 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 ```
 /CLAUDE.md                            contributor & Claude Code guidance
 /README.md                            this file
-/process/                             local — DDD tactical model (Stage 0)
-   <CAP_ID>/README.md                 framing + scenario walkthroughs + open questions
-   <CAP_ID>/aggregates.yaml           consistency boundaries + invariants
-   <CAP_ID>/commands.yaml             accepted commands + idempotency
-   <CAP_ID>/policies.yaml             event → command reactive policies
-   <CAP_ID>/read-models.yaml          projections + queries
-   <CAP_ID>/bus.yaml                  RabbitMQ topology (publish + subscribe)
-   <CAP_ID>/api.yaml                  derived REST surface
-   <CAP_ID>/schemas/                  JSON Schemas (CMD.*.schema.json, RVT.*.schema.json)
-   banking-miro.url                   live link to the Miro Event Storming board
+                                      Stage 0 — the DDD tactical model — is NOT
+                                      here: authored by /process in the
+                                      banking-knowledge repo, consumed read-only
+                                      via `bcm-pack process <CAP_ID>`
 /roadmap/                             local — epic roadmaps (Stage 1)
    <CAP_ID>/roadmap.md                epics + milestones + exit conditions
 /tasks/                               local — kanban (Stages 2-3)
@@ -254,7 +260,6 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 /.claude/
    skills/                            Claude Code skills (this orchestrator + the workers)
       implementation-pipeline/        the orchestrator
-      process/                        Stage 0 — interactive modelling + PR
       roadmap/  task/  sort-task/     stages 1-3a
       launch-task/  code/             stages 3b-4
       test-business-capability/       stage 5 — Path A
@@ -263,7 +268,7 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
       continue-work/                  resume a `stalled` task
       fix/                            remediate a failing PR / merged build
       harness-backend/                add OpenAPI + AsyncAPI contract harness
-      sketch-miro/                    render process/ as a Miro Event Storming board
+      sketch-miro/                    render the process model (via bcm-pack process) as a Miro Event Storming board
       pr-merge-watcher/  agent-watch/ ops helpers
       commit/                         conventional-commit + push + PR helper
    agents/                            agent definitions
@@ -274,7 +279,6 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
       test-app.md                     stage-5 test agent — Path B
       harness-backend.md              contract harness generator
    hooks/
-      process-folder-guard.py         PreToolUse — protects process/** outside /process
       kanban-watch-write.sh           PostToolUse — refresh BOARD on TASK file edit
       kanban-watch-bash.sh            PostToolUse — refresh BOARD on TASK rm/mv
 ```
@@ -286,8 +290,8 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 | Command | What it does |
 |---|---|
 | `/implementation-pipeline` | Status + advance to next pending stage |
-| `/process <CAP_ID>` | Stage 0 — interactive DDD modelling, opens a PR on `process/<CAP_ID>` branch |
-| `/sketch-miro` | Render every `process/CAP.*/` as a Miro Event Storming board |
+| `/process <CAP_ID>` | Stage 0 — lives **upstream** in banking-knowledge; consumed here via `bcm-pack process <CAP_ID>` |
+| `/sketch-miro` | Render every process-modelled capability (via `bcm-pack process`) as a Miro Event Storming board |
 | `/roadmap` | Stage 1 — generate `roadmap.md` for current capability |
 | `/task` | Stage 2 — generate `TASK-NNN-*.md` for a capability |
 | `/sort-task` | Refresh `tasks/BOARD.md` (read-only) |
@@ -311,19 +315,23 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 - **All upstream context is read-only.** GOV / URBA / TECH-STRAT / FUNC / TACTICAL
   ADRs, BCM YAML, and product/business/tech visions are consumed via `bcm-pack`
   only. To change them, edit the `banking-knowledge` repo.
-- **`process/<CAP_ID>/` is owned by `/process`.** No other skill or agent may
-  modify it; a `PreToolUse` hook enforces this. Changes flow through a
-  dedicated `process/<CAP_ID>` PR and must be merged before downstream stages
-  can consume the model — `/roadmap`, `/task`, `/launch-task`, `/code`, and
-  `/fix` all gate on this.
+- **The process model is upstream and read-only here.** It is authored by the
+  `/process` skill in the **banking-knowledge** repo and consumed here via
+  `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+  It does not live in this repo, so there is nothing to guard locally and
+  nothing to write under `process/`. Its `/process` PR must be merged upstream
+  before downstream stages can consume the model — `/roadmap`, `/task`,
+  `/launch-task`, `/code`, and `/fix` all gate on `bcm-pack process <CAP_ID>`
+  resolving (exit 0).
 - **Folder layout is strict.** The legacy `/plan/` output folder no longer
-  exists. `/process/` (Stage 0), `/roadmap/` (Stage 1), `/tasks/` (Stages 2–3)
-  each have a single authoring skill. No skill writes outside its lane.
-- **Every task traces back** to a roadmap epic → process model → BCM capability →
-  FUNC ADR → URBA constraints. The chain is unbreakable.
+  exists. `/roadmap/` (Stage 1) and `/tasks/` (Stages 2–3) each have a single
+  authoring skill. Stage 0 is upstream. No skill writes outside its lane.
+- **Every task traces back** to a roadmap epic → process model (via
+  `bcm-pack process`) → BCM capability → FUNC ADR → URBA constraints. The chain
+  is unbreakable.
 - **Every implementation artifact** (microservice / BFF / frontend / stub) is
   reachable from a TASK-NNN, and every routing key / aggregate / command it uses
-  is defined in `process/<CAP_ID>/`.
+  is defined in the process model, consumed via `bcm-pack process <CAP_ID>`.
 - **Branch isolation** — one branch per task, ports & exchanges scoped by branch
   slug, parallel worktrees never collide.
 - **One code agent per task** at a time; one active task per capability.

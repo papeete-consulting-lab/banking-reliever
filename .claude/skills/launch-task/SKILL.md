@@ -62,64 +62,54 @@ agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Hard rule — `process/{capability-id}/` is read-only
+## Process model — consumed read-only via `bcm-pack process`
 
-Every worktree this skill creates under `/tmp/kanban-worktrees/TASK-NNN-*/`
-inherits a copy of `process/{capability-id}/`. The `code` agents you spawn in
-those worktrees, and the test agents that follow, treat that folder as a
-**read-only contract**. The `process-folder-guard.py` PreToolUse hook blocks
-every Write/Edit attempt under `process/**` outside the `/process` skill —
-this applies in both the main checkout and the worktrees.
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via
+> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> It does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`.
 
-Concretely:
+The `code` agents you spawn (and the test agents that follow) consume the model
+as a **read-only contract**, fetched via `bcm-pack process <CAP_ID>`. There is
+no local `process/` folder in the main checkout or in any worktree, so:
 
-- The `code` / `fix` agents you spawn must not commit any change under
-  `process/{capability-id}/` to their feature branch.
-- The PRs / CI-CD pipelines opened by those agents must not contain any diff
-  under `process/{capability-id}/`.
+- The `code` / `fix` agents you spawn have nothing to commit under `process/`.
 - If a `code` agent reports that the model needs to change to satisfy the
   task, treat it as a **stall** signal: stop the agent, tell the user to run
-  `/process <CAPABILITY_ID>` to amend the model in a separate session, then
-  reschedule the task once the model has been updated and merged.
+  `/process <CAPABILITY_ID>` in the banking-knowledge repo to amend the model,
+  then reschedule the task once the model has been updated and its PR merged.
 
 When you create a new worktree, propagate this constraint by including in the
 agent prompt:
 
-> "process/{capability-id}/ is the read-only contract for this task. Read it
-> for AGG / CMD / POL / PRJ / QRY / bus topology / JSON Schemas, but never
-> modify any file under process/. The PreToolUse hook
-> process-folder-guard.py will block any such attempt."
+> "The process model for this capability is the read-only contract. Fetch it
+> via `bcm-pack process <CAPABILITY_ID>` for AGG / CMD / POL / PRJ / QRY / bus
+> topology / JSON Schemas, but never reshape it — it is authored upstream in
+> banking-knowledge."
 
 ---
 
-## Readiness gate — process model must be merged on `main`
+## Readiness gate — the process model must resolve via `bcm-pack process`
 
 Before launching any code agent for a task whose capability is `<CAP_ID>`,
-verify that `process/<CAP_ID>/` is on `main` AND that no `process/<CAP_ID>`
-PR is still open. The agent worktree is forked from `main`, so an unmerged
-process model would never reach the agent — and silently launching against
-an empty `process/<CAP_ID>/` produces a useless run.
+verify the process model resolves. A model is ready iff `bcm-pack process
+<CAP_ID>` returns exit 0 (bcm-pack resolves the published `main` of
+banking-knowledge by default). Launching against a capability with no published
+process model produces a useless run.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task-about-to-launch>"
 
-# 1. Folder must exist on main.
-git -C "$PROJECT_ROOT" ls-tree --name-only main -- "process/$CAP_ID" \
-    > /tmp/process-main-check.txt
-if [ ! -s /tmp/process-main-check.txt ]; then
-  echo "GATE-FAIL: process/$CAP_ID/ is not on main."
-  echo "Cannot launch tasks for $CAP_ID — run /process $CAP_ID first and merge the PR."
-  # SKIP this candidate; continue with other capabilities in auto mode.
-fi
-
-# 2. No open PR for the process branch.
-OPEN_COUNT=$(gh pr list --head "process/$CAP_ID" --state open --json number --jq 'length' 2>/dev/null || echo 0)
-if [ "$OPEN_COUNT" != "0" ]; then
-  PR_URL=$(gh pr list --head "process/$CAP_ID" --state open --json url --jq '.[0].url')
-  echo "GATE-FAIL: open process PR ($PR_URL) is pending review for $CAP_ID."
-  echo "Cannot launch tasks for $CAP_ID until the PR is merged."
-  # SKIP this candidate; continue with other capabilities in auto mode.
+# The process model lives in banking-knowledge now; it is ready iff bcm-pack
+# can resolve it (bcm-pack resolves the published main by default).
+if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "GATE-FAIL: no process model for $CAP_ID."
+  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  cat /tmp/process-model.err
+  # In auto mode: SKIP this candidate; continue with other capabilities.
 fi
 ```
 
@@ -127,7 +117,7 @@ In **manual mode** (`launch TASK-NNN`), a gate failure is a hard stop —
 report the gate-fail message and refuse to launch. In **auto mode**,
 silently skip every candidate whose capability fails the gate (do not
 launch them) and surface the skipped list in the final summary so the user
-knows which capabilities still need their process PR merged.
+knows which capabilities still need their process model published upstream.
 
 ---
 

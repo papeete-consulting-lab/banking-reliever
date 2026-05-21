@@ -11,11 +11,16 @@ vanilla web frontends, contract stubs, and their tests.
 All upstream knowledge — BCM YAML, GOV / URBA / TECH-STRAT / FUNC / TECH-TACT
 ADRs, product / business / tech visions — lives in a separate
 **`banking-knowledge`** repo and is consumed **read-only** through the
-`bcm-pack` CLI. The runtime/deployment **platform** substrate (PCM model,
-platform events/objects, runtime ADRs) lives in a second separate repo,
-**`banking-platform`**, consumed **read-only** through the `pcm-pack` CLI.
-This repo never authors or edits upstream artifacts. There is no `bcm/`,
-`adr/`, `func-adr/`, `tools/`, `build.sh`, or EventCatalog build here anymore.
+`bcm-pack` CLI. **The DDD tactical Process Modelling layer** (aggregates,
+commands, policies, read-models, bus topology, JSON Schemas) also lives in
+`banking-knowledge` now (authored there by the `/process` skill) and is
+consumed here **read-only** through `bcm-pack process <CAP_ID>` — exactly like
+the BCM corpus (see `banking-knowledge` for the migration rationale). The
+runtime/deployment **platform** substrate (PCM model, platform events/objects,
+runtime ADRs) lives in a second separate repo, **`banking-platform`**, consumed
+**read-only** through the `pcm-pack` CLI. This repo never authors or edits
+upstream artifacts. There is no `bcm/`, `adr/`, `func-adr/`, `process/`,
+`tools/`, `build.sh`, or EventCatalog build here anymore.
 
 ### Enriched, source-context-prefixed asset IDs (CLI v1.0.0+)
 
@@ -33,10 +38,10 @@ Platform (PCM) assets use the **`BNK.TECH.`** prefix instead of `BNK.RLVR.`.
 
 Rules:
 - **The capability ID is the full prefixed form everywhere in this repo** —
-  folder names (`process/BNK.RLVR.CAP.…/`, `sources/BNK.RLVR.CAP.…/`, …),
-  `capability_id` in TASK frontmatter, branch derivation, and all skill/agent
-  docs. `bcm-pack`/`pcm-pack` v1.0.0 **reject the old short form** (`CAP.…`)
-  with exit code 2 (`Unknown capability`).
+  folder names (`sources/BNK.RLVR.CAP.…/`, `roadmap/BNK.RLVR.CAP.…/`, …),
+  `capability_id` in TASK frontmatter, branch derivation, the argument to
+  `bcm-pack process`, and all skill/agent docs. `bcm-pack`/`pcm-pack` v1.0.0
+  **reject the old short form** (`CAP.…`) with exit code 2 (`Unknown capability`).
 - **bcm-sourced asset IDs** (`CAP/RVT/EVT/OBJ/SUB/RES/CON`) are used **verbatim
   as returned by `bcm-pack`** — already prefixed. Schemas, `bus.yaml` routing
   keys, generated event classes, and RabbitMQ topology all carry the prefix.
@@ -61,17 +66,22 @@ business/resource events, objects, concepts, resources, subscriptions, ADRs,
 vocab) — scoped to one capability with `--capability`.
 
 **Provenance is recorded and drift is detected** (see invariants): `/process`
-stamps the consumed `knowledge_base` block into the process model; downstream
+(upstream) stamps the consumed `knowledge_base` block into the process model;
+`bcm-pack process <CAP_ID>` surfaces it as `.knowledge_base`; downstream
 artifacts carry the `bcm_ref` forward; `/implementation-pipeline` and `/fix`
 run `bcm-pack diff <recorded_ref> --capability <CAP_ID>` to flag when upstream
 knowledge has moved since an artifact was generated.
 
 ## The implementation pipeline
 
-Six stages, each owned by a single skill, each writing to a single folder:
+Stage 0 — the DDD tactical **Process Modelling** layer — is authored by
+`/process` **in the `banking-knowledge` repo** and consumed here read-only via
+`bcm-pack process <CAP_ID>`. The five local stages, each owned by a single
+skill, each writing to a single folder:
 
 ```
-[0] /process       process/<CAP_ID>/          DDD tactical model (PR-gated)
+[0] /process       (banking-knowledge)        DDD tactical model
+                   ↳ consumed here via `bcm-pack process <CAP_ID>` (read-only)
 [1] /roadmap       roadmap/<CAP_ID>/          epics + milestones
 [2] /task          tasks/<CAP_ID>/            unit-of-work TASK-NNN-*.md
 [3] /sort-task     tasks/BOARD.md             read-only kanban (hook-driven)
@@ -82,14 +92,15 @@ Six stages, each owned by a single skill, each writing to a single folder:
 ```
 
 Entry point for end-to-end orchestration: **`/implementation-pipeline`** —
-probes upstream readiness via `bcm-pack`, inspects local artifacts, dispatches
-the next pending stage. Idempotent: re-invoke after each stage completes.
+probes upstream readiness via `bcm-pack` (knowledge) and `bcm-pack process`
+(the process model), inspects local artifacts, dispatches the next pending
+stage. Idempotent: re-invoke after each stage completes.
 
 ## Repo layout
 
 ```
-/process/<CAP_ID>/        Stage 0 — aggregates.yaml, commands.yaml, policies.yaml,
-                          read-models.yaml, bus.yaml, api.yaml, schemas/*.schema.json
+(Stage 0 — process model — is NOT here; fetch via `bcm-pack process <CAP_ID>`.
+ It lives in the banking-knowledge repo, authored by /process.)
 /roadmap/<CAP_ID>/        Stage 1 — roadmap.md
 /tasks/                   Stages 2-3 — BOARD.md + <CAP_ID>/TASK-NNN-*.md
 /sources/<CAP_ID>/        Stage 4 — backend/ (Mode A microservice) | stub/ (Mode B)
@@ -101,7 +112,7 @@ the next pending stage. Idempotent: re-invoke after each stage completes.
 /.claude/skills/          one folder per skill (see cheatsheet)
 /.claude/agents/          implement-capability, create-bff, code-web-frontend,
                           test-business-capability, test-app, harness-backend
-/.claude/hooks/           process-folder-guard.py, kanban-watch-*.sh
+/.claude/hooks/           roadmap-folder-guard.py, tasks-folder-guard.py, kanban-watch-*.sh
 ```
 
 ## TASK frontmatter
@@ -121,8 +132,9 @@ bcm_ref: <git ref the process model was generated from, e.g. v1.0.0>   # set by 
 ```
 
 `/code` is the sole writer of `loop_count`, `max_loops`, `stalled_reason`, `pr_url`.
-`bcm_ref` is carried forward from the process-model provenance (written by
-`/process`) so any stage can `bcm-pack diff` against it to detect upstream drift.
+`bcm_ref` is carried forward from the process-model provenance (stamped by
+`/process` upstream, surfaced as `bcm-pack process <CAP_ID>` → `.knowledge_base.ref`)
+so any stage can `bcm-pack diff` against it to detect upstream drift.
 
 ## Stage 4 routing (zone-, type-, and language-aware)
 
@@ -136,8 +148,8 @@ falls back to the .NET agent with a warning.
 
 | Trigger | Agent(s) | Output |
 |---|---|---|
-| `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `process/<CAP_ID>/schemas/` (does NOT regenerate them) |
-| `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `process/<CAP_ID>/schemas/` |
+| `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `bcm-pack process <CAP_ID>` (`.schemas`, does NOT regenerate them) |
+| `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `bcm-pack process <CAP_ID>` (`.schemas`) |
 | zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTICS`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika |
 | same zones + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ |
 | zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 Minimal API BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS) — language fixed; TECH-TACT tags ignored for CHANNEL |
@@ -148,16 +160,17 @@ Post-implementation:
   via a `── REMEDIATION CONTEXT ──` block, bounded by `max_loops`.
 - For non-CHANNEL Mode A, an optional **contract harness** is attached via
   `/harness-backend <CAP_ID>` — scaffolds a `*.Contracts.Harness/` project
-  that derives `openapi.yaml` + `asyncapi.yaml` from `process/<CAP_ID>/`
-  and the BCM corpus, with bidirectional `x-lineage` extensions.
+  that derives `openapi.yaml` + `asyncapi.yaml` from the process model
+  (`bcm-pack process <CAP_ID>`) and the BCM corpus, with bidirectional
+  `x-lineage` extensions.
 
 ## Skill cheatsheet
 
 | Command | What it does |
 |---|---|
 | `/implementation-pipeline` | Status across all capabilities; advance to next pending stage |
-| `/process <CAP_ID>` | Stage 0 — interactive DDD modelling; opens PR on `process/<CAP_ID>` branch |
-| `/sketch-miro` | Render every `process/BNK.RLVR.CAP.*/` as a Miro Event Storming board |
+| `/process <CAP_ID>` | Stage 0 — interactive DDD modelling. **Lives in the `banking-knowledge` repo**, not here; consumed here via `bcm-pack process <CAP_ID>` |
+| `/sketch-miro` | Render every process-modelled capability (enumerated via `bcm-pack process --list`) as a Miro Event Storming board |
 | `/c4-export` | Render the BCM tree as Structurizr DSL — per-L2, per-zone, enterprise — under `docs/c4/` |
 | `/roadmap` | Stage 1 — `roadmap.md` for a capability |
 | `/task` | Stage 2 — `TASK-NNN-*.md` for a capability |
@@ -184,19 +197,20 @@ Post-implementation:
   substrate (`BNK.TECH.…`). `<CAP_ID>` is always the **full source-context-prefixed
   ID**; the short `CAP.…` form is rejected (exit 2) by the v1.0.0 CLIs.
 - **Provenance is recorded; drift is detected.** The `knowledge_base` block of
-  `bcm-pack pack`/`version` (git ref + commit + date) is stamped by `/process`
-  into the process model and carried forward as `bcm_ref` on TASK frontmatter.
-  `/implementation-pipeline` and `/fix` run `bcm-pack diff <bcm_ref> --capability
-  <CAP_ID>` to flag upstream changes since an artifact was generated.
-- **`process/<CAP_ID>/` is owned by `/process` alone.** A PreToolUse hook
-  (`process-folder-guard.py`) blocks every Write/Edit under `process/**`
-  from any other skill or agent. Changes flow through a dedicated
-  `process/<CAP_ID>` PR; `/roadmap`, `/task`, `/launch-task`, `/code`, `/fix`
-  refuse to run until that PR is merged into `main`.
-- **One authoring skill per folder.** `/process` → `process/`, `/roadmap` → `roadmap/`,
+  `bcm-pack pack`/`version`/`process` (git ref + commit + date) is stamped by
+  `/process` into the process model and carried forward as `bcm_ref` on TASK
+  frontmatter. `/implementation-pipeline` and `/fix` run `bcm-pack diff <bcm_ref>
+  --capability <CAP_ID>` to flag upstream changes since an artifact was generated.
+- **The process model is upstream and read-only here.** It lives in
+  `banking-knowledge` (authored by `/process`) and is consumed via
+  `bcm-pack process <CAP_ID>` — never read from a local `process/` folder (there
+  is none) and never written. Stage-0 readiness is `bcm-pack process <CAP_ID>`
+  returning exit 0; `/roadmap`, `/task`, `/launch-task`, `/code`, `/fix` refuse
+  to run until the model resolves (i.e. its `/process` PR is merged upstream).
+- **One authoring skill per folder.** `/roadmap` → `roadmap/`,
   `/task` → `tasks/<CAP_ID>/`, `/sort-task` → `tasks/BOARD.md`, `/code` → `sources/`
   and `src/`, the test skills → `tests/`, `/c4-export` → `docs/c4/`. No skill writes
-  outside its lane.
+  outside its lane. (`/process` and `process/` are owned by `banking-knowledge`.)
 - **Branch isolation is end-to-end.** One branch (`feat/TASK-NNN-{slug}`) and
   one worktree (`/tmp/kanban-worktrees/TASK-NNN-{slug}/`) per task. RabbitMQ
   exchanges/queues, ports, OTel `environment` tag, and frontend branch badge
@@ -221,9 +235,10 @@ Post-implementation:
 
 ## When you don't know where to start
 
-- New capability, never modelled here → `/implementation-pipeline` (it will
-  tell you to run `/process <CAP_ID>` first, after checking `bcm-pack` readiness).
-- Process model merged, no roadmap yet → `/roadmap`.
+- New capability, never modelled → `/implementation-pipeline` (it will tell you
+  to run `/process <CAP_ID>` **in the `banking-knowledge` repo** first — until
+  `bcm-pack process <CAP_ID>` resolves, there is nothing to plan against).
+- Process model published (`bcm-pack process <CAP_ID>` exits 0), no roadmap yet → `/roadmap`.
 - Roadmap merged, no tasks → `/task`.
 - Tasks exist → `/launch-task` (or `/launch-task auto`).
 - Something is red → `/fix` with the PR number, branch, or log paste.

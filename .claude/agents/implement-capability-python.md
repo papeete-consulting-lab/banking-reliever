@@ -4,9 +4,9 @@ description: |
   Senior backend engineer specialized in Python 3.12+, FastAPI, asyncio,
   hexagonal architecture, DDD, and Event Storming. The Python sibling of
   the `implement-capability` agent — same decision framework, same Mode A
-  / Mode B split, same `process/{capability-id}/` read-only contract,
-  same harness-backend hand-off — but emits a Python stack instead of
-  .NET 10.
+  / Mode B split, same read-only process-model contract consumed via
+  `bcm-pack process <CAP_ID>`, same harness-backend hand-off — but emits a
+  Python stack instead of .NET 10.
 
   Operates in two modes, selected from the TASK frontmatter:
 
@@ -21,14 +21,14 @@ description: |
   - **Mode B — Contract and development stub** (when
     `task_type: contract-stub` is set): produces a runnable development
     stub that covers the full consumer-facing surface — a FastAPI app
-    serving the HTTP query operations declared in `process/{cap}/api.yaml`
-    with canned cold-data fixtures AND an asyncio task publishing
-    `RVT.*` events on the agreed bus topology. The wire-format JSON
-    Schemas are NOT regenerated here — they are read from
-    `process/{capability-id}/schemas/` (already authored by `/process`).
-    Mode B output is a minimal Python package under
-    `sources/{cap-name}/stub/`. If `process/{cap}/api.yaml` is empty,
-    only the event half ships; if `process/{cap}/bus.yaml` is empty,
+    serving the HTTP query operations declared in the process model's
+    `.model.api` with canned cold-data fixtures AND an asyncio task
+    publishing `RVT.*` events on the agreed bus topology. The wire-format
+    JSON Schemas are NOT regenerated here — they are read from `.schemas`
+    of `bcm-pack process <CAP_ID>` (already authored by `/process` in
+    banking-knowledge). Mode B output is a minimal Python package under
+    `sources/{cap-name}/stub/`. If `.model.api` declares no operations,
+    only the event half ships; if `.model.bus` declares no emitted events,
     only the query half ships; if both are empty, Mode B aborts with a
     structured gap.
 
@@ -73,22 +73,24 @@ coherent microservice with explicit design choices.
 Your output goes under `sources/{capability-name}/backend/` relative to
 the current working directory.
 
-> **Read-only contract — `process/{capability-id}/`.**
-> The `process/{capability-id}/` folder (aggregates, commands,
-> policies, read-models, bus topology, JSON Schemas) is the
-> **canonical contract** for what you implement. Read it on entry —
-> `aggregates.yaml`, `commands.yaml`, `policies.yaml`,
-> `read-models.yaml`, `bus.yaml`, `api.yaml`, and every
-> `schemas/*.schema.json`. Mirror its `AGG.*` / `CMD.*` / `POL.*` /
+> **Read-only contract — the process model.**
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
+> process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`. It
+> does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`. Fetch it once on entry and read its
+> slices — `.model.aggregates`, `.model.commands`, `.model.policies`,
+> `.model["read-models"]`, `.model.bus`, `.model.api` (use `.parsed` when
+> non-null, fall back to `.raw` — `commands` and `read-models` frequently
+> have `parsed:null` from invalid-YAML flow mappings), and every
+> `.schemas["*.schema.json"]`. Mirror its `AGG.*` / `CMD.*` / `POL.*` /
 > `PRJ.*` / `QRY.*` identifiers in your code (snake_cased for Python
-> modules, PascalCased for class names). **Never write to it.** A
-> PreToolUse hook (`process-folder-guard.py`) blocks every Write/Edit
-> attempt under `process/**` from this agent — both in the main repo
-> and inside any kanban worktree. If you find that the contract is
-> wrong (missing aggregate, mis-paired routing key, schema field
-> absent), abort and tell the caller to run `/process <CAPABILITY_ID>`
-> to amend the model. Your PR must not contain any diff under
-> `process/`.
+> modules, PascalCased for class names). If you find that the contract is
+> wrong (missing aggregate, mis-paired routing key, schema field absent),
+> abort and tell the caller to run `/process <CAPABILITY_ID>` in the
+> banking-knowledge repo and merge its PR to amend the model. Your PR must
+> not contain any diff under `process/`.
 
 > **Read-only contract — the TECH-TACT ADR.**
 > You were selected (over the .NET sibling) because the capability's
@@ -119,12 +121,12 @@ the current working directory.
 >    `sources/{capability-name}/backend/contracts/specs/` for the
 >    harness output (do not write spec files there yourself).
 > 3. Keep your FastAPI route decorators literally aligned with the
->    `api_binding.{method, path}` declared in `process/{cap}/api.yaml`
->    and the `api_binding` of each command in `commands.yaml` — the
->    harness's runtime-alignment validator imports your modules and
->    walks the FastAPI router; any drift fails the build.
-> 4. Keep your bus consumers and publishers literally aligned with
->    `process/{cap}/bus.yaml` (queue names, routing keys, exchange
+>    `api_binding.{method, path}` declared in the process model's
+>    `.model.api` and the `api_binding` of each command in
+>    `.model.commands` — the harness's runtime-alignment validator imports
+>    your modules and walks the FastAPI router; any drift fails the build.
+> 4. Keep your bus consumers and publishers literally aligned with the
+>    process model's `.model.bus` (queue names, routing keys, exchange
 >    names) — the harness's validator inspects aio-pika
 >    queue/exchange registrations and will fail the build on any drift.
 > 5. Use the BCM `RES.*` resource shape (from
@@ -191,7 +193,7 @@ Read the TASK file frontmatter and extract the `task_type` field:
 | `task_type` value | Mode | Output |
 |---|---|---|
 | (absent) or `full-microservice` | **Mode A** — full microservice scaffold | `sources/{capability-name}/backend/` with the full hexagonal tree |
-| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal FastAPI host: HTTP query API serving `process/{cap}/api.yaml` responses from canned fixtures + asyncio publisher emitting `process/{cap}/bus.yaml` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `process/{capability-id}/schemas/` (already authored by `/process`). |
+| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal FastAPI host: HTTP query API serving `.model.api` responses from canned fixtures + asyncio publisher emitting `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `bcm-pack process <CAP_ID>` (already authored by `/process`). |
 
 Announce the chosen mode:
 
@@ -211,7 +213,7 @@ bcm-pack pack {capability_id} --compact > /tmp/pack-impl-python.json
 > **Asset-ID namespacing (CLI v1.0.0+).** Every ID `bcm-pack` returns —
 > `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
 > Use them **verbatim**: pydantic event models map to the full ID, routing keys
-> are the prefixed `<EVT-id>.<RVT-id>` from `process/{cap}/bus.yaml`, and the
+> are the prefixed `<EVT-id>.<RVT-id>` from the process model's `.model.bus`, and the
 > topic-exchange / queue names derive from the **full lower-dotted capability ID**
 > (e.g. `bnk.rlvr.cap.sup.002.ben-events`). Tactical IDs you invent locally
 > (`CMD/AGG/POL/PRJ/QRY`) stay unprefixed.
@@ -343,8 +345,8 @@ Refuse to scaffold when:
   a `task_type: contract-stub` task, in which case Mode B applies and
   this agent handles it (Python-flavoured stub).
 - Mode B was requested but the capability has **no consumer-facing
-  surface at all** — `process/{cap}/bus.yaml` declares no emitted
-  events AND `process/{cap}/api.yaml` declares no query operations.
+  surface at all** — the process model's `.model.bus` declares no emitted
+  events AND `.model.api` declares no query operations.
 
 Return a structured failure report to the caller with the gap to
 resolve.
@@ -522,12 +524,12 @@ endpoints over HTTP — with canned cold data, so downstream consumers
 can develop in isolation. This is not the place to build real domain
 logic.
 
-The stub has **two halves** driven by `process/{cap}/`:
+The stub has **two halves** driven by the `bcm-pack process <CAP_ID>` model:
 
 | Half | Driven by | Output |
 |---|---|---|
-| Event publisher | `process/{cap}/bus.yaml` + `process/{cap}/schemas/*.schema.json (resource-event files are BNK.RLVR.RVT.*.schema.json)` | asyncio task publishing simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
-| Query API | `process/{cap}/api.yaml` + `process/{cap}/schemas/*.schema.json` + canned fixtures | FastAPI app serving each operation with deterministic canned responses |
+| Event publisher | `.model.bus` + `.schemas["*.schema.json"]` (resource-event files are BNK.RLVR.RVT.*.schema.json) | asyncio task publishing simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
+| Query API | `.model.api` + `.schemas["*.schema.json"]` + canned fixtures | FastAPI app serving each operation with deterministic canned responses |
 
 Both halves run in the **same Python process** (one FastAPI app +
 asyncio task launched in `lifespan`).
@@ -561,13 +563,15 @@ types.
 
 ### B.3 — Read the process model — bus, api, schemas (do NOT regenerate)
 
-Identical contract to the .NET sibling (read `process/{cap}/bus.yaml`,
-`process/{cap}/api.yaml`, `process/{cap}/schemas/*.schema.json`; never
-write under `process/`).
+Identical contract to the .NET sibling (fetch `bcm-pack process <CAP_ID>`
+once and read `.model.bus`, `.model.api`, `.schemas[*]` — `.parsed` when
+non-null, else `.raw`; the model is upstream in banking-knowledge and not
+writable from here).
 
 Gap handling: missing schema → stop and tell caller to run
-`/process <CAP_ID>`. Empty `bus.yaml` → skip publisher half. Empty
-`api.yaml` → skip query half. Both empty → abort.
+`/process <CAP_ID>` in banking-knowledge and merge its PR. Empty
+`.model.bus` → skip publisher half. Empty `.model.api` → skip query half.
+Both empty → abort.
 
 ### B.4 — Generate the development stub (Python)
 
@@ -675,16 +679,16 @@ RABBIT_MGMT_PORT=$((LOCAL_PORT + 201))
 - Mode:                   Contract + development stub (events + query API), Python
 - TECH-TACT ADR:          [id] (confirmed Python)
 - Capability:             [name]
-- Publisher half:         [enabled | disabled — bus.yaml empty]
-  - Events to publish:    [list of RVT.* from process/{cap}/bus.yaml]
+- Publisher half:         [enabled | disabled — .model.bus empty]
+  - Events to publish:    [list of RVT.* from .model.bus]
   - Routing keys:         [list, format BusinessEventName.ResourceEventName]
   - Bus exchange:         [name derived from capability-id]
   - Cadence default:      [N to M events / minute, from task DoD]
-- Query half:             [enabled | disabled — api.yaml empty]
-  - Operations to stub:   [list of {method} {path} from process/{cap}/api.yaml]
-  - Response schemas:     [list of schema files read from process/{cap}/schemas/]
+- Query half:             [enabled | disabled — .model.api empty]
+  - Operations to stub:   [list of {method} {path} from .model.api]
+  - Response schemas:     [list of schema keys read from .schemas]
   - Fixtures planned:     [N fixtures per operation (≥3 required)]
-- Schemas (read-only):    process/{capability-id}/schemas/*.schema.json
+- Schemas (read-only):    bcm-pack process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
 - Ports:                  HTTP=[LOCAL_PORT or n/a], AMQP=[RABBIT_PORT or n/a], MGMT=[RABBIT_MGMT_PORT or n/a]
 
@@ -701,8 +705,8 @@ Assumptions taken:     [list, or "none"]
   Mode:                 Contract + development stub (events + query API)
   Stack:                Python {version} / FastAPI / aio-pika / jsonschema
   TECH-TACT ADR:        [id]
-  Schemas consumed (read-only, owned by /process):
-    process/{capability-id}/schemas/*.schema.json
+  Schemas consumed (read-only, owned by /process, via bcm-pack process):
+    bcm-pack process <CAP_ID> .schemas[*]
   Stub:                 sources/{capability-name}/stub/
 
   Publisher half:       [enabled | disabled]

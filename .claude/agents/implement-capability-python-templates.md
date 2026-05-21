@@ -191,7 +191,7 @@ __version__ = "0.1.0"
 ```python
 """Domain error codes.
 
-Mirrors `process/{capability-id}/aggregates.yaml` invariants.
+Mirrors the `.model.aggregates` invariants from `bcm-pack process <CAP_ID>`.
 """
 from enum import StrEnum
 
@@ -218,7 +218,7 @@ class DomainError(Exception):
 
 Encapsulates {AggregateName} state and invariants. Pure domain code —
 no I/O, no framework dependencies. Mirrors AGG.* identifiers from
-process/{capability-id}/aggregates.yaml.
+`.model.aggregates` (bcm-pack process <CAP_ID>).
 """
 from __future__ import annotations
 
@@ -242,7 +242,7 @@ class {AggregateName}:
         return cls(id=id, created_at=now, updated_at=now)
 
     def assert_invariants(self) -> None:
-        # Validate every business rule from process/{capability-id}/aggregates.yaml.
+        # Validate every business rule from .model.aggregates (bcm-pack process <CAP_ID>).
         if self.created_at > self.updated_at:
             raise DomainError(
                 DomainErrorCode.INVARIANT_VIOLATED,
@@ -420,7 +420,7 @@ class {AggregateName}MongoRepository:
 ## src/{namespace}_{capability_module}/contracts/commands.py
 
 ```python
-"""Command DTOs — mirror process/{capability-id}/commands.yaml CMD.* shapes."""
+"""Command DTOs — mirror .model.commands CMD.* shapes (bcm-pack process <CAP_ID>)."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -434,7 +434,7 @@ class Create{AggregateName}Command(BaseModel):
 
     command_id: UUID = Field(..., description="Idempotency key for this command")
     issued_at: datetime
-    # Add fields per process/{capability-id}/commands.yaml.
+    # Add fields per .model.commands (bcm-pack process <CAP_ID>).
 ```
 
 ---
@@ -442,7 +442,7 @@ class Create{AggregateName}Command(BaseModel):
 ## src/{namespace}_{capability_module}/contracts/events.py
 
 ```python
-"""Event DTOs — mirror process/{capability-id}/bus.yaml RVT.* and the FUNC ADR's EVT.*."""
+"""Event DTOs — mirror .model.bus RVT.* (bcm-pack process <CAP_ID>) and the FUNC ADR's EVT.*."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -623,7 +623,7 @@ async def create_{aggregate_module}(
 ## src/{namespace}_{capability_module}/presentation/routers/{aggregate_module}_read.py
 
 ```python
-"""Read routes for {AggregateName} — mirror process/{capability-id}/read-models.yaml."""
+"""Read routes for {AggregateName} — mirror .model['read-models'] (bcm-pack process <CAP_ID>)."""
 from __future__ import annotations
 
 from uuid import UUID
@@ -655,7 +655,7 @@ async def get_{aggregate_module}(id: UUID, request: Request) -> dict:
 ## src/{namespace}_{capability_module}/presentation/messaging/consumer.py
 
 ```python
-"""aio-pika consumer — subscribes to upstream RVT.* events declared in process/{cap}/bus.yaml.
+"""aio-pika consumer — subscribes to upstream RVT.* events declared in .model.bus (bcm-pack process <CAP_ID>).
 
 Only materialise this module when consumed_resource_events is non-empty.
 """

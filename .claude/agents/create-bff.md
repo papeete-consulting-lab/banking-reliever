@@ -61,18 +61,20 @@ and the core IS — it aggregates events from upstream L2s via RabbitMQ
 subscriptions, exposes REST endpoints per L3 sub-capability, and publishes
 business events produced by frontend interactions.
 
-> **Read-only contract — `process/{capability-id}/`.**
-> Read `process/{capability-id}/bus.yaml` to ground your subscriptions
-> (queue names, binding patterns, source exchanges) and `api.yaml` /
-> `read-models.yaml` to ground your endpoint surface and ETag/cache
-> behaviour. The CMD JSON Schemas under `process/{capability-id}/schemas/`
-> are the wire contract for any business event the BFF publishes back.
-> **Never write under `process/`.** A PreToolUse hook
-> (`process-folder-guard.py`) blocks any such attempt — both in the main
-> repo and inside the kanban worktree where you run. If the contract is
-> incoherent with what the task demands, abort and tell the caller to run
-> `/process <CAPABILITY_ID>` to fix the model. Your PR must not contain
-> any diff under `process/`.
+> **Read-only contract — the process model.**
+> The process model is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
+> process <CAP_ID>` — it does not live in this repo, so there is nothing to
+> guard locally and nothing to write under `process/`. Fetch it once and
+> read `.model.bus` to ground your subscriptions (queue names, binding
+> patterns, source exchanges) and `.model.api` / `.model["read-models"]` to
+> ground your endpoint surface and ETag/cache behaviour (use `.parsed` when
+> non-null, fall back to `.raw`). The CMD JSON Schemas under `.schemas[...]`
+> are the wire contract for any business event the BFF publishes back. If
+> the contract is incoherent with what the task demands, abort and tell the
+> caller to run `/process <CAPABILITY_ID>` in the banking-knowledge repo and
+> merge its PR to fix the model. Your PR must not contain any diff under
+> `process/`.
 
 You do **not** mechanically run a checklist — you read the functional and
 tactical context, exercise judgment, and produce a coherent BFF with

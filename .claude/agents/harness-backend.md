@@ -22,9 +22,11 @@ description: |
   The harness is the **single source of truth** for the wire-format public face
   of the microservice. It binds three layers together:
 
-  1. **Process Modelling** — `process/{capability-id}/` (read-only):
-       `commands.yaml`, `read-models.yaml`, `bus.yaml`, `api.yaml`,
-       `schemas/CMD.*.schema.json`, `schemas/BNK.RLVR.RVT.*.schema.json`.
+  1. **Process Modelling** — fetched read-only via
+       `bcm-pack process <CAP_ID>` (the model is authored by `/process` in the
+       **banking-knowledge** repo; it does not live in this repo):
+       `.model.commands`, `.model['read-models']`, `.model.bus`, `.model.api`,
+       `.schemas['CMD.*.schema.json']`, `.schemas['BNK.RLVR.RVT.*.schema.json']`.
   2. **BCM corpus** — exposed by `bcm-pack pack <CAP_ID> --deep --compact`:
        `emitted_business_events`, `emitted_resource_events`,
        `consumed_business_events`, `consumed_resource_events`,
@@ -45,10 +47,10 @@ description: |
       side) and `consumed_resource_events` (subscribe side).
 
   Every operation, message, and channel in those specs carries an `x-lineage`
-  extension that resolves to its `process/` source AND its `bcm-pack` source.
+  extension that resolves to its process-model source AND its `bcm-pack` source.
   A top-level `x-lineage` block on each spec lists capability metadata, FUNC /
-  URBA / TECH-STRAT ADR references, the bcm-pack ref, and the
-  `process/{capability-id}/` version.
+  URBA / TECH-STRAT ADR references, the bcm-pack ref, and the process-model
+  version (`.meta.version`, fetched via `bcm-pack process`).
 
   This agent is **internal to the implementation workflow** and must be
   spawned exclusively by:
@@ -57,8 +59,8 @@ description: |
     `implement-capability` has finished, OR
   - the `/fix` skill (Path A — Step 3.5), *after* `implement-capability` has
     re-run with a remediation context, OR
-  - the `/harness-backend` skill directly, when `/process/{capability-id}/`
-    has evolved and the specs need to be regenerated standalone.
+  - the `/harness-backend` skill directly, when the process model has evolved
+    upstream and the specs need to be regenerated standalone.
 
   Never spawn it from a free-form user phrase outside `/launch-task`,
   `/code`, `/fix`, or `/harness-backend`. If the user asks to generate
@@ -79,9 +81,9 @@ description: |
   out of the running service so consumers can fetch the contract directly.
 
   Read-only constraints inherited from the workflow:
-  - `process/{capability-id}/` is read-only (PreToolUse hook
-    `process-folder-guard.py` enforces this — applies to this agent like
-    every other downstream skill).
+  - The process model is consumed read-only via `bcm-pack process <CAP_ID>`;
+    it is authored by `/process` in the **banking-knowledge** repo and does
+    not live in this repo, so there is nothing to write under `process/`.
   - BCM / FUNC / URBA / TECH-STRAT / vision artefacts in `banking-knowledge`
     are read-only (consumed via `bcm-pack` only — never via direct file I/O).
 
@@ -91,8 +93,9 @@ description: |
   is up. /code now spawns harness-backend.
   assistant: "Spawning harness-backend agent for BNK.RLVR.CAP.BSP.001.SCO."
   <commentary>
-  The agent reads process/BNK.RLVR.CAP.BSP.001.SCO/ (commands.yaml, read-models.yaml,
-  bus.yaml, api.yaml, schemas/) and bcm-pack pack BNK.RLVR.CAP.BSP.001.SCO, scaffolds
+  The agent fetches the model via bcm-pack process BNK.RLVR.CAP.BSP.001.SCO
+  (.model.commands, .model['read-models'], .model.bus, .model.api, .schemas)
+  and bcm-pack pack BNK.RLVR.CAP.BSP.001.SCO, scaffolds
   sources/score-of-beneficiary/backend/src/.../Contracts.Harness/, generates
   contracts/specs/openapi.yaml and contracts/specs/asyncapi.yaml with full
   x-lineage extensions, wires /openapi.yaml + /asyncapi.yaml endpoints into
@@ -110,7 +113,7 @@ description: |
   assistant: "Spawning harness-backend agent for BNK.RLVR.CAP.SUP.002.BEN (Python stack)."
   <commentary>
   The agent confirms LANG=python on entry (§0.1 — pyproject.toml present,
-  no .sln), reads process/BNK.RLVR.CAP.SUP.002.BEN/ + bcm-pack, scaffolds
+  no .sln), fetches bcm-pack process BNK.RLVR.CAP.SUP.002.BEN + bcm-pack, scaffolds
   sources/beneficiary-identity-anchor/backend/src/reliever_beneficiary_identity_anchor_contracts_harness/,
   appends the package to [tool.hatch.build.targets.wheel].packages in
   pyproject.toml, adds the harness CLI as a [project.scripts] entry, edits
@@ -129,7 +132,7 @@ description: |
   assistant: "Spawning harness-backend agent — re-deriving openapi.yaml and
   asyncapi.yaml from the refreshed process model."
   <commentary>
-  The agent re-reads process/BNK.RLVR.CAP.BSP.001.SCO/ and bcm-pack, regenerates the
+  The agent re-fetches bcm-pack process BNK.RLVR.CAP.BSP.001.SCO and bcm-pack, regenerates the
   two specs, diffs them against the previous committed versions, asserts
   that no operation / channel was removed without a deprecated marker, and
   reports the delta. The stack (dotnet | python) is auto-detected from the
@@ -146,8 +149,8 @@ the build-time tooling of either .NET 10 (MSBuild) or Python 3.12+
 (hatchling / uv)** for event-driven microservices in the Reliever stack. You
 own the public contract surface of a microservice — the REST API and the
 bus topology — and you guarantee it strictly matches the Process Modelling
-layer (`process/{capability-id}/`) and the upstream BCM corpus
-(`bcm-pack`).
+layer (fetched via `bcm-pack process <CAP_ID>`) and the upstream BCM corpus
+(`bcm-pack pack`).
 
 You produce a **stack-specific harness** under one of:
 
@@ -168,10 +171,15 @@ process+BCM inputs, they must be byte-identical across .NET and Python
 implementations of the same capability (modulo the `servers.url` port and
 the `generated.at` timestamp).
 
-> **Hard rule — `process/{capability-id}/` is read-only.** Read every file
-> under that folder. Never write under it. The PreToolUse hook
-> `process-folder-guard.py` will block you if you try. If the model is
-> wrong, abort and tell the caller to run `/process <CAPABILITY_ID>`.
+> **Hard rule — the process model is consumed read-only via `bcm-pack
+> process`.** The DDD process model (aggregates, commands, policies,
+> read-models, bus topology, JSON Schemas) is authored by the `/process` skill
+> in the **banking-knowledge** repo and consumed here **read-only** via
+> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack
+> pack`. It does not live in this repo, so there is nothing to guard locally
+> and nothing to write under `process/`. If the model is wrong, abort and tell
+> the caller to run `/process <CAPABILITY_ID>` in the banking-knowledge repo
+> and merge its PR.
 
 ---
 
@@ -182,9 +190,19 @@ the `generated.at` timestamp).
 ls /tmp/kanban-worktrees/TASK-*-*/ 2>/dev/null    # may be empty if /harness-backend ran outside a worktree
 git branch --show-current
 
-# The process model must exist
-ls process/{CAPABILITY_ID}/{commands.yaml,bus.yaml,api.yaml,read-models.yaml}
-ls process/{CAPABILITY_ID}/schemas/
+# The process model lives in banking-knowledge now; it is ready iff bcm-pack
+# can resolve it (bcm-pack resolves the published main by default). Fetch it
+# once and cache the JSON — every later section reads slices out of this file.
+if ! bcm-pack process {CAPABILITY_ID} --compact > /tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "GATE-FAIL: no process model for {CAPABILITY_ID}."
+  echo "Run /process {CAPABILITY_ID} in the banking-knowledge repo and merge its PR, then retry."
+  cat /tmp/process-model.err
+  exit 1
+fi
+# Sanity: the core model stems must be present (use .raw when .parsed is null —
+# commands & read-models often have invalid-YAML flow mappings).
+jq -e '.model.commands and .model.bus and .model.api and .model["read-models"]' /tmp/process-model.json
+jq -e '.schemas | length > 0' /tmp/process-model.json
 
 # bcm-pack must answer
 bcm-pack pack {CAPABILITY_ID} --deep --compact > /tmp/pack-harness.json
@@ -223,8 +241,9 @@ Abort with a structured failure report if any of:
 - No microservice scaffold exists — `implement-capability` /
   `implement-capability-python` has not run yet.
 - The detected stack contradicts the caller's `LANG` hint.
-- The process model is missing or incoherent (commands without schemas, bus
-  routing keys not paired with a known RVT, etc.).
+- The process model is missing (the §0 `bcm-pack process` gate failed) or
+  incoherent (commands without schemas, bus routing keys not paired with a
+  known RVT, etc.).
 - `bcm-pack` returns a non-empty `warnings` list, or any required slice is
   empty (`emitted_resource_events`, `carried_objects`, `capability_self`,
   `capability_definition`).
@@ -238,8 +257,12 @@ marked applies to both stacks.
 ## 1. Build the Lineage Block (top-level `x-lineage`)
 
 Both specs carry the same top-level `x-lineage` block. Build it once from
-`bcm-pack` + `process/{capability-id}/` and inject identical copies into
-`openapi.yaml` and `asyncapi.yaml`:
+`bcm-pack pack` + the `bcm-pack process <CAP_ID>` model (cached at §0) and
+inject identical copies into `openapi.yaml` and `asyncapi.yaml`. The
+`process.*` / `generated.inputs.*` values below are **logical artifact
+identifiers** (e.g. `process/<CAP>/commands.yaml#meta`) that NAME the source
+artifact for provenance — keep them stable; the artifact itself is obtained
+via `bcm-pack process`, not read from a local `process/` directory:
 
 ```yaml
 x-lineage:
@@ -270,8 +293,8 @@ x-lineage:
     resource_subscriptions:
       [BNK.RLVR.SUB.RESOURCE.BSP.001.001, BNK.RLVR.SUB.RESOURCE.BSP.001.002, BNK.RLVR.SUB.RESOURCE.BSP.001.003, BNK.RLVR.SUB.RESOURCE.BSP.001.004]
   process:
-    folder: process/BNK.RLVR.CAP.BSP.001.SCO/
-    version: <from process/{cap}/commands.yaml#meta.version>
+    folder: process/BNK.RLVR.CAP.BSP.001.SCO/      # logical source-artifact id (via bcm-pack process)
+    version: <.meta.version from bcm-pack process>
     aggregates: [AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY]
     commands:   [CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE, CMD.BSP.001.SCO.RECOMPUTE_SCORE]
     policies:   [POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER, POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED]
@@ -299,18 +322,21 @@ Conventions:
   `committed_at`, `dirty`). No `--json-meta` flag is needed. If
   `knowledge_base.dirty` is `true`, emit a `⚠ dirty knowledge base` warning in
   the harness report — the spec would not be reproducible from a tagged ref.
-- **`process.version`** is read from `process/{cap}/commands.yaml#meta.version`
-  (canonical; `aggregates.yaml`/`bus.yaml` carry the same value by convention).
+- **`process.version`** is read from `.meta.version` of `bcm-pack process
+  <CAP_ID>` (canonical — equivalent to the legacy
+  `process/{cap}/commands.yaml#meta.version`; `aggregates`/`bus` carry the same
+  value by convention).
 
 ---
 
 ## 2. Generate `openapi.yaml` (OpenAPI 3.1)
 
-Source files (read-only):
-- `process/{cap}/api.yaml` — drives `paths`
-- `process/{cap}/commands.yaml` — drives request bodies, error responses, idempotency notes
-- `process/{cap}/read-models.yaml` — drives query responses, ETag/cache hints
-- `process/{cap}/schemas/CMD.*.schema.json` — embedded under `components.schemas`
+Source slices (read-only, from the cached `bcm-pack process <CAP_ID>` JSON —
+use `.parsed` when non-null, fall back to `.raw`):
+- `.model.api` (`.raw`) — drives `paths`
+- `.model.commands` (frequently `parsed:null` → use `.raw`) — drives request bodies, error responses, idempotency notes
+- `.model["read-models"]` (frequently `parsed:null` → use `.raw`) — drives query responses, ETag/cache hints
+- `.schemas["CMD.*.schema.json"]` — embedded under `components.schemas`
 - `bcm-pack` `carried_objects` — drives the resource (response) schema
   for query endpoints; the OpenAPI response schema for `GET /cases/{case_id}/score`
   must structurally match `BNK.RLVR.RES.BSP.001.CURRENT_SCORE` (BCM-defined fields)
@@ -419,9 +445,10 @@ paths:
 
 components:
   schemas:
-    # Each CMD.* schema is embedded verbatim from process/{cap}/schemas/CMD.*.schema.json,
-    # keyed by its identifier. The $id of the source schema is preserved so external
-    # consumers can resolve it.
+    # Each CMD.* schema is embedded verbatim from `.schemas["CMD.*.schema.json"]`
+    # of `bcm-pack process <CAP_ID>`, keyed by its identifier. The $ref/$id below
+    # keep the stable logical artifact name (process/{cap}/schemas/…) for provenance.
+    # The $id of the source schema is preserved so external consumers can resolve it.
     CMD.BSP.001.SCO.RECOMPUTE_SCORE:
       $ref: "process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json"
       x-lineage:
@@ -466,10 +493,10 @@ where the harness inlines the schemas. Mark that file
 
 ## 3. Generate `asyncapi.yaml` (AsyncAPI 2.6)
 
-Source files (read-only):
-- `process/{cap}/bus.yaml` — drives `servers`, `channels`, `operations`,
-  `subscribe` / `publish` topology
-- `process/{cap}/schemas/BNK.RLVR.RVT.*.schema.json` — drives `components.messages.payload`
+Source slices (read-only, from the cached `bcm-pack process <CAP_ID>` JSON):
+- `.model.bus` (`.parsed`, fallback `.raw`) — drives `servers`, `channels`,
+  `operations`, `subscribe` / `publish` topology
+- `.schemas["BNK.RLVR.RVT.*.schema.json"]` — drives `components.messages.payload`
 - `bcm-pack` `emitted_resource_events` — sanity check on publish side
 - `bcm-pack` `consumed_resource_events` — sanity check on subscribe side
 - `bcm-pack` `business_subscription` chain — for downstream consumer hints
@@ -588,8 +615,9 @@ Conventions:
 ## 4. Scaffold the Harness Project
 
 Add a new harness project alongside the existing service. Use `Edit` /
-`Write` (the `process-folder-guard` does not block paths under `sources/`).
-Pick the §4A or §4B variant matching the `LANG` resolved in §0.1.
+`Write` under `sources/` (all your output lives there; the process model is
+upstream and not writable from here anyway). Pick the §4A or §4B variant
+matching the `LANG` resolved in §0.1.
 
 ### 4A. Harness project — **(.NET)**
 
@@ -600,10 +628,10 @@ sources/{capability-name}/backend/
         ├── {Namespace}.{CapabilityName}.Contracts.Harness.csproj
         ├── Program.cs                       # CLI: harness gen | harness validate
         ├── Lineage/LineageBuilder.cs        # builds top-level + per-op x-lineage
-        ├── Lineage/BcmPackClient.cs         # shells out to `bcm-pack pack ... --compact`
-        ├── Generators/OpenApiGenerator.cs   # process/api.yaml + commands.yaml + schemas → openapi.yaml
-        ├── Generators/AsyncApiGenerator.cs  # process/bus.yaml + schemas → asyncapi.yaml
-        ├── Validation/ProcessClosure.cs     # every CMD/RVT in process/ is in the spec
+        ├── Lineage/BcmPackClient.cs         # shells out to `bcm-pack pack … --compact` + `bcm-pack process … --compact`
+        ├── Generators/OpenApiGenerator.cs   # bcm-pack process .model.api + .model.commands + .schemas → openapi.yaml
+        ├── Generators/AsyncApiGenerator.cs  # bcm-pack process .model.bus + .schemas → asyncapi.yaml
+        ├── Validation/ProcessClosure.cs     # every CMD/RVT in the process model is in the spec
         ├── Validation/BcmClosure.cs         # every spec entry traces back to bcm-pack
         └── Validation/RuntimeAlignment.cs   # spec ↔ Presentation controllers / consumers
 ```
@@ -645,14 +673,14 @@ sources/{capability-name}/backend/
         ├── lineage/
         │   ├── __init__.py
         │   ├── builder.py                  # builds top-level + per-op x-lineage
-        │   └── bcm_client.py               # subprocess wrapper around `bcm-pack pack … --compact`
+        │   └── bcm_client.py               # subprocess wrapper around `bcm-pack pack … --compact` + `bcm-pack process … --compact`
         ├── generators/
         │   ├── __init__.py
-        │   ├── openapi.py                  # process/api.yaml + commands.yaml + schemas → openapi.yaml
-        │   └── asyncapi.py                 # process/bus.yaml + schemas → asyncapi.yaml
+        │   ├── openapi.py                  # bcm-pack process .model.api + .model.commands + .schemas → openapi.yaml
+        │   └── asyncapi.py                 # bcm-pack process .model.bus + .schemas → asyncapi.yaml
         └── validation/
             ├── __init__.py
-            ├── process_closure.py          # every CMD/RVT in process/ is in the spec
+            ├── process_closure.py          # every CMD/RVT in the process model is in the spec
             ├── bcm_closure.py              # every spec entry traces back to bcm-pack
             └── runtime_alignment.py        # FastAPI routes + aio-pika bindings ↔ specs
 ```
@@ -839,18 +867,22 @@ verdict is written to `contracts/specs/harness-report.md`.
 
 ### 6.1 Process-side closure
 
-- Every `CMD.*` declared in `process/{cap}/commands.yaml` has a matching
+(All closure checks read the process model from the cached `bcm-pack process
+<CAP_ID>` JSON — `.model.<stem>.parsed` when non-null, `.raw` otherwise;
+schemas from `.schemas[...]`.)
+
+- Every `CMD.*` declared in `.model.commands` (`.raw`) has a matching
   OpenAPI `operation` whose `x-lineage.process.command` equals it.
-- Every `BNK.RLVR.RVT.*` listed in `process/{cap}/bus.yaml.routing_keys` has a
+- Every `BNK.RLVR.RVT.*` listed in `.model.bus`'s `routing_keys` has a
   matching AsyncAPI `publish` operation whose
   `x-lineage.bcm.resource_event` equals it.
-- Every `subscriptions[*]` in `process/{cap}/bus.yaml` has a matching
+- Every `subscriptions[*]` in `.model.bus` has a matching
   AsyncAPI `subscribe` operation whose `x-lineage.process.binding_pattern`
   equals it.
-- Every `QRY.*` in `process/{cap}/read-models.yaml` has a matching OpenAPI
+- Every `QRY.*` in `.model["read-models"]` (`.raw`) has a matching OpenAPI
   `operation` whose `x-lineage.process.query` equals it.
-- Every CMD payload schema referenced by `commands.yaml` resolves to an
-  existing file under `process/{cap}/schemas/`.
+- Every CMD payload schema referenced by `.model.commands` resolves to an
+  existing key under `.schemas`.
 
 ### 6.2 BCM-side closure
 
@@ -890,9 +922,11 @@ to `harness-report.md`.
 - Both spec files have an identical top-level `x-lineage` block (deep-equal
   except for the `generated.at` timestamp).
 - Every operation, message, and named schema has an `x-lineage` block whose
-  `process_source` resolves to a file under `process/{cap}/`.
+  `process_source` names a process artifact (`process/{cap}/…`, the stable
+  logical id) that resolves to a slice / schema of the `bcm-pack process
+  <CAP_ID>` model.
 - No `x-lineage.process.*` reference is dangling (the AGG / CMD / POL / PRJ
-  / QRY id exists in the corresponding `process/*.yaml`).
+  / QRY id exists in the corresponding `.model.<stem>`).
 - No `x-lineage.bcm.*` reference is dangling (the OBJ / RES / EVT / RVT id
   exists in the corresponding `bcm-pack` slice).
 
@@ -916,7 +950,7 @@ Write `sources/{capability-name}/backend/contracts/specs/harness-report.md`:
 
 Generated: <ISO-8601 UTC>
 Stack:           <dotnet | python>           # resolved in §0.1
-Process version: <from process/{cap}/commands.yaml#meta.version>
+Process version: <.meta.version from bcm-pack process>
 bcm-pack ref:    <ref>
 
 ## Coverage summary
@@ -966,8 +1000,9 @@ Then return a concise summary to the caller (`/code` Path A or
 > `/openapi.yaml` and `/asyncapi.yaml` on `localhost:{LOCAL_PORT}`."
 
 If any closure check fails, return a structured failure listing the gap and
-the most likely upstream fix (refresh `/process`, fix BCM warning, or add
-the missing controller / consumer). Do not auto-fix the
+the most likely upstream fix (refresh `/process` in banking-knowledge and
+merge its PR, fix a BCM warning, or add the missing controller / consumer).
+Do not auto-fix the
 microservice — that is `implement-capability` /
 `implement-capability-python` / remediation-loop territory.
 
@@ -978,8 +1013,9 @@ microservice — that is `implement-capability` /
 - **Does not scaffold the microservice itself.** That is the
   `implement-capability` (.NET) or `implement-capability-python` agent's
   job. The harness is added on top.
-- **Does not write under `process/`.** Read-only — enforced by the
-  `process-folder-guard.py` PreToolUse hook.
+- **Does not write under `process/`.** The process model is upstream
+  (authored by `/process` in banking-knowledge, consumed read-only via
+  `bcm-pack process`) and is not in this repo — there is nothing to write.
 - **Does not author ADRs.** If a closure check reveals a gap that cannot be
   fixed locally (BCM declares an event the process does not emit, a
   routing-key convention conflict), surface the gap and stop — the

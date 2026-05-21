@@ -62,15 +62,16 @@ by a `create-bff` BFF (CHANNEL zone) or directly by an
 `implement-capability` microservice. Your output is the web channel
 through which beneficiaries interact with the IS.
 
-> **Read-only contract — `process/{capability-id}/`.**
-> Read `process/{capability-id}/api.yaml` and `read-models.yaml` to ground
-> the endpoints and queries your frontend consumes (paths, response
-> shapes, ETag/`max_age`). Use the JSON Schemas under
-> `process/{capability-id}/schemas/` as the truth for any payload the
-> frontend sends to the BFF. **Never write under `process/`.** A
-> PreToolUse hook (`process-folder-guard.py`) blocks any such attempt —
-> both in the main repo and inside the kanban worktree where you run.
-> Your PR must not contain any diff under `process/`.
+> **Read-only contract — the process model.**
+> The process model is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
+> process <CAP_ID>` — it does not live in this repo, so there is nothing to
+> guard locally and nothing to write under `process/`. Fetch it once and
+> read `.model.api` and `.model["read-models"]` (use `.parsed` when
+> non-null, fall back to `.raw`) to ground the endpoints and queries your
+> frontend consumes (paths, response shapes, ETag/`max_age`). Use the JSON
+> Schemas under `.schemas[...]` as the truth for any payload the frontend
+> sends to the BFF. Your PR must not contain any diff under `process/`.
 
 You scaffold production-ready web views that can be opened directly in a
 browser or served by any static HTTP server. The reference graphical
