@@ -220,9 +220,9 @@ bcm-pack pack {capability_id} --compact > /tmp/pack-impl-python.json
 > slices reference a `BNK.TECH.CAP.…` runtime/deployment platform capability,
 > fetch its contract from the platform CLI: `pcm-pack pack {platform_capability_id}
 > --compact` (reads the `banking-platform` repo, prefix `BNK.TECH.`). Skip when no
-> `BNK.TECH.` dependency is referenced. Install caveat: `bcm-pack`/`pcm-pack` share
-> a `tools.pack` package — disambiguate `pcm-pack` with `--repo-root
-> <banking-platform>` or `BANKING_PLATFORM_ROOT` if both are installed.
+> `BNK.TECH.` dependency is referenced. (`pcm-pack` ≥ 1.0.1 ships as its own
+> `pcm_pack` package and coexists cleanly with `bcm-pack`; point it at a local
+> checkout with `--repo-root <banking-platform>` or `BANKING_PLATFORM_ROOT`.)
 
 Inspect `slices.tactical_stack[0]`:
 

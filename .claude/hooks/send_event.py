@@ -48,8 +48,10 @@ def send_event_to_server(event_data, server_url='http://localhost:4000/events'):
                 print(f"Server returned status: {response.status}", file=sys.stderr)
                 return False
                 
-    except urllib.error.URLError as e:
-        print(f"Failed to send event: {e}", file=sys.stderr)
+    except urllib.error.URLError:
+        # Observability server unreachable (e.g. dashboard not running) — this is
+        # best-effort telemetry, so stay silent rather than spamming stderr on
+        # every tool call. The hook still exits 0 and never blocks the tool.
         return False
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)

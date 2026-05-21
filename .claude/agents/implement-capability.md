@@ -210,10 +210,9 @@ exit code 2.
 > `pcm-pack` reads the `banking-platform` repo (prefix `BNK.TECH.`). Use it to
 > honour platform-mandated deployment topology, health/observability endpoints,
 > and platform event contracts the service must emit/consume. Skip it when no
-> `BNK.TECH.` dependency is referenced. (Install caveat: `bcm-pack` and
-> `pcm-pack` share a `tools.pack` package; if both are installed in one
-> environment, invoke `pcm-pack` with `--repo-root <banking-platform>` or set
-> `BANKING_PLATFORM_ROOT` to disambiguate.)
+> `BNK.TECH.` dependency is referenced. (`pcm-pack` ≥ 1.0.1 ships as its own
+> `pcm_pack` package and coexists cleanly with `bcm-pack`; point it at a local
+> checkout with `--repo-root <banking-platform>` or `BANKING_PLATFORM_ROOT`.)
 
 Lightweight mode is sufficient for Mode A (you do not need the rationale ADRs behind the
 vision narratives — the FUNC + tactical + URBA + tech-strategic ADRs that you actually
