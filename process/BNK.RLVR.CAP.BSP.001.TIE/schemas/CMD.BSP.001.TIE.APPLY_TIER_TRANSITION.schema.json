@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.BSP.001.TIE/CMD.BSP.001.TIE.APPLY_TIER_TRANSITION/0.1.0/schema.json",
+  "x-process-version": "0.1.0",
+  "x-process-role": "command-payload",
+  "x-process-capability": "BNK.RLVR.CAP.BSP.001.TIE",
+  "x-process-command": "CMD.BSP.001.TIE.APPLY_TIER_TRANSITION",
+  "x-process-aggregate": "AGG.BSP.001.TIE.TIER_OF_CASE",
+  "x-process-correlation-key": "case_id",
+  "x-process-idempotency-key": "trigger.event_id",
+  "title": "CMD.BSP.001.TIE.APPLY_TIER_TRANSITION — Apply algorithmic tier transition",
+  "description": "Payload of the APPLY_TIER_TRANSITION command. Issued by POL.BSP.001.TIE.ON_SCORE_THRESHOLD_REACHED, handled by AGG.BSP.001.TIE.TIER_OF_CASE. Emits exactly one of BNK.RLVR.RVT.TIER_UPGRADE_RECORDED or BNK.RLVR.RVT.TIER_DOWNGRADE_RECORDED depending on transition.direction. Idempotent on trigger.event_id over a 30-day window. Rejected with OVERRIDE_IN_FORCE if a prescriber override is active on the case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "trigger", "transition"],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "CORRELATION KEY. Reference to the participation case (Reliever case ID). Identity resolution to BNK.RLVR.OBJ.REF.001.BENEFICIARY_RECORD.internal_id is delegated to consumers via BNK.RLVR.CAP.REF.001.BEN lookup."
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "kind"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "IDEMPOTENCY KEY. Identifier of the upstream BNK.RLVR.RVT.SCORE_THRESHOLD_REACHED event that triggered this command. Establishes causation for the resulting tier-transition event."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["SCORE_THRESHOLD"],
+          "description": "Discriminator. Currently only SCORE_THRESHOLD is supported — algorithmic transitions are driven exclusively by BNK.RLVR.CAP.BSP.001.SCO threshold crossings."
+        },
+        "source_event_capability": {
+          "type": "string",
+          "description": "Optional — the upstream emitter (BNK.RLVR.CAP.BSP.001.SCO). Useful for audit lineage."
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direction", "source_tier_code", "target_tier_code"],
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": ["UPGRADE", "DOWNGRADE"],
+          "description": "Directional polarity. UPGRADE emits BNK.RLVR.RVT.TIER_UPGRADE_RECORDED; DOWNGRADE emits BNK.RLVR.RVT.TIER_DOWNGRADE_RECORDED. The aggregate verifies coherence with source_tier_code/target_tier_code in BNK.RLVR.CAP.REF.001.TIE ordering — INV.TIE.005."
+        },
+        "source_tier_code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tier code the case is leaving (per BNK.RLVR.CAP.REF.001.TIE ordering)."
+        },
+        "target_tier_code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Tier code the case is entering (per BNK.RLVR.CAP.REF.001.TIE ordering)."
+        },
+        "tier_definitions_version": {
+          "type": "string",
+          "description": "Optional — the BNK.RLVR.CAP.REF.001.TIE definitions version that produced the source/target codes. Used to detect race conditions with concurrent referential updates."
+        }
+      }
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the upstream behavioural fact (ISO-8601, UTC recommended). Used for ordering, NOT for idempotency."
+    }
+  }
+}

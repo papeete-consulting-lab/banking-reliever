@@ -1,9 +1,9 @@
 meta:
-  capability: CAP.BSP.001.TIE
+  capability: BNK.RLVR.CAP.BSP.001.TIE
   layer: process-modelling
   version: 0.1.0
   governing_adrs:
-    - ADR-BCM-FUNC-0005      # L2 breakdown of CAP.BSP.001 — defines emitted/consumed events
+    - ADR-BCM-FUNC-0005      # L2 breakdown of BNK.RLVR.CAP.BSP.001 — defines emitted/consumed events
     - ADR-BCM-URBA-0009      # Definition of an event-driven capability
     - ADR-TECH-STRAT-001     # Bus topology rules (Rule 3 — payload form is domain-event-DDD)
 
@@ -18,7 +18,7 @@ aggregates:
 
   - id: AGG.BSP.001.TIE.TIER_OF_CASE
     name: Tier of a remediation case
-    business_object: OBJ.BSP.001.TIER_CHANGE
+    business_object: BNK.RLVR.OBJ.BSP.001.TIER_CHANGE
     aggregate_id_field: case_id
     cardinality: one-per-case
     description: >-
@@ -31,7 +31,7 @@ aggregates:
       The aggregate is materialised lazily on the first algorithmic transition or
       prescriber override — there is no dedicated "tier-initialised" event in the
       BCM, so the entry tier is resolved on creation via a read-through to
-      CAP.REF.001.TIE.
+      BNK.RLVR.CAP.REF.001.TIE.
 
     state:
       - field: case_id
@@ -57,7 +57,7 @@ aggregates:
       - field: last_processed_trigger_event_id
         kind: idempotency
       - field: tier_definitions_version
-        kind: read-through  # snapshot of CAP.REF.001.TIE config at last transition
+        kind: read-through  # snapshot of BNK.RLVR.CAP.REF.001.TIE config at last transition
       - field: model_version
         kind: configuration
 
@@ -68,16 +68,16 @@ aggregates:
       - CMD.BSP.001.TIE.CLOSE_PRESCRIBER_OVERRIDE
 
     emitted_resource_events:
-      - RVT.BSP.001.TIER_UPGRADE_RECORDED
-      - RVT.BSP.001.TIER_DOWNGRADE_RECORDED
-      - RVT.BSP.001.OVERRIDE_ACTIVATED
+      - BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
 
     invariants:
       - id: INV.TIE.001
         rule: >-
           A case_id has exactly one effective tier at any point in time. The
           current_tier_code is never null once the aggregate exists; on lazy
-          creation, the aggregate reads the entry tier from CAP.REF.001.TIE
+          creation, the aggregate reads the entry tier from BNK.RLVR.CAP.REF.001.TIE
           before applying the first command.
         rationale: >-
           CPT.BCM.000.TIER canonical rule — "a case holds exactly one active
@@ -99,11 +99,11 @@ aggregates:
         rule: >-
           The target tier of a prescriber override and the target tier of an
           algorithmic transition must both be valid tier_code values declared
-          in the current CAP.REF.001.TIE definition snapshot. Otherwise the
+          in the current BNK.RLVR.CAP.REF.001.TIE definition snapshot. Otherwise the
           command is rejected with an INVALID_TIER_CODE error.
         rationale: >-
           CPT.BCM.000.TIER canonical rule — "the canonical definition of a tier
-          is held exclusively by CAP.REF.001.TIE". TIE is a referential
+          is held exclusively by BNK.RLVR.CAP.REF.001.TIE". TIE is a referential
           consumer, never a tier-catalogue authority.
 
       - id: INV.TIE.004
@@ -123,7 +123,7 @@ aggregates:
           against the algorithm-resolved tier (computed from the latest
           known score and the current tier-definition snapshot). When they
           differ, the closure emits the appropriate transition event
-          (RVT.TIER_UPGRADE_RECORDED or RVT.TIER_DOWNGRADE_RECORDED) atomically
+          (BNK.RLVR.RVT.TIER_UPGRADE_RECORDED or BNK.RLVR.RVT.TIER_DOWNGRADE_RECORDED) atomically
           with the override clearing. When they coincide, the closure emits
           no transition event (silent realignment).
         rationale: >-
@@ -133,7 +133,7 @@ aggregates:
           is observable.
         open_question: >-
           The latest algorithm-resolved tier requires reading the latest
-          RVT.SCORE_THRESHOLD_REACHED state from CAP.BSP.001.SCO. Should TIE
+          BNK.RLVR.RVT.SCORE_THRESHOLD_REACHED state from BNK.RLVR.CAP.BSP.001.SCO. Should TIE
           materialise this as a denormalised projection inside the aggregate,
           or query SCO at command time? See README "Open process-level questions".
 

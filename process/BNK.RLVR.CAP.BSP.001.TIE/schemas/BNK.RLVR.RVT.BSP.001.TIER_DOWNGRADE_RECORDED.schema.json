@@ -1,16 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.example.com/process/CAP.BSP.001.TIE/RVT.BSP.001.TIER_DOWNGRADE_RECORDED/0.1.0/schema.json",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.BSP.001.TIE/BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED/0.1.0/schema.json",
   "x-process-version": "0.1.0",
   "x-process-role": "resource-event-payload",
-  "x-process-capability": "CAP.BSP.001.TIE",
-  "x-process-resource-event": "RVT.BSP.001.TIER_DOWNGRADE_RECORDED",
-  "x-process-business-event": "EVT.BSP.001.TIER_DOWNGRADED",
-  "x-process-carried-resource": "RES.BSP.001.TIER_DOWNGRADE",
+  "x-process-capability": "BNK.RLVR.CAP.BSP.001.TIE",
+  "x-process-resource-event": "BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED",
+  "x-process-business-event": "BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED",
+  "x-process-carried-resource": "BNK.RLVR.RES.BSP.001.TIER_DOWNGRADE",
   "x-process-aggregate": "AGG.BSP.001.TIE.TIER_OF_CASE",
-  "x-process-routing-key": "EVT.BSP.001.TIER_DOWNGRADED.RVT.BSP.001.TIER_DOWNGRADE_RECORDED",
+  "x-process-routing-key": "BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED.BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED",
   "x-process-payload-form": "domain-event-ddd",
-  "title": "RVT.BSP.001.TIER_DOWNGRADE_RECORDED — Tier demotion recorded",
+  "title": "BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED — Tier demotion recorded",
   "description": "Resource event emitted by AGG.BSP.001.TIE.TIER_OF_CASE when a case transitions to a strictly lower tier. Caused either by CMD.APPLY_TIER_TRANSITION (algorithmic, on a downward score-threshold crossing) or by CMD.CLOSE_PRESCRIBER_OVERRIDE (realignment after override closure when the algorithmic tier is below the override tier). Per ADR-TECH-STRAT-001 Rule 3, the payload is a domain-event DDD form — the atomic transition itself, not the post-state.",
   "type": "object",
   "additionalProperties": false,
@@ -39,7 +39,7 @@
         "to_tier_code": {
           "type": "string",
           "minLength": 1,
-          "description": "Tier code the case is in after this transition (strictly lower than from_tier_code per CAP.REF.001.TIE ordering)."
+          "description": "Tier code the case is in after this transition (strictly lower than from_tier_code per BNK.RLVR.CAP.REF.001.TIE ordering)."
         },
         "cause": {
           "type": "string",
@@ -52,7 +52,7 @@
         },
         "tier_definitions_version": {
           "type": "string",
-          "description": "CAP.REF.001.TIE definitions version used to validate the tier codes at transition time."
+          "description": "BNK.RLVR.CAP.REF.001.TIE definitions version used to validate the tier codes at transition time."
         }
       }
     },
