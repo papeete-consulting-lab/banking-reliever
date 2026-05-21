@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.MINT_ANCHOR.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.MINT_ANCHOR.schema.json",
   "title": "MintAnchorCommand",
   "description": "Payload for CMD.SUP.002.BEN.MINT_ANCHOR — request the minting of a new beneficiary identity anchor. The aggregate generates the UUIDv7 internal_id; the caller supplies a UUIDv7 client_request_id for idempotency.",
   "type": "object",

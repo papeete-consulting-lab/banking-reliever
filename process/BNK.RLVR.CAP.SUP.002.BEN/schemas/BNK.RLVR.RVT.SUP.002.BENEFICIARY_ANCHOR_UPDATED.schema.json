@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.SUP.002.BEN/schemas/RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json",
   "title": "BeneficiaryAnchorUpdatedEvent",
-  "description": "Payload of RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED — emitted on every accepted state transition of an AGG.SUP.002.BEN.IDENTITY_ANCHOR. Carries the full post-transition snapshot plus the monotonic revision and the transition_kind discriminator. For PSEUDONYMISED transitions, the four PII fields are null (crypto-shredded by the aggregate).",
+  "description": "Payload of BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED — emitted on every accepted state transition of an AGG.SUP.002.BEN.IDENTITY_ANCHOR. Carries the full post-transition snapshot plus the monotonic revision and the transition_kind discriminator. For PSEUDONYMISED transitions, the four PII fields are null (crypto-shredded by the aggregate).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -122,7 +122,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "subject"],
-      "description": "Principal that issued the command which produced this RVT. Derived at the producer from the authentication context per ADR-TECH-STRAT-003 (REST bearer-token JWT). System-emitted events (e.g. outbox replay, scheduled jobs) use kind=system. Service-to-service calls authenticated via a service principal use kind=service with the capability id as subject.",
+      "description": "Principal that issued the command which produced this BNK.RLVR.RVT. Derived at the producer from the authentication context per ADR-TECH-STRAT-003 (REST bearer-token JWT). System-emitted events (e.g. outbox replay, scheduled jobs) use kind=system. Service-to-service calls authenticated via a service principal use kind=service with the capability id as subject.",
       "properties": {
         "kind": {
           "type": "string",
@@ -133,13 +133,13 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200,
-          "description": "kind=human: UUIDv7 of the user (the JWT `sub` claim). kind=service: capability id of the caller (e.g. CAP.SUP.001.RET). kind=system: a stable token identifying the system process (e.g. `system:outbox-replay`, `system:scheduler:retention-purge`)."
+          "description": "kind=human: UUIDv7 of the user (the JWT `sub` claim). kind=service: capability id of the caller (e.g. BNK.RLVR.CAP.SUP.001.RET). kind=system: a stable token identifying the system process (e.g. `system:outbox-replay`, `system:scheduler:retention-purge`)."
         },
         "on_behalf_of": {
           "type": ["string", "null"],
           "minLength": 1,
           "maxLength": 200,
-          "description": "Optional UUIDv7 of the end-user a system / service acted for (e.g. PSEUDONYMISE issued by CAP.SUP.001.RET on behalf of the data subject). Null when the action is purely administrative."
+          "description": "Optional UUIDv7 of the end-user a system / service acted for (e.g. PSEUDONYMISE issued by BNK.RLVR.CAP.SUP.001.RET on behalf of the data subject). Null when the action is purely administrative."
         }
       }
     },
@@ -170,7 +170,7 @@
         "message_id":          { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of THIS bus message (per ADR-TECH-STRAT-007 Rule 4)." },
         "schema_version":      { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "SemVer of this RVT schema." },
         "emitted_at":          { "type": "string", "format": "date-time", "description": "Wall-clock timestamp at the producer outbox." },
-        "emitting_capability": { "type": "string", "const": "CAP.SUP.002.BEN" },
+        "emitting_capability": { "type": "string", "const": "BNK.RLVR.CAP.SUP.002.BEN" },
         "correlation_id":      { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of the originating business operation; equals internal_id for events whose root operation is anchor-scoped." },
         "actor":               { "$ref": "#/$defs/Actor", "description": "Principal that issued the command which produced this RVT (per ADR-TECH-STRAT-003). Sourced into PRJ.ANCHOR_HISTORY.actor by the projection consumer." },
         "causation_id":        { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of the immediate cause (the command_id of the accepted command)." }

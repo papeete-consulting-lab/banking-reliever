@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR.schema.json",
   "title": "PseudonymiseAnchorCommand",
   "description": "Payload for CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR — execute the GDPR Art. 17 right-to-be-forgotten on the anchor's PII. Crypto-shreds last_name, first_name, date_of_birth, contact_details. Irreversible.",
   "type": "object",
@@ -10,7 +10,7 @@
     "command_id":        { "$ref": "#/$defs/Uuidv7" },
     "right_exercise_id": {
       "$ref": "#/$defs/Uuidv7",
-      "description": "UUIDv7 of the upstream right-to-be-forgotten request from CAP.SUP.001.RET. Today HTTP-supplied; in a future revision it will arrive on the bus (see Open Question #1 in aggregates.yaml)."
+      "description": "UUIDv7 of the upstream right-to-be-forgotten request from BNK.RLVR.CAP.SUP.001.RET. Today HTTP-supplied; in a future revision it will arrive on the bus (see Open Question #1 in aggregates.yaml)."
     },
     "reason": {
       "type": "string",

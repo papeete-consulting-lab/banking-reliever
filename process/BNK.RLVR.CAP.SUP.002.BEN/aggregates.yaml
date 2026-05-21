@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.SUP.002.BEN
+  capability: BNK.RLVR.CAP.SUP.002.BEN
   layer: process-modelling
   version: 0.1.0
   governing_adrs:
@@ -31,10 +31,10 @@ meta:
 # The capability's BCM corpus declares ZERO consumed events
 # today (consumed_business_events / consumed_resource_events
 # slices both empty). ADR-BCM-FUNC-0016 documents the intent
-# to subscribe to RightExercised.Processed from CAP.SUP.001.RET
+# to subscribe to RightExercised.Processed from BNK.RLVR.CAP.SUP.001.RET
 # to drive PSEUDONYMISATION reactively — see Open Question #1.
 # Until that subscription exists upstream, PSEUDONYMISE is
-# HTTP-driven (issued by an admin tool or by CAP.SUP.001.RET
+# HTTP-driven (issued by an admin tool or by BNK.RLVR.CAP.SUP.001.RET
 # directly via REST).
 # ──────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ aggregates:
 
   - id: AGG.SUP.002.BEN.IDENTITY_ANCHOR
     name: Canonical beneficiary identity anchor
-    business_object: OBJ.SUP.002.BENEFICIARY_RECORD
+    business_object: BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD
     aggregate_id_field: internal_id
     cardinality: one-per-beneficiary
     description: >-
@@ -115,7 +115,7 @@ aggregates:
       - CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR
 
     emitted_resource_events:
-      - RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # canonical change event — emitted on every state transition
+      - BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED  # canonical change event — emitted on every state transition
 
     invariants:
 
@@ -193,7 +193,7 @@ aggregates:
       - id: INV.BEN.007
         rule: >-
           Every accepted state transition emits exactly one
-          RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED carrying the FULL post-
+          BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED carrying the FULL post-
           transition state of the anchor (snapshot semantics) plus the
           monotonically-incremented `revision` and a `transition_kind`
           discriminator (MINTED | UPDATED | ARCHIVED | RESTORED |
@@ -237,15 +237,15 @@ aggregates:
       - id: OQ.BEN.001
         rule: >-
           ADR-BCM-FUNC-0016 declares the intent to consume
-          RightExercised.Processed from CAP.SUP.001.RET to drive
+          RightExercised.Processed from BNK.RLVR.CAP.SUP.001.RET to drive
           PSEUDONYMISE_ANCHOR reactively. The BCM corpus does not yet
           declare the consumed business / resource event chain. Until that
           chain exists upstream, PSEUDONYMISE is HTTP-only (issued by an
-          admin tool, or by CAP.SUP.001.RET via REST).
+          admin tool, or by BNK.RLVR.CAP.SUP.001.RET via REST).
         remediation: >-
           When banking-knowledge declares the consumed event family for
-          CAP.SUP.001.RET / RightExercised.Processed, re-run /process
-          CAP.SUP.002.BEN to add POL.SUP.002.BEN.ON_RIGHT_EXERCISED listening
+          BNK.RLVR.CAP.SUP.001.RET / RightExercised.Processed, re-run /process
+          BNK.RLVR.CAP.SUP.002.BEN to add POL.SUP.002.BEN.ON_RIGHT_EXERCISED listening
           on that subscription and issuing PSEUDONYMISE_ANCHOR.
 
       - id: OQ.BEN.002
@@ -256,8 +256,8 @@ aggregates:
           cache by internal_id from then on, and use their own correlation
           field on the way in.
         remediation: >-
-          Confirm with each consumer (CAP.BSP.001.SCO, CAP.BSP.002.ENR,
-          CAP.BSP.004.ENV) that the internal_id-only resolution rule does not
+          Confirm with each consumer (BNK.RLVR.CAP.BSP.001.SCO, BNK.RLVR.CAP.BSP.002.ENR,
+          BNK.RLVR.CAP.BSP.004.ENV) that the internal_id-only resolution rule does not
           break a necessary lookup path; if any consumer needs an alternate
           lookup key, surface it as a new BCM business-event before
           re-modelling.
