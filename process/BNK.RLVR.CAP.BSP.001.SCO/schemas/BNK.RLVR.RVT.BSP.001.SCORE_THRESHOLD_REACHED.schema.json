@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.SCORE_THRESHOLD_REACHED.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED.schema.json",
   "title": "ScoreThresholdReachedEvent",
-  "description": "Payload of RVT.BSP.001.SCORE_THRESHOLD_REACHED — emitted by AGG.SCORE_OF_BENEFICIARY ATOMICALLY with RVT.CURRENT_SCORE_RECOMPUTED whenever the recomputed current_score crosses a tier_thresholds value (per INV.SCO.003). Carries RES.BSP.001.CURRENT_SCORE plus the threshold metadata so CAP.BSP.001.TIE can decide on tier transitions.",
+  "description": "Payload of BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED — emitted by AGG.SCORE_OF_BENEFICIARY ATOMICALLY with BNK.RLVR.RVT.CURRENT_SCORE_RECOMPUTED whenever the recomputed current_score crosses a tier_thresholds value (per INV.SCO.003). Carries BNK.RLVR.RES.BSP.001.CURRENT_SCORE plus the threshold metadata so BNK.RLVR.CAP.BSP.001.TIE can decide on tier transitions.",
   "type": "object",
   "additionalProperties": false,
   "required": ["envelope", "case_id", "evaluation_id", "score_value", "delta_score", "model_version", "computation_timestamp", "threshold", "direction", "trigger"],
   "properties": {
     "envelope":      { "$ref": "#/$defs/Envelope" },
     "case_id":       { "$ref": "#/$defs/Uuidv7" },
-    "evaluation_id": { "$ref": "#/$defs/Uuidv7", "description": "Same evaluation_id as the paired RVT.CURRENT_SCORE_RECOMPUTED — proves atomicity." },
+    "evaluation_id": { "$ref": "#/$defs/Uuidv7", "description": "Same evaluation_id as the paired BNK.RLVR.RVT.CURRENT_SCORE_RECOMPUTED — proves atomicity." },
     "score_value":   { "type": "number" },
     "delta_score":   { "type": "number" },
     "model_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
@@ -20,7 +20,7 @@
       "required": ["value", "tier_from", "tier_to"],
       "properties": {
         "value":     { "type": "number", "description": "The threshold value that was crossed." },
-        "tier_from": { "type": "string", "description": "Tier label before crossing (per CAP.BSP.001.TIE configuration)." },
+        "tier_from": { "type": "string", "description": "Tier label before crossing (per BNK.RLVR.CAP.BSP.001.TIE configuration)." },
         "tier_to":   { "type": "string", "description": "Tier label after crossing." }
       }
     },
@@ -53,7 +53,7 @@
         "message_id":          { "$ref": "#/$defs/Uuidv7" },
         "schema_version":      { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
         "emitted_at":          { "type": "string", "format": "date-time" },
-        "emitting_capability": { "type": "string", "const": "CAP.BSP.001.SCO" },
+        "emitting_capability": { "type": "string", "const": "BNK.RLVR.CAP.BSP.001.SCO" },
         "correlation_id":      { "$ref": "#/$defs/Uuidv7" },
         "causation_id":        { "$ref": "#/$defs/Uuidv7" }
       }

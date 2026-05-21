@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.SCO
+  capability: BNK.RLVR.CAP.BSP.001.SCO
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -33,21 +33,21 @@ commands:
         rule: No prior evaluation exists for this case_id (entry score is a one-shot).
       - id: PRE.002
         rule: >-
-          case_id resolves to an active beneficiary anchor in CAP.SUP.002.BEN
-          (formerly CAP.REF.001.BEN — relocated 2026-05-15 per ADR-BCM-FUNC-0016).
+          case_id resolves to an active beneficiary anchor in BNK.RLVR.CAP.SUP.002.BEN
+          (formerly BNK.RLVR.CAP.REF.001.BEN — relocated 2026-05-15 per ADR-BCM-FUNC-0016).
           The lookup is delegated; this capability does not embed beneficiary
           PII.
     invariants_enforced:
       - INV.SCO.001  # see aggregates.yaml
     emits:
-      - RVT.BSP.001.ENTRY_SCORE_COMPUTED
+      - BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
       # business-event family pivot (no autonomous bus message — Rule 2 of ADR-TECH-STRAT-001):
-      # EVT.BSP.001.SCORE_RECOMPUTED
+      # BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
     errors:
       - code: ENTRY_SCORE_ALREADY_EXISTS
         when: An evaluation already exists for case_id.
       - code: BENEFICIARY_UNKNOWN
-        when: case_id does not resolve to an active anchor in CAP.SUP.002.BEN.
+        when: case_id does not resolve to an active anchor in BNK.RLVR.CAP.SUP.002.BEN.
     idempotency:
       key: case_id
       window: lifetime
@@ -73,8 +73,8 @@ commands:
       - INV.SCO.002
       - INV.SCO.003
     emits:
-      - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED          # always
-      - RVT.BSP.001.SCORE_THRESHOLD_REACHED           # conditional — only when threshold crossed
+      - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED          # always
+      - BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED           # conditional — only when threshold crossed
     errors:
       - code: AGGREGATE_NOT_INITIALISED
         when: No entry score exists for case_id.
@@ -95,18 +95,18 @@ commands:
 
 trigger_kinds:
   - id: TRANSACTION_AUTHORIZED
-    upstream_event: EVT.BSP.004.TRANSACTION_AUTHORIZED
-    upstream_resource_event: RVT.BSP.004.PAYMENT_GRANTED
+    upstream_event: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED
+    upstream_resource_event: BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
     polarity: positive
   - id: TRANSACTION_REFUSED
-    upstream_event: EVT.BSP.004.TRANSACTION_REFUSED
-    upstream_resource_event: RVT.BSP.004.PAYMENT_BLOCKED
+    upstream_event: BNK.RLVR.EVT.BSP.004.TRANSACTION_REFUSED
+    upstream_resource_event: BNK.RLVR.RVT.BSP.004.PAYMENT_BLOCKED
     polarity: negative
   - id: RELAPSE_SIGNAL
-    upstream_event: EVT.BSP.001.RELAPSE_SIGNAL_DETECTED
-    upstream_resource_event: RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED
+    upstream_event: BNK.RLVR.EVT.BSP.001.RELAPSE_SIGNAL_DETECTED
+    upstream_resource_event: BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED
     polarity: negative
   - id: PROGRESSION_SIGNAL
-    upstream_event: EVT.BSP.001.PROGRESSION_SIGNAL_DETECTED
-    upstream_resource_event: RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED
+    upstream_event: BNK.RLVR.EVT.BSP.001.PROGRESSION_SIGNAL_DETECTED
+    upstream_resource_event: BNK.RLVR.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED
     polarity: positive

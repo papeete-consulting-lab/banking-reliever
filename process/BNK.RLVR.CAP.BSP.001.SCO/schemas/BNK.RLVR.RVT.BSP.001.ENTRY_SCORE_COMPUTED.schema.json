@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.ENTRY_SCORE_COMPUTED.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED.schema.json",
   "title": "EntryScoreComputedEvent",
-  "description": "Payload of RVT.BSP.001.ENTRY_SCORE_COMPUTED — emitted by AGG.SCORE_OF_BENEFICIARY when CMD.COMPUTE_ENTRY_SCORE is accepted. One-shot baseline. Carries RES.BSP.001.ENTRY_SCORE.",
+  "description": "Payload of BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED — emitted by AGG.SCORE_OF_BENEFICIARY when CMD.COMPUTE_ENTRY_SCORE is accepted. One-shot baseline. Carries BNK.RLVR.RES.BSP.001.ENTRY_SCORE.",
   "type": "object",
   "additionalProperties": false,
   "required": ["envelope", "case_id", "evaluation_id", "score_value", "model_version", "evaluation_type", "computation_timestamp", "contributing_factors"],
@@ -15,7 +15,7 @@
     "evaluation_type": {
       "type": "string",
       "const": "INITIAL",
-      "description": "Per OBJ.BSP.001.EVALUATION — INITIAL for the entry score (always for this RVT)."
+      "description": "Per BNK.RLVR.OBJ.BSP.001.EVALUATION — INITIAL for the entry score (always for this RVT)."
     },
     "computation_timestamp": { "type": "string", "format": "date-time" },
     "contributing_factors": {
@@ -47,7 +47,7 @@
         "message_id":          { "$ref": "#/$defs/Uuidv7" },
         "schema_version":      { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
         "emitted_at":          { "type": "string", "format": "date-time" },
-        "emitting_capability": { "type": "string", "const": "CAP.BSP.001.SCO" },
+        "emitting_capability": { "type": "string", "const": "BNK.RLVR.CAP.BSP.001.SCO" },
         "correlation_id":      { "$ref": "#/$defs/Uuidv7", "description": "case_id for score-flow events." },
         "causation_id":        { "$ref": "#/$defs/Uuidv7", "description": "Set to the request_id of the originating COMPUTE_ENTRY_SCORE call (typically issued by POL.ON_ENROLMENT_COMPLETED)." }
       }

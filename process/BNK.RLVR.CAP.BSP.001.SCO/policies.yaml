@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.SCO
+  capability: BNK.RLVR.CAP.BSP.001.SCO
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -24,22 +24,22 @@ policies:
       RECOMPUTE_SCORE command, with the trigger kind discriminating polarity
       and weighting downstream.
     listens_to:
-      # Backed by SUB.BUSINESS.BSP.001.001..004 + SUB.RESOURCE.BSP.001.001..004
-      - resource_event: RVT.BSP.004.PAYMENT_GRANTED
-        business_subscription: SUB.BUSINESS.BSP.001.001
-        resource_subscription: SUB.RESOURCE.BSP.001.001
+      # Backed by BNK.RLVR.SUB.BUSINESS.BSP.001.001..004 + BNK.RLVR.SUB.RESOURCE.BSP.001.001..004
+      - resource_event: BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.001
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.001
         trigger_kind: TRANSACTION_AUTHORIZED
-      - resource_event: RVT.BSP.004.PAYMENT_BLOCKED
-        business_subscription: SUB.BUSINESS.BSP.001.002
-        resource_subscription: SUB.RESOURCE.BSP.001.002
+      - resource_event: BNK.RLVR.RVT.BSP.004.PAYMENT_BLOCKED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.002
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.002
         trigger_kind: TRANSACTION_REFUSED
-      - resource_event: RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED
-        business_subscription: SUB.BUSINESS.BSP.001.003
-        resource_subscription: SUB.RESOURCE.BSP.001.003
+      - resource_event: BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.003
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.003
         trigger_kind: RELAPSE_SIGNAL
-      - resource_event: RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED
-        business_subscription: SUB.BUSINESS.BSP.001.004
-        resource_subscription: SUB.RESOURCE.BSP.001.004
+      - resource_event: BNK.RLVR.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.004
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.004
         trigger_kind: PROGRESSION_SIGNAL
     issues: CMD.BSP.001.SCO.RECOMPUTE_SCORE
     mapping_rule: >-
@@ -69,11 +69,11 @@ policies:
       When a beneficiary completes enrolment, compute the baseline behavioural
       score as the reference point for subsequent recomputations.
     listens_to:
-      - business_event: EVT.BSP.002.ENROLMENT_COMPLETED  # FUNC-0006 (CAP.BSP.002 — Access & Enrollment). Upstream not yet process-modelled, so we reference the canonical business event; the paired RVT and a SUB.BUSINESS subscription must be added to BCM (ADR-BCM-FUNC-0005) before this can become a resource_event in bus.yaml.
+      - business_event: BNK.RLVR.EVT.BSP.002.ENROLMENT_COMPLETED  # FUNC-0006 (BNK.RLVR.CAP.BSP.002 — Access & Enrollment). Upstream not yet process-modelled, so we reference the canonical business event; the paired RVT and a BNK.RLVR.SUB.BUSINESS subscription must be added to BCM (ADR-BCM-FUNC-0005) before this can become a resource_event in bus.yaml.
     issues: CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE
     open_question: >-
-      ADR-BCM-FUNC-0005 lists no business subscription for enrolment in CAP.BSP.001.SCO.
-      Most likely upstream: EVT.BSP.002.ENROLMENT_COMPLETED from CAP.BSP.002.ENR
+      ADR-BCM-FUNC-0005 lists no business subscription for enrolment in BNK.RLVR.CAP.BSP.001.SCO.
+      Most likely upstream: BNK.RLVR.EVT.BSP.002.ENROLMENT_COMPLETED from BNK.RLVR.CAP.BSP.002.ENR
       (FUNC-0006 access enrolment). To be confirmed before /code.
     error_handling:
       - on: ENTRY_SCORE_ALREADY_EXISTS

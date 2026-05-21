@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.SCO
+  capability: BNK.RLVR.CAP.BSP.001.SCO
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -25,7 +25,7 @@ publication:
     name: bsp.001.sco-events
     type: topic
     durable: true
-    owned_by: CAP.BSP.001.SCO
+    owned_by: BNK.RLVR.CAP.BSP.001.SCO
     rule_reference: ADR-TECH-STRAT-001 Rules 1, 5
 
   # Per ADR-TECH-STRAT-001 Rule 2, only resource events generate autonomous
@@ -33,22 +33,22 @@ publication:
   # (Rule 4) — never as standalone messages.
 
   routing_keys:
-    - resource_event: RVT.BSP.001.ENTRY_SCORE_COMPUTED
-      paired_business_event: EVT.BSP.001.SCORE_RECOMPUTED
-      routing_key: EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.ENTRY_SCORE_COMPUTED
-      schema: schemas/RVT.BSP.001.ENTRY_SCORE_COMPUTED.schema.json
+    - resource_event: BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+      paired_business_event: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
+      routing_key: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+      schema: schemas/BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED.schema.json
       payload_form: domain-event-ddd
 
-    - resource_event: RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-      paired_business_event: EVT.BSP.001.SCORE_RECOMPUTED
-      routing_key: EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-      schema: schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json
+    - resource_event: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      paired_business_event: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
+      routing_key: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      schema: schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json
       payload_form: domain-event-ddd
 
-    - resource_event: RVT.BSP.001.SCORE_THRESHOLD_REACHED
-      paired_business_event: EVT.BSP.001.SCORE_THRESHOLD_REACHED
-      routing_key: EVT.BSP.001.SCORE_THRESHOLD_REACHED.RVT.BSP.001.SCORE_THRESHOLD_REACHED
-      schema: schemas/RVT.BSP.001.SCORE_THRESHOLD_REACHED.schema.json
+    - resource_event: BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+      paired_business_event: BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED
+      routing_key: BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED.BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+      schema: schemas/BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED.schema.json
       payload_form: domain-event-ddd
 
   envelope:
@@ -60,8 +60,8 @@ publication:
   correlation_key: case_id
   identity_resolution: >-
     Consumers that need the canonical beneficiary identity resolve case_id →
-    OBJ.SUP.002.BENEFICIARY_RECORD.internal_id via a CAP.SUP.002.BEN lookup
-    (formerly CAP.REF.001.BEN — relocated 2026-05-15 per ADR-BCM-FUNC-0016 from
+    BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD.internal_id via a BNK.RLVR.CAP.SUP.002.BEN lookup
+    (formerly BNK.RLVR.CAP.REF.001.BEN — relocated 2026-05-15 per ADR-BCM-FUNC-0016 from
     REFERENTIAL to SUPPORT). The producer NEVER carries the canonical
     internal_id; that contract is preserved across the move because the
     score-flow does not need to embed PII (per ADR-TECH-STRAT-004 PII
@@ -74,36 +74,36 @@ publication:
 # ──────────────────────────────────────────────────────────────
 
 subscriptions:
-  - source_capability: CAP.BSP.004.AUT
+  - source_capability: BNK.RLVR.CAP.BSP.004.AUT
     source_exchange: bsp.004.aut-events
-    binding_pattern: EVT.BSP.004.TRANSACTION_AUTHORIZED.RVT.BSP.004.PAYMENT_GRANTED
+    binding_pattern: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED.BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
     queue: bsp.001.sco.q.transaction-authorized
-    business_subscription: SUB.BUSINESS.BSP.001.001
-    resource_subscription: SUB.RESOURCE.BSP.001.001
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.001
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.001
     consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
 
-  - source_capability: CAP.BSP.004.AUT
+  - source_capability: BNK.RLVR.CAP.BSP.004.AUT
     source_exchange: bsp.004.aut-events
-    binding_pattern: EVT.BSP.004.TRANSACTION_REFUSED.RVT.BSP.004.PAYMENT_BLOCKED
+    binding_pattern: BNK.RLVR.EVT.BSP.004.TRANSACTION_REFUSED.BNK.RLVR.RVT.BSP.004.PAYMENT_BLOCKED
     queue: bsp.001.sco.q.transaction-refused
-    business_subscription: SUB.BUSINESS.BSP.001.002
-    resource_subscription: SUB.RESOURCE.BSP.001.002
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.002
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.002
     consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
 
-  - source_capability: CAP.BSP.001.SIG
+  - source_capability: BNK.RLVR.CAP.BSP.001.SIG
     source_exchange: bsp.001.sig-events
-    binding_pattern: EVT.BSP.001.RELAPSE_SIGNAL_DETECTED.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.RELAPSE_SIGNAL_DETECTED.BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED
     queue: bsp.001.sco.q.relapse-signal
-    business_subscription: SUB.BUSINESS.BSP.001.003
-    resource_subscription: SUB.RESOURCE.BSP.001.003
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.003
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.003
     consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
 
-  - source_capability: CAP.BSP.001.SIG
+  - source_capability: BNK.RLVR.CAP.BSP.001.SIG
     source_exchange: bsp.001.sig-events
-    binding_pattern: EVT.BSP.001.PROGRESSION_SIGNAL_DETECTED.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.PROGRESSION_SIGNAL_DETECTED.BNK.RLVR.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED
     queue: bsp.001.sco.q.progression-signal
-    business_subscription: SUB.BUSINESS.BSP.001.004
-    resource_subscription: SUB.RESOURCE.BSP.001.004
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.004
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.004
     consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
 
 # ──────────────────────────────────────────────────────────────
@@ -112,22 +112,22 @@ subscriptions:
 # ──────────────────────────────────────────────────────────────
 
 consumers:
-  - capability: CAP.BSP.001.ARB
+  - capability: BNK.RLVR.CAP.BSP.001.ARB
     binds_to:
-      - EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      - BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
     rationale: Algorithmic vs prescriber-override arbitration on each recomputation.
 
-  - capability: CAP.BSP.001.TIE
+  - capability: BNK.RLVR.CAP.BSP.001.TIE
     binds_to:
-      - EVT.BSP.001.SCORE_THRESHOLD_REACHED.#
+      - BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED.#
     rationale: Tier transition is triggered by threshold crossing.
 
-  - capability: CAP.CHN.001.DSH
+  - capability: BNK.RLVR.CAP.CHN.001.DSH
     binds_to:
-      - EVT.BSP.001.SCORE_RECOMPUTED.#
+      - BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.#
     rationale: Beneficiary dashboard progression bar.
 
-  - capability: CAP.CHN.002.VUE
+  - capability: BNK.RLVR.CAP.CHN.002.VUE
     binds_to:
-      - EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      - BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
     rationale: Prescriber view — current score and history.
