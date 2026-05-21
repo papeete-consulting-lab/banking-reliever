@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.CHN.001.DSH
+  capability: BNK.RLVR.CAP.CHN.001.DSH
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -32,9 +32,9 @@ read_models:
       # state. Listed here for lineage (ADR-TECH-STRAT-005 EventCatalog
       # tracing); the projection is updated synchronously inside the
       # aggregate, not by a separate projector.
-      - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-      - RVT.BSP.001.TIER_UPGRADE_RECORDED
-      - RVT.BSP.004.CONSUMPTION_RECORDED
+      - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      - BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED
     fields:
       - case_id
       - current_tier_code
@@ -53,7 +53,7 @@ read_models:
       beneficiary. Bounded by INV.DSH.005 (max 50 entries, max age 30 days).
       Surfaced as the "recent activity" panel on the mobile dashboard.
     fed_by:
-      - RVT.BSP.004.CONSUMPTION_RECORDED
+      - BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED
     fields:
       - transaction_id
       - envelope_id
@@ -68,7 +68,7 @@ read_models:
     pii_classification: low
     pii_note: >-
       merchant_label is a non-PII semantic label (e.g. "GROCERY", "TRANSPORT")
-      derived upstream by CAP.BSP.004.ENV; raw merchant names are NEVER
+      derived upstream by BNK.RLVR.CAP.BSP.004.ENV; raw merchant names are NEVER
       stored. category is also non-PII.
 
 queries:
@@ -88,7 +88,7 @@ queries:
         - open_envelopes
         - last_synced_at
     consumers:
-      - frontend  # CAP.CHN.001.DSH's own vanilla-JS frontend
+      - frontend  # BNK.RLVR.CAP.CHN.001.DSH's own vanilla-JS frontend
     api_binding: { method: GET, path: "/cases/{case_id}/dashboard" }
     cache: { etag: true, max_age: PT5S }
     polling_hint: >-

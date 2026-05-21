@@ -1,4 +1,4 @@
-# Process Model — CAP.CHN.001.DSH (Beneficiary Dashboard)
+# Process Model — BNK.RLVR.CAP.CHN.001.DSH (Beneficiary Dashboard)
 
 > **Layer**: Process Modelling (DDD tactical) — sits between Big-Picture Event
 > Storming (banking-knowledge: BCM, FUNC ADR) and Software Design (this
@@ -7,27 +7,27 @@
 > boundary and invariants, reactive policies, read-model surface, bus topology,
 > wire schemas of this capability.
 > **NOT a plan**: this folder is durable across re-plans and re-implementations
-> of the same FUNC ADR. The `plan/CAP.CHN.001.DSH/` folder consumes it.
+> of the same FUNC ADR. The `plan/BNK.RLVR.CAP.CHN.001.DSH/` folder consumes it.
 >
 > **Zone**: CHANNEL — this capability is implemented as a Backend-For-Frontend
 > (BFF) plus a vanilla-JS mobile frontend. Two agents materialise it from this
 > model: `create-bff` (the .NET BFF) and `code-web-frontend` (the vanilla-JS
-> view). Both consume `process/CAP.CHN.001.DSH/` as a read-only contract.
+> view). Both consume `process/BNK.RLVR.CAP.CHN.001.DSH/` as a read-only contract.
 
 ## Upstream knowledge (consumed, not re-stated)
 
-Fetched via `bcm-pack pack CAP.CHN.001.DSH --deep`. Anything in those slices is
+Fetched via `bcm-pack pack BNK.RLVR.CAP.CHN.001.DSH --deep`. Anything in those slices is
 canonical and must NOT be duplicated here:
 
-- `capabilities-reliever-L2.yaml` — capability definition, parent CAP.CHN.001,
+- `capabilities-reliever-L2.yaml` — capability definition, parent BNK.RLVR.CAP.CHN.001,
   zone CHANNEL, owner User Experience Directorate
-- `func-adr/ADR-BCM-FUNC-0009` — L2 breakdown of CAP.CHN.001 (Beneficiary
+- `func-adr/ADR-BCM-FUNC-0009` — L2 breakdown of BNK.RLVR.CAP.CHN.001 (Beneficiary
   Journey)
-- `business-event-reliever.yaml` — `EVT.CHN.001.DASHBOARD_VIEWED`
-- `resource-event-reliever.yaml` — `RVT.CHN.001.DASHBOARD_VIEWED`
-- `business-object-reliever.yaml` — `OBJ.BSP.002.PARTICIPATION` (carried by
-  the emitted event; owned by CAP.BSP.002.CYC)
-- `resource-reliever.yaml` — `RES.BSP.002.ACTIVE_CASE` (technical projection
+- `business-event-reliever.yaml` — `BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED`
+- `resource-event-reliever.yaml` — `BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED`
+- `business-object-reliever.yaml` — `BNK.RLVR.OBJ.BSP.002.PARTICIPATION` (carried by
+  the emitted event; owned by BNK.RLVR.CAP.BSP.002.CYC)
+- `resource-reliever.yaml` — `BNK.RLVR.RES.BSP.002.ACTIVE_CASE` (technical projection
   carried by the RVT)
 - `business-subscription-reliever.yaml` — three upstream subscriptions
   (SCORE_RECOMPUTED, TIER_UPGRADED, ENVELOPE_CONSUMED)
@@ -55,7 +55,7 @@ canonical and must NOT be duplicated here:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                       CAP.CHN.001.DSH                          │
+│                       BNK.RLVR.CAP.CHN.001.DSH                          │
 │                  (Beneficiary Dashboard BFF)                   │
 │                                                                │
 │   ┌──────────────────────────────────────────────────────┐     │
@@ -75,10 +75,10 @@ canonical and must NOT be duplicated here:
 │      │                    UPGRADE_RECORDED                     │
 │      │                        ▲                ▲               │
 │      │                        │ subscribes     │ subscribes    │
-│      │                        │ RVT.BSP.001.*  │ RVT.BSP.004.* │
+│      │                        │ BNK.RLVR.RVT.BSP.001.*  │ BNK.RLVR.RVT.BSP.004.* │
 │   [vanilla-JS frontend]                                        │
 │                                                                │
-│   emits ───► RVT.CHN.001.DASHBOARD_VIEWED                      │
+│   emits ───► BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED                      │
 │              (telemetry; PII-free; debounced 30s)              │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -109,12 +109,12 @@ Three flows together cover every behaviour of this capability:
         │ YES           │ NO
         ▼               ▼
    emits           ack as
-   RVT.CHN.001.    VIEW_DEBOUNCED
+   BNK.RLVR.RVT.CHN.001.    VIEW_DEBOUNCED
    DASHBOARD_      (HTTP 200,
    VIEWED          no event)
         │
         ▼ routing key
-   EVT.CHN.001.DASHBOARD_VIEWED.RVT.CHN.001.DASHBOARD_VIEWED
+   BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED.BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
         │
         ▼ consumed by
    [DATA_ANALYTIQUE — engagement metrics, future]
@@ -123,8 +123,8 @@ Three flows together cover every behaviour of this capability:
 ### Flow B — Upstream score / tier event arrives
 
 ```
-[CAP.BSP.001.SCO]                 [CAP.BSP.001.TIE]
-   RVT.CURRENT_SCORE_RECOMPUTED      RVT.TIER_UPGRADE_RECORDED
+[BNK.RLVR.CAP.BSP.001.SCO]                 [BNK.RLVR.CAP.BSP.001.TIE]
+   BNK.RLVR.RVT.CURRENT_SCORE_RECOMPUTED      BNK.RLVR.RVT.TIER_UPGRADE_RECORDED
                 │                                 │
                 ▼                                 ▼
    POL.CHN.001.DSH.                  POL.CHN.001.DSH.
@@ -155,8 +155,8 @@ Three flows together cover every behaviour of this capability:
 ### Flow C — Envelope consumption arrives
 
 ```
-[CAP.BSP.004.ENV]
-   RVT.CONSUMPTION_RECORDED { case_id, envelope_id, transaction_id, amount, ... }
+[BNK.RLVR.CAP.BSP.004.ENV]
+   BNK.RLVR.RVT.CONSUMPTION_RECORDED { case_id, envelope_id, transaction_id, amount, ... }
                 │
                 ▼
    POL.CHN.001.DSH.ON_ENVELOPE_CONSUMPTION_RECORDED
@@ -183,7 +183,7 @@ Three flows together cover every behaviour of this capability:
 
 1. **Aggregate eager vs lazy creation.** The aggregate is materialised lazily
    on the first incoming event (INV.DSH.006). FUNC-0009 declares no
-   subscription to a `EVT.BSP.002.CASE_OPENED` (or similar) — without it, a
+   subscription to a `BNK.RLVR.EVT.BSP.002.CASE_OPENED` (or similar) — without it, a
    freshly enrolled beneficiary will see a 404 on `GET /dashboard` until the
    first score / tier / envelope event lands. Two options:
    - Accept the 404 → frontend must render an empty-state page until the
@@ -193,8 +193,8 @@ Three flows together cover every behaviour of this capability:
      business-subscription in the BCM upstream.
 
 2. **Tier downgrade propagation.** `policies.yaml` only listens to
-   `RVT.BSP.001.TIER_UPGRADE_RECORDED`; downgrades emitted by
-   `AGG.BSP.001.TIE.TIER_OF_CASE` (`RVT.TIER_DOWNGRADE_RECORDED`) are NOT
+   `BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED`; downgrades emitted by
+   `AGG.BSP.001.TIE.TIER_OF_CASE` (`BNK.RLVR.RVT.TIER_DOWNGRADE_RECORDED`) are NOT
    subscribed-to. After a downgrade, the dashboard's `current_tier_code`
    silently drifts from reality until the next upgrade.
    - FUNC-0009 is explicit about the gamification stance ("encourage without
@@ -207,24 +207,24 @@ Three flows together cover every behaviour of this capability:
    Confirm with the UX directorate before `/code`.
 
 3. **Envelope closure.** The aggregate accumulates `open_envelopes` from
-   `RVT.BSP.004.CONSUMPTION_RECORDED` but never prunes closed or archived
+   `BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED` but never prunes closed or archived
    envelopes — there is no closure subscription declared. This is acceptable
    for a remediation programme of bounded duration (envelopes live ~weeks
    to ~months) but should be revisited if BSP.004 introduces a closure
-   event (`RVT.BSP.004.ENVELOPE_CLOSED`?). Track upstream.
+   event (`BNK.RLVR.RVT.BSP.004.ENVELOPE_CLOSED`?). Track upstream.
 
-4. **`RVT.BSP.004.CONSUMPTION_RECORDED` field set.** The mapping rule in
+4. **`BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED` field set.** The mapping rule in
    `policies.yaml` and the schema `CMD.RECORD_ENVELOPE_CONSUMPTION` assume
    the upstream RVT carries: `envelope_id`, `transaction_id`, `amount`,
    `currency`, `category`, `merchant_label` (PII-free), and the post-
    consumption envelope snapshot (`allocated_amount`, `consumed_amount`,
-   `available_amount`). When CAP.BSP.004.ENV's process model lands,
+   `available_amount`). When BNK.RLVR.CAP.BSP.004.ENV's process model lands,
    re-validate this mapping. If `merchant_label` is absent upstream, drop
    it from the dashboard surface (it is non-essential).
 
 5. **Score progression percentage.** The dashboard renders a "progress bar"
    that requires translating the numerical score into a fraction of the
-   current tier's range. Tier thresholds are owned by CAP.REF.001.TIE.
+   current tier's range. Tier thresholds are owned by BNK.RLVR.CAP.REF.001.TIE.
    This sketch keeps the dashboard projection raw (`current_score` as a
    number) and delegates the rendering arithmetic to the **frontend**, which
    reads tier definitions via a separate REF API call. An alternative is to
@@ -233,7 +233,7 @@ Three flows together cover every behaviour of this capability:
    it on the frontend.
 
 6. **DASHBOARD_VIEWED downstream consumer.** No business-subscription is
-   declared for `EVT.CHN.001.DASHBOARD_VIEWED` in the BCM today. The
+   declared for `BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED` in the BCM today. The
    intended consumer is a future DATA_ANALYTIQUE capability for engagement
    telemetry. Before the first non-test consumer appears, declare the
    business-subscription upstream and add it to `bus.yaml`'s `consumers`
@@ -243,8 +243,8 @@ Three flows together cover every behaviour of this capability:
 
 | ADR | Role |
 |---|---|
-| `ADR-BCM-FUNC-0009` | L2 breakdown of CAP.CHN.001 — defines emitted/consumed events for the beneficiary journey |
-| `ADR-BCM-FUNC-0016` | Relocated the beneficiary identity anchor from CAP.REF.001 to CAP.SUP.002 — every PII-resolution reference now points to CAP.SUP.002.BEN |
+| `ADR-BCM-FUNC-0009` | L2 breakdown of BNK.RLVR.CAP.CHN.001 — defines emitted/consumed events for the beneficiary journey |
+| `ADR-BCM-FUNC-0016` | Relocated the beneficiary identity anchor from BNK.RLVR.CAP.REF.001 to BNK.RLVR.CAP.SUP.002 — every PII-resolution reference now points to BNK.RLVR.CAP.SUP.002.BEN |
 | `ADR-BCM-URBA-0009` | Definition of an event-driven capability |
 | `ADR-BCM-URBA-0010` | L2 capabilities as the urbanisation pivot |
 | `ADR-TECH-STRAT-001` | Bus rules (exchange-per-L2, routing-key convention, design-time schema governance) — NORMATIVE |

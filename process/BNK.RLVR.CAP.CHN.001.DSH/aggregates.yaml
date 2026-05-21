@@ -1,9 +1,9 @@
 meta:
-  capability: CAP.CHN.001.DSH
+  capability: BNK.RLVR.CAP.CHN.001.DSH
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
-    - ADR-BCM-FUNC-0009     # L2 breakdown of CAP.CHN.001 — Beneficiary Journey
+    - ADR-BCM-FUNC-0009     # L2 breakdown of BNK.RLVR.CAP.CHN.001 — Beneficiary Journey
     - ADR-BCM-URBA-0009     # Definition of an event-driven capability
     - ADR-BCM-URBA-0010     # L2 capabilities as the urbanisation pivot
     - ADR-TECH-STRAT-001    # Bus topology rules (Rule 3 — payload form is domain-event-DDD)
@@ -24,7 +24,7 @@ aggregates:
 
   - id: AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD
     name: Beneficiary dashboard view
-    business_object: OBJ.BSP.002.PARTICIPATION
+    business_object: BNK.RLVR.OBJ.BSP.002.PARTICIPATION
     aggregate_id_field: case_id
     cardinality: one-per-case
     description: >-
@@ -67,7 +67,7 @@ aggregates:
             last_updated_at: timestamp
         description: >-
           Live snapshot of the beneficiary's currently open envelopes.
-          Updated on every RVT.BSP.004.CONSUMPTION_RECORDED. Closed or
+          Updated on every BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED. Closed or
           archived envelopes are NOT pruned by this aggregate (no closure
           event consumed) — see open question in README.
       - field: recent_transactions
@@ -108,7 +108,7 @@ aggregates:
       - CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION
 
     emitted_resource_events:
-      - RVT.CHN.001.DASHBOARD_VIEWED
+      - BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
 
     invariants:
       - id: INV.DSH.001
@@ -117,13 +117,13 @@ aggregates:
           Allowed fields are case_id (an opaque participation identifier),
           tier code, numeric score, envelope amounts, category labels, and
           ISO timestamps. Beneficiary names, contact details, and any field
-          carried by OBJ.SUP.002.BENEFICIARY_RECORD MUST NOT enter the
+          carried by BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD MUST NOT enter the
           aggregate, the projection, or the emitted RVT payload.
         rationale: >-
           ADR-TECH-TACT-001 mandates `pii-exclusion` for the channel layer.
-          PII resolution is delegated to consumers via CAP.SUP.002.BEN
+          PII resolution is delegated to consumers via BNK.RLVR.CAP.SUP.002.BEN
           look-ups when needed (beneficiary identity anchor was relocated
-          from CAP.REF.001 to CAP.SUP.002 per ADR-BCM-FUNC-0016).
+          from BNK.RLVR.CAP.REF.001 to BNK.RLVR.CAP.SUP.002 per ADR-BCM-FUNC-0016).
 
       - id: INV.DSH.002
         rule: >-
@@ -150,7 +150,7 @@ aggregates:
 
       - id: INV.DSH.004
         rule: >-
-          RECORD_DASHBOARD_VIEW emits RVT.CHN.001.DASHBOARD_VIEWED only when
+          RECORD_DASHBOARD_VIEW emits BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED only when
           (now - last_viewed_at) >= 30 seconds, OR when last_viewed_at is null.
           Inside the debounce window the command is acked as an idempotent
           no-op (HTTP 200, no event emitted).
@@ -183,7 +183,7 @@ aggregates:
           (no business-subscription declared in FUNC-0009). Lazy creation
           keeps the model agnostic to upstream event ordering.
         open_question: >-
-          Should the BFF subscribe to a future EVT.BSP.002.CASE_OPENED to
+          Should the BFF subscribe to a future BNK.RLVR.EVT.BSP.002.CASE_OPENED to
           materialise the dashboard eagerly with empty placeholders? See
           README "Open process-level questions".
 

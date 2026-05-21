@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.CHN.001.DSH
+  capability: BNK.RLVR.CAP.CHN.001.DSH
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -20,7 +20,7 @@ publication:
     name: chn.001.dsh-events
     type: topic
     durable: true
-    owned_by: CAP.CHN.001.DSH
+    owned_by: BNK.RLVR.CAP.CHN.001.DSH
     rule_reference: ADR-TECH-STRAT-001 Rules 1, 5
 
   # Per ADR-TECH-STRAT-001 Rule 2, only resource events generate autonomous
@@ -28,68 +28,68 @@ publication:
   # key (Rule 4) — never as standalone messages.
 
   routing_keys:
-    - resource_event: RVT.CHN.001.DASHBOARD_VIEWED
-      paired_business_event: EVT.CHN.001.DASHBOARD_VIEWED
-      routing_key: EVT.CHN.001.DASHBOARD_VIEWED.RVT.CHN.001.DASHBOARD_VIEWED
-      schema: schemas/RVT.CHN.001.DASHBOARD_VIEWED.schema.json
+    - resource_event: BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
+      paired_business_event: BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED
+      routing_key: BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED.BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
+      schema: schemas/BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED.schema.json
       payload_form: domain-event-ddd
 
   correlation_key: case_id
   identity_resolution: >-
     The producer (this BFF) ships ONLY case_id and a small PII-free snapshot
     (current tier code, current score). Downstream consumers (e.g. data
-    analytics) resolve case_id → OBJ.SUP.002.BENEFICIARY_RECORD.internal_id
-    via CAP.SUP.002.BEN if needed (beneficiary identity anchor was relocated
-    from CAP.REF.001 to CAP.SUP.002 per ADR-BCM-FUNC-0016). INV.DSH.001
+    analytics) resolve case_id → BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD.internal_id
+    via BNK.RLVR.CAP.SUP.002.BEN if needed (beneficiary identity anchor was relocated
+    from BNK.RLVR.CAP.REF.001 to BNK.RLVR.CAP.SUP.002 per ADR-BCM-FUNC-0016). INV.DSH.001
     forbids any PII from entering the wire payload.
 
 # ──────────────────────────────────────────────────────────────
 # Subscription side — events consumed from upstream capabilities.
 # Three consumed channels backed by FUNC-0009 subscriptions.
 # Queue naming follows <l1>.<l2>.q.<topic> per the convention used
-# by CAP.BSP.001.SCO/.TIE.
+# by BNK.RLVR.CAP.BSP.001.SCO/.TIE.
 # ──────────────────────────────────────────────────────────────
 
 subscriptions:
-  - source_capability: CAP.BSP.001.SCO
+  - source_capability: BNK.RLVR.CAP.BSP.001.SCO
     source_exchange: bsp.001.sco-events
-    binding_pattern: EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
     queue: chn.001.dsh.q.score-recomputed
-    business_subscription: SUB.BUSINESS.CHN.001.001
-    resource_subscription: SUB.RESOURCE.CHN.001.001
+    business_subscription: BNK.RLVR.SUB.BUSINESS.CHN.001.001
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.CHN.001.001
     consumed_by: POL.CHN.001.DSH.ON_SCORE_RECOMPUTED
 
-  - source_capability: CAP.BSP.001.TIE
+  - source_capability: BNK.RLVR.CAP.BSP.001.TIE
     source_exchange: bsp.001.tie-events
-    binding_pattern: EVT.BSP.001.TIER_UPGRADED.RVT.BSP.001.TIER_UPGRADE_RECORDED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.TIER_UPGRADED.BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
     queue: chn.001.dsh.q.tier-upgraded
-    business_subscription: SUB.BUSINESS.CHN.001.002
-    resource_subscription: SUB.RESOURCE.CHN.001.002
+    business_subscription: BNK.RLVR.SUB.BUSINESS.CHN.001.002
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.CHN.001.002
     consumed_by: POL.CHN.001.DSH.ON_TIER_UPGRADE_RECORDED
 
-  - source_capability: CAP.BSP.004.ENV
+  - source_capability: BNK.RLVR.CAP.BSP.004.ENV
     source_exchange: bsp.004.env-events
-    binding_pattern: EVT.BSP.004.ENVELOPE_CONSUMED.RVT.BSP.004.CONSUMPTION_RECORDED
+    binding_pattern: BNK.RLVR.EVT.BSP.004.ENVELOPE_CONSUMED.BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED
     queue: chn.001.dsh.q.envelope-consumed
-    business_subscription: SUB.BUSINESS.CHN.001.003
-    resource_subscription: SUB.RESOURCE.CHN.001.003
+    business_subscription: BNK.RLVR.SUB.BUSINESS.CHN.001.003
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.CHN.001.003
     consumed_by: POL.CHN.001.DSH.ON_ENVELOPE_CONSUMPTION_RECORDED
 
 # ──────────────────────────────────────────────────────────────
 # Known consumers of THIS capability's events. As of FUNC-0009,
 # no business-subscription declares a consumer for
-# EVT.CHN.001.DASHBOARD_VIEWED. The expected future consumer is
-# CAP.DAN.* (data analytics — engagement telemetry), but the
+# BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED. The expected future consumer is
+# BNK.RLVR.CAP.DAN.* (data analytics — engagement telemetry), but the
 # subscription is not yet declared in the BCM.
 # ──────────────────────────────────────────────────────────────
 
 consumers: []
 
 consumers_open_question: >-
-  EVT.CHN.001.DASHBOARD_VIEWED is the only domain event of this capability
+  BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED is the only domain event of this capability
   and is intended for engagement analytics. No consumer is declared in
   the BCM today — investigate with the DATA_ANALYTIQUE zone (likely a
-  future CAP.DAN.* capability) and add a business-subscription upstream
+  future BNK.RLVR.CAP.DAN.* capability) and add a business-subscription upstream
   before the first non-test consumer appears. Until then, the routing key
   is published but no queue is bound — expected and harmless on RabbitMQ
   topic exchanges.

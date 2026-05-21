@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.example.com/process/CAP.CHN.001.DSH/CMD.CHN.001.DSH.SYNCHRONIZE_SCORE/0.1.0/schema.json",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.CHN.001.DSH/CMD.CHN.001.DSH.SYNCHRONIZE_SCORE/0.1.0/schema.json",
   "x-process-version": "0.2.0",
   "x-process-role": "command-payload",
-  "x-process-capability": "CAP.CHN.001.DSH",
+  "x-process-capability": "BNK.RLVR.CAP.CHN.001.DSH",
   "x-process-command": "CMD.CHN.001.DSH.SYNCHRONIZE_SCORE",
   "x-process-aggregate": "AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD",
   "x-process-correlation-key": "case_id",
   "x-process-idempotency-key": "trigger.event_id",
   "title": "CMD.CHN.001.DSH.SYNCHRONIZE_SCORE — Apply a score recomputation to the dashboard",
-  "description": "Payload of the SYNCHRONIZE_SCORE command. Issued by POL.CHN.001.DSH.ON_SCORE_RECOMPUTED in response to RVT.BSP.001.CURRENT_SCORE_RECOMPUTED. Handled by AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD. Internal command — never exposed via HTTP, never emits a domain event (the dashboard is a read-side view, not an authoritative source). Idempotent on trigger.event_id over a 30-day window. Stale events (trigger.recomputed_at older than the persisted score_recomputed_at) are acked-and-dropped to preserve monotonicity (INV.DSH.003).",
+  "description": "Payload of the SYNCHRONIZE_SCORE command. Issued by POL.CHN.001.DSH.ON_SCORE_RECOMPUTED in response to BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED. Handled by AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD. Internal command — never exposed via HTTP, never emits a domain event (the dashboard is a read-side view, not an authoritative source). Idempotent on trigger.event_id over a 30-day window. Stale events (trigger.recomputed_at older than the persisted score_recomputed_at) are acked-and-dropped to preserve monotonicity (INV.DSH.003).",
   "type": "object",
   "additionalProperties": false,
   "required": ["case_id", "trigger"],
@@ -27,7 +27,7 @@
         "event_id": {
           "type": "string",
           "minLength": 1,
-          "description": "IDEMPOTENCY KEY. Identifier of the upstream RVT.BSP.001.CURRENT_SCORE_RECOMPUTED that triggered this command."
+          "description": "IDEMPOTENCY KEY. Identifier of the upstream BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED that triggered this command."
         },
         "score_value": {
           "type": "number",
