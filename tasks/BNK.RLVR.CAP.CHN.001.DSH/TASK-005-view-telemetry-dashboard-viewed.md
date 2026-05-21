@@ -1,8 +1,9 @@
 ---
 task_id: TASK-005
-capability_id: CAP.CHN.001.DSH
+capability_id: BNK.RLVR.CAP.CHN.001.DSH
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Dashboard
-epic: Epic 4 — View telemetry — POST /dashboard-views emits RVT.CHN.001.DASHBOARD_VIEWED
+epic: Epic 4 — View telemetry — POST /dashboard-views emits BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
 status: todo
 priority: medium
 depends_on: [TASK-003]
@@ -11,13 +12,13 @@ loop_count: 0
 max_loops: 10
 ---
 
-# TASK-005 — View telemetry: POST /dashboard-views emits RVT.CHN.001.DASHBOARD_VIEWED
+# TASK-005 — View telemetry: POST /dashboard-views emits BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
 
 ## Context
 This task closes the analytics loop. The frontend signals to the BFF
 every dashboard open or refresh; the BFF debounces them per `case_id`
 (30 s) and emits the capability's **single domain event** —
-`RVT.CHN.001.DASHBOARD_VIEWED` — so the analytical rail (future
+`BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` — so the analytical rail (future
 `CAP.DAN.*`) can build engagement reports. Per `ADR-TECH-STRAT-001`
 Rule 3 the emission goes through a transactional outbox; per Rule 4
 business events appear only as routing-key prefixes — no autonomous
@@ -28,7 +29,7 @@ extend Epic 2's synthesised view in different directions and can run
 in parallel.
 
 ## Capability Reference
-- Capability: Beneficiary Dashboard (CAP.CHN.001.DSH)
+- Capability: Beneficiary Dashboard (BNK.RLVR.CAP.CHN.001.DSH)
 - Zone: CHANNEL
 - Governing FUNC ADR: ADR-BCM-FUNC-0009
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (Rule 3 — outbox /
@@ -42,9 +43,9 @@ in parallel.
 ## What to Build
 1. **Command — `CMD.RECORD_DASHBOARD_VIEW`**: `POST
    /capabilities/chn/001/dsh/cases/{case_id}/dashboard-views` per
-   `process/CAP.CHN.001.DSH/api.yaml.recordDashboardView`. Body
+   `process/BNK.RLVR.CAP.CHN.001.DSH/api.yaml.recordDashboardView`. Body
    validates against
-   `process/CAP.CHN.001.DSH/schemas/CMD.CHN.001.DSH.RECORD_DASHBOARD_VIEW.schema.json`.
+   `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/CMD.CHN.001.DSH.RECORD_DASHBOARD_VIEW.schema.json`.
    Requires `client_request_id` (UUIDv7 — idempotency anchor, 5-minute
    window).
 2. **Debounce (`INV.DSH.004`)** — keyed on `case_id`:
@@ -62,9 +63,9 @@ in parallel.
    the aggregate's `last_viewed_at` update (`ADR-TECH-STRAT-001`
    Rule 3 at-least-once). The relay publishes the RVT on exchange
    `chn.001.dsh-events` with routing key
-   `EVT.CHN.001.DASHBOARD_VIEWED.RVT.CHN.001.DASHBOARD_VIEWED`.
+   `BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED.BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED`.
 4. **Payload shape** — conforms to
-   `process/CAP.CHN.001.DSH/schemas/RVT.CHN.001.DASHBOARD_VIEWED.schema.json`:
+   `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED.schema.json`:
    - Required: `event_id` (the resource event's identifier — the
      downstream idempotency anchor), `occurred_at` (server-side
      wall-clock when the BFF accepted the underlying
@@ -83,7 +84,7 @@ in parallel.
    `additionalProperties: false` plus the absence of any PII-typed
    field guarantee the wire format stays PII-free. The
    identity-resolution path stays delegated to consumers via
-   `CAP.SUP.002.BEN`.
+   `BNK.RLVR.CAP.SUP.002.BEN`.
 7. **Frontend integration** — the vanilla-JS shell fires
    `POST /dashboard-views` on:
    - First paint of the dashboard view (after the `200` from
@@ -97,10 +98,10 @@ in parallel.
    privacy).
 
 ## Business Events to Produce
-- `RVT.CHN.001.DASHBOARD_VIEWED` — emitted when an accepted
+- `BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` — emitted when an accepted
   `CMD.RECORD_DASHBOARD_VIEW` falls outside the 30 s debounce window
   for its `case_id`. Routing key
-  `EVT.CHN.001.DASHBOARD_VIEWED.RVT.CHN.001.DASHBOARD_VIEWED` on
+  `BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED.BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` on
   exchange `chn.001.dsh-events`. Carries the post-debounce snapshot
   fields (`current_tier_code`, `current_score`) when populated;
   `client_context` block when the frontend supplies it.
@@ -115,7 +116,7 @@ None new — telemetry is producer-side only.
 ## Definition of Done
 - [ ] `POST /capabilities/chn/001/dsh/cases/{case_id}/dashboard-views`
       accepts requests, validates against
-      `process/CAP.CHN.001.DSH/schemas/CMD.CHN.001.DSH.RECORD_DASHBOARD_VIEW.schema.json`
+      `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/CMD.CHN.001.DSH.RECORD_DASHBOARD_VIEW.schema.json`
 - [ ] First call (or first call after 30 s) returns `201 Created` and
       triggers exactly one outbox row → one published RVT
 - [ ] Second call within 30 s for the same `case_id` returns
@@ -127,7 +128,7 @@ None new — telemetry is producer-side only.
 - [ ] **`INV.DSH.004` end-to-end test**: open the dashboard twice
       within 5 s → exactly one RVT on the bus
 - [ ] Emitted payload validates against
-      `process/CAP.CHN.001.DSH/schemas/RVT.CHN.001.DASHBOARD_VIEWED.schema.json`,
+      `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED.schema.json`,
       including the optional-fields variants (snapshot null vs
       populated, `client_context` absent vs present)
 - [ ] Envelope carries UUIDv7 `message_id`, `correlation_id = case_id`,
@@ -148,7 +149,7 @@ None new — telemetry is producer-side only.
       `POST /dashboard-views` endpoint is now shadowed; decommissioning
       note updated (the stub's debounce-and-emit was a synthetic
       simulation; this task ships the real one)
-- [ ] No write to `process/CAP.CHN.001.DSH/`
+- [ ] No write to `process/BNK.RLVR.CAP.CHN.001.DSH/`
 
 ## Acceptance Criteria (Business)
 Every intentional dashboard consultation by a beneficiary materialises

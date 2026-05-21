@@ -1,6 +1,7 @@
 ---
 task_id: TASK-006
-capability_id: CAP.BSP.001.SCO
+capability_id: BNK.RLVR.CAP.BSP.001.SCO
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Behavioural Score
 epic: Epic 5 — Model versioning & operability hardening
 status: todo
@@ -27,7 +28,7 @@ that derives `openapi.yaml` and `asyncapi.yaml` from the process model
 + BCM corpus.
 
 ## Capability Reference
-- Capability: Behavioural Score (CAP.BSP.001.SCO)
+- Capability: Behavioural Score (BNK.RLVR.CAP.BSP.001.SCO)
 - Zone: BUSINESS_SERVICE_PRODUCTION
 - Governing FUNC ADR: ADR-BCM-FUNC-0005
 - Governing GOV ADR: ADR-BCM-GOV-0002 (BCM arbitration board — gates
@@ -61,7 +62,7 @@ standalone-shippable without the others.
    measurement that justified it. Reflect any chosen revision back as
    a TECH-TACT delta — the YAML stays owned by `/process`.
 3. **OpenTelemetry dashboards** per `ADR-TECH-STRAT-005`. Dashboards
-   live as code under `sources/CAP.BSP.001.SCO/backend/observability/`
+   live as code under `sources/BNK.RLVR.CAP.BSP.001.SCO/backend/observability/`
    (Grafana JSON, or the format the deployment platform uses) and
    expose at minimum: (a) recomputation rate per trigger kind
    (`TRANSACTION_AUTHORIZED`, `TRANSACTION_REFUSED`, `RELAPSE_SIGNAL`,
@@ -75,9 +76,9 @@ standalone-shippable without the others.
    `BENEFICIARY_UNKNOWN`), document the operational response:
    diagnosis steps, mitigation, escalation path. Lives in the service
    README under an explicit `## Runbook — Dead-Letter Queues` section.
-5. **Contract harness** — invoke `/harness-backend CAP.BSP.001.SCO` to
+5. **Contract harness** — invoke `/harness-backend BNK.RLVR.CAP.BSP.001.SCO` to
    scaffold the `*.Contracts.Harness/` project and emit
-   `sources/CAP.BSP.001.SCO/backend/contracts/specs/openapi.yaml` and
+   `sources/BNK.RLVR.CAP.BSP.001.SCO/backend/contracts/specs/openapi.yaml` and
    `asyncapi.yaml` with full bidirectional `x-lineage` to `process/`
    and the BCM corpus. The harness becomes part of CI: every build
    re-derives the specs and asserts no operation / channel was
@@ -89,7 +90,7 @@ standalone-shippable without the others.
 None — operability and hardening; no new events.
 
 ## Business Objects Involved
-- `OBJ.BSP.001.EVALUATION` — versioned by `model_version`; the
+- `BNK.RLVR.OBJ.BSP.001.EVALUATION` — versioned by `model_version`; the
   contract carries the version on every emitted RVT (already in the
   RVT schemas from TASK-002 / TASK-003)
 
@@ -111,13 +112,13 @@ None — same surface as TASK-003 / TASK-005.
       `n` with the measurement attached; the chosen value is
       reflected in the service README
 - [ ] OTel dashboards-as-code under
-      `sources/CAP.BSP.001.SCO/backend/observability/` exposing the
+      `sources/BNK.RLVR.CAP.BSP.001.SCO/backend/observability/` exposing the
       five panels enumerated above; a `make dashboards` target (or
       equivalent) renders them locally for review
-- [ ] DLQ runbook section in `sources/CAP.BSP.001.SCO/backend/README.md`
+- [ ] DLQ runbook section in `sources/BNK.RLVR.CAP.BSP.001.SCO/backend/README.md`
       covers `AGGREGATE_NOT_INITIALISED` and `BENEFICIARY_UNKNOWN` —
       diagnosis, mitigation, escalation
-- [ ] `/harness-backend CAP.BSP.001.SCO` has been run; the
+- [ ] `/harness-backend BNK.RLVR.CAP.BSP.001.SCO` has been run; the
       `Contracts.Harness/` project exists; CI runs the harness on
       every build and fails on contract drift
 - [ ] `contracts/specs/openapi.yaml` covers every operation in
@@ -126,7 +127,7 @@ None — same surface as TASK-003 / TASK-005.
       `bus.yaml` (publish + subscribe) with full `x-lineage`
 - [ ] `GET /openapi.yaml` and `GET /asyncapi.yaml` endpoints serve
       the live specs from the running service
-- [ ] No write to `process/CAP.BSP.001.SCO/` from any of the five
+- [ ] No write to `process/BNK.RLVR.CAP.BSP.001.SCO/` from any of the five
       axes (the contract harness is the only step that reads
       `process/.../schemas/` programmatically — through `bcm-pack` and
       `/harness-backend`, never via direct authoring)

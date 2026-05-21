@@ -1,6 +1,7 @@
 ---
 task_id: TASK-003
-capability_id: CAP.SUP.002.BEN
+capability_id: BNK.RLVR.CAP.SUP.002.BEN
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 3 — Identity update with sticky-PII semantics
 status: done
@@ -31,7 +32,7 @@ Epic 3 can run in parallel with Epic 4 (TASK-004 archive/restore) — both
 extend the aggregate's command surface independently.
 
 ## Capability Reference
-- Capability: Beneficiary Identity Anchor (CAP.SUP.002.BEN)
+- Capability: Beneficiary Identity Anchor (BNK.RLVR.CAP.SUP.002.BEN)
 - Zone: SUPPORT
 - Governing FUNC ADR: ADR-BCM-FUNC-0016
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (outbox), ADR-TECH-STRAT-003
@@ -57,7 +58,7 @@ Extend the microservice from TASK-002 to handle `CMD.SUP.002.BEN.UPDATE_ANCHOR`.
    `INV.BEN.008`). On hit: `200 OK` with the prior post-transition
    snapshot and error code `COMMAND_ALREADY_PROCESSED`.
 5. **Revision** — increments `revision` by 1 on successful application.
-6. **Outbox** — emits one `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+6. **Outbox** — emits one `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
    `transition_kind: UPDATED`, full post-transition snapshot, revision
    bumped. Same routing key / exchange / envelope rules as TASK-002.
 7. **Projection** — the `PRJ.ANCHOR_DIRECTORY` projection consumes the
@@ -66,12 +67,12 @@ Extend the microservice from TASK-002 to handle `CMD.SUP.002.BEN.UPDATE_ANCHOR`.
    locally-observed are dropped.
 
 ## Business Events to Produce
-- `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind: UPDATED`,
+- `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind: UPDATED`,
   `revision = N+1` — emitted when an UPDATE command is successfully
   applied (NOT on idempotent re-call).
 
 ## Business Objects Involved
-- `OBJ.SUP.002.BENEFICIARY_RECORD` — mutated in place; `internal_id`
+- `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD` — mutated in place; `internal_id`
   remains immutable (`INV.BEN.002`)
 
 ## Event Subscriptions Required
@@ -96,7 +97,7 @@ None.
       publishes one RVT with `transition_kind: UPDATED`, `revision =
       N+1`, full snapshot
 - [ ] Emitted payload validates against
-      `schemas/RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`
+      `schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`
 - [ ] `PRJ.ANCHOR_DIRECTORY` ingests the event and overwrites the row;
       `GET /anchors/{internal_id}` reflects the change with the bumped
       `revision` after the projection-catch-up window; the ETag changes
@@ -104,7 +105,7 @@ None.
 - [ ] Out-of-order delivery test: ingesting an UPDATED event whose
       `revision` is lower than the projection's current revision is
       dropped (`update_strategy` in `read-models.yaml`)
-- [ ] No write to `process/CAP.SUP.002.BEN/`
+- [ ] No write to `process/BNK.RLVR.CAP.SUP.002.BEN/`
 - [ ] `pytest` suite covers: presence/absence semantics, explicit-null
       clearing, idempotency hit/miss, state-machine guards (404/409),
       revision monotonicity, out-of-order drop

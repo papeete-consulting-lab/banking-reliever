@@ -1,6 +1,7 @@
 ---
 task_id: TASK-001
 capability_id: CAP.BSP.004.ENV
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Budget Envelope Management
 epic: Epic 1 — Contract and Development Stub for Envelope Consumption
 task_type: contract-stub
@@ -17,9 +18,9 @@ pr_url: https://github.com/Banking-Reliever/banking/pull/6
 # TASK-001 — Contract and development stub for `EVT.BSP.004.ENVELOPE_CONSUMED`
 
 ## Context
-`CAP.BSP.004.ENV` allocates and tracks the categorised budget envelopes of a beneficiary. Per `ADR-BCM-URBA-0009`, this capability holds the exclusive responsibility for the contract of the events it emits. As long as the real envelope engine is not implemented, this capability provides a development stub that publishes the contracted events with simulated values, so that consumers (`CAP.CHN.001.DSH` first; future scoring feedback loops, notifications, etc.) can develop in complete isolation.
+`CAP.BSP.004.ENV` allocates and tracks the categorised budget envelopes of a beneficiary. Per `ADR-BCM-URBA-0009`, this capability holds the exclusive responsibility for the contract of the events it emits. As long as the real envelope engine is not implemented, this capability provides a development stub that publishes the contracted events with simulated values, so that consumers (`BNK.RLVR.CAP.CHN.001.DSH` first; future scoring feedback loops, notifications, etc.) can develop in complete isolation.
 
-This task scopes the **consumption** events only (`ENVELOPE_CONSUMED` + `CONSUMPTION_RECORDED`) — the only envelope events `CAP.CHN.001.DSH` consumes today (per ADR-BCM-FUNC-0009). Allocation and non-consumption events will be contracted in their own future epics.
+This task scopes the **consumption** events only (`ENVELOPE_CONSUMED` + `CONSUMPTION_RECORDED`) — the only envelope events `BNK.RLVR.CAP.CHN.001.DSH` consumes today (per ADR-BCM-FUNC-0009). Allocation and non-consumption events will be contracted in their own future epics.
 
 The bus topology — RabbitMQ topic exchange owned by this capability, message format, routing key convention — is normative-fixed by `ADR-TECH-STRAT-001` (*Dual-Rail Event Infrastructure*). Per Rule 2, only the **resource event** gives rise to an autonomous bus message; the business event remains a design-time concept documented for traceability and governance.
 
@@ -93,7 +94,7 @@ None — this capability is a producer.
 - [ ] `python tools/validate_events.py` passes without error
 
 ## Acceptance Criteria (business)
-A developer working on `CAP.CHN.001.DSH` (or any future consumer of envelope-consumption events) can subscribe a queue to the topic exchange owned by `CAP.BSP.004.ENV`, bind on the routing key, receive payloads validating against the runtime schema, and develop their consumer logic without any direct dependency on the real `CAP.BSP.004.ENV` engine. When the real engine replaces the stub later, no schema-driven consumer code change is required.
+A developer working on `BNK.RLVR.CAP.CHN.001.DSH` (or any future consumer of envelope-consumption events) can subscribe a queue to the topic exchange owned by `CAP.BSP.004.ENV`, bind on the routing key, receive payloads validating against the runtime schema, and develop their consumer logic without any direct dependency on the real `CAP.BSP.004.ENV` engine. When the real engine replaces the stub later, no schema-driven consumer code change is required.
 
 ## Dependencies
 None. This task is self-founding for `CAP.BSP.004.ENV` (Epic 1).

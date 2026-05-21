@@ -1,6 +1,7 @@
 ---
 task_id: TASK-003
-capability_id: CAP.BSP.001.SCO
+capability_id: BNK.RLVR.CAP.BSP.001.SCO
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Behavioural Score
 epic: Epic 2 — Continuous recomputation (Flow B)
 status: todo
@@ -15,12 +16,12 @@ max_loops: 10
 
 ## Context
 This task delivers the **differentiating algorithmic core** of
-`CAP.BSP.001.SCO` per the roadmap critical path: the real handler for
+`BNK.RLVR.CAP.BSP.001.SCO` per the roadmap critical path: the real handler for
 `CMD.RECOMPUTE_SCORE`, the reactive policy
 `POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER` bound to the four upstream
 queues, atomic emission of
-`RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` (always) and
-`RVT.BSP.001.SCORE_THRESHOLD_REACHED` (when a threshold is crossed) per
+`BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` (always) and
+`BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED` (when a threshold is crossed) per
 `INV.SCO.003`, and the supporting transactional outbox. From this point
 forward, every behavioural trigger flowing through the IS materialises a
 real score transition.
@@ -32,23 +33,23 @@ event to the same `CMD.RECOMPUTE_SCORE`, discriminating polarity and
 weighting via the `trigger.kind` field. Identity resolution stays
 producer-clean: the emitted payload carries `case_id` only, never
 `internal_id` — consumers resolve to canonical identity via
-`CAP.SUP.002.BEN` (relocated from `CAP.REF.001.BEN` per
+`BNK.RLVR.CAP.SUP.002.BEN` (relocated from `CAP.REF.001.BEN` per
 `ADR-BCM-FUNC-0016`).
 
 ## Capability Reference
-- Capability: Behavioural Score (CAP.BSP.001.SCO)
+- Capability: Behavioural Score (BNK.RLVR.CAP.BSP.001.SCO)
 - Zone: BUSINESS_SERVICE_PRODUCTION
 - Governing FUNC ADR: ADR-BCM-FUNC-0005
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (bus / Rule 3 outbox), ADR-TECH-STRAT-002 (modular monolith), ADR-TECH-STRAT-004 (identity resolution — `case_id` only on the producer side), ADR-TECH-STRAT-005 (OTel), ADR-TECH-STRAT-007 (UUIDv7 envelope), ADR-TECH-STRAT-008 (multi-faceted producer)
 - Tactical stack: ADR-TECH-TACT-003 (Python + FastAPI + PostgreSQL + RabbitMQ operational rail + Kafka analytical rail via CDC of the outbox)
 
 ## What to Build
-The real microservice scaffold under `sources/CAP.BSP.001.SCO/backend/`
+The real microservice scaffold under `sources/BNK.RLVR.CAP.BSP.001.SCO/backend/`
 implementing Flow B.
 
 1. **Aggregate** — `AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY` (one instance
    per `case_id`) with the state declared in
-   `process/CAP.BSP.001.SCO/aggregates.yaml`: `case_id`, `entry_score`
+   `process/BNK.RLVR.CAP.BSP.001.SCO/aggregates.yaml`: `case_id`, `entry_score`
    (nullable until initialised), `current_score`, `model_version`,
    `last_processed_trigger_event_id`, `tier_thresholds` (read-through).
    Enforces `INV.SCO.002` (entry-score precondition), `INV.SCO.003`
@@ -59,26 +60,26 @@ implementing Flow B.
    - **In-process from the policy** (canonical path) — see (3) below.
    - **HTTP back-channel** — `POST
      /capabilities/bsp/001/sco/cases/{case_id}/score-recomputations`
-     per `process/CAP.BSP.001.SCO/api.yaml.recomputeScore`. Validates
+     per `process/BNK.RLVR.CAP.BSP.001.SCO/api.yaml.recomputeScore`. Validates
      the body against
      `schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json`. Responses:
      `202` on accepted (canonical), `409 AGGREGATE_NOT_INITIALISED`,
      `200 TRIGGER_ALREADY_PROCESSED` (idempotent no-op).
 3. **Policy** — `POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER` is bound to
-   the four queues declared in `process/CAP.BSP.001.SCO/bus.yaml`:
+   the four queues declared in `process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml`:
    `bsp.001.sco.q.transaction-authorized`,
    `bsp.001.sco.q.transaction-refused`,
    `bsp.001.sco.q.relapse-signal`,
    `bsp.001.sco.q.progression-signal`. Each queue is bound to its
    upstream exchange and binding pattern per the YAML. The policy maps
    the upstream RVT to a `CMD.RECOMPUTE_SCORE` per the
-   `mapping_rule` in `process/CAP.BSP.001.SCO/policies.yaml`
+   `mapping_rule` in `process/BNK.RLVR.CAP.BSP.001.SCO/policies.yaml`
    (`case_id ← upstream.case_id`,
    `trigger.event_id ← upstream.event_id`, `trigger.kind` ← one of the
    four discriminators, `trigger.amount`/`trigger.category`/
    `trigger.impact_score` per the trigger kind).
 4. **Tier-thresholds read-through** — the aggregate fetches the
-   `tier_thresholds` configuration from `CAP.BSP.001.TIE` at recomputation
+   `tier_thresholds` configuration from `BNK.RLVR.CAP.BSP.001.TIE` at recomputation
    time (or caches it per the cache-invalidation policy chosen in
    answer to OQ-3 below). The thresholds are NOT replicated in this
    capability's persistent state — they are a configuration source.
@@ -114,17 +115,17 @@ implementing Flow B.
     can be aggregated later.
 
 ## Business Events to Produce
-- `RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` — emitted on **every**
+- `BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` — emitted on **every**
   accepted `CMD.RECOMPUTE_SCORE`, carrying the post-transition
   `score_value`, `delta_score`, `model_version`, `evaluation_id`,
   `evenement_declencheur` (the trigger kind and reference)
-- `RVT.BSP.001.SCORE_THRESHOLD_REACHED` — emitted **atomically alongside
+- `BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED` — emitted **atomically alongside
   CURRENT_SCORE_RECOMPUTED** when the new score crosses a tier
   threshold (upgrade or downgrade), carrying the boundary metadata and
   the direction
 
 ## Business Objects Involved
-- `OBJ.BSP.001.EVALUATION` — the score-of-a-beneficiary aggregate root
+- `BNK.RLVR.OBJ.BSP.001.EVALUATION` — the score-of-a-beneficiary aggregate root
   state, snapshotted into every emitted RVT
 
 ## Event Subscriptions Required
@@ -134,13 +135,13 @@ implementing Flow B.
 - `RVT.BSP.004.PAYMENT_BLOCKED` (from `CAP.BSP.004.AUT`, binding
   `EVT.BSP.004.TRANSACTION_REFUSED.RVT.BSP.004.PAYMENT_BLOCKED`) —
   trigger_kind `TRANSACTION_REFUSED`
-- `RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED` (from `CAP.BSP.001.SIG`) —
+- `BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED` (from `BNK.RLVR.CAP.BSP.001.SIG`) —
   trigger_kind `RELAPSE_SIGNAL`
-- `RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED` (from `CAP.BSP.001.SIG`) —
+- `BNK.RLVR.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED` (from `BNK.RLVR.CAP.BSP.001.SIG`) —
   trigger_kind `PROGRESSION_SIGNAL`
 
 ## Definition of Done
-- [ ] Microservice scaffold under `sources/CAP.BSP.001.SCO/backend/`
+- [ ] Microservice scaffold under `sources/BNK.RLVR.CAP.BSP.001.SCO/backend/`
       per `ADR-TECH-TACT-003` (Python 3.12+, FastAPI, `psycopg`/
       `asyncpg`, `aio-pika`) — Domain / Application / Infrastructure /
       Presentation / Contracts packages
@@ -151,7 +152,7 @@ implementing Flow B.
       outbox table (`ADR-TECH-STRAT-001` Rule 3), the
       `last_processed_trigger_event_id` index (idempotency)
 - [ ] Four queues are declared and bound exactly per
-      `process/CAP.BSP.001.SCO/bus.yaml.subscriptions` (queue name,
+      `process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml.subscriptions` (queue name,
       source exchange, binding pattern)
 - [ ] `POL.ON_BEHAVIOURAL_TRIGGER` consumes from all four queues and
       issues `CMD.RECOMPUTE_SCORE` per the mapping rule in
@@ -172,8 +173,8 @@ implementing Flow B.
       `202` on accepted, `409 AGGREGATE_NOT_INITIALISED`,
       `200 TRIGGER_ALREADY_PROCESSED`
 - [ ] Emitted payloads validate against
-      `process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
-      and `RVT.BSP.001.SCORE_THRESHOLD_REACHED.schema.json`
+      `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
+      and `BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED.schema.json`
 - [ ] Routing keys match `bus.yaml.publication.routing_keys` exactly
 - [ ] Envelope carries UUIDv7 `message_id`, `correlation_id` (= `case_id`),
       `causation_id` (= upstream `trigger.event_id` or HTTP request
@@ -188,7 +189,7 @@ implementing Flow B.
       condition: positive trigger → recomputation only; negative trigger
       → recomputation only; trigger crossing threshold → recomputation
       + threshold (paired, atomic); duplicate trigger → ack-and-drop
-- [ ] No write to `process/CAP.BSP.001.SCO/`
+- [ ] No write to `process/BNK.RLVR.CAP.BSP.001.SCO/`
 
 ## Acceptance Criteria (Business)
 A behavioural trigger from any of the four upstream producers (a
@@ -196,7 +197,7 @@ transaction authorisation, a transaction refusal, a qualified relapse
 signal, a qualified progression signal) flows through to the
 beneficiary's score. The new score is committed atomically with its
 event emission — no lost transitions, no duplicate transitions. When a
-threshold is crossed, the tier-transition consumer (`CAP.BSP.001.TIE`)
+threshold is crossed, the tier-transition consumer (`BNK.RLVR.CAP.BSP.001.TIE`)
 receives the paired threshold event in the same logical emission as the
 recomputation event, never one without the other. Retries from the bus
 (at-least-once delivery) are absorbed by the idempotency on
@@ -207,8 +208,8 @@ recomputation event, never one without the other. Retries from the bus
   decommissioned per RVT family as this task lands its real
   implementation).
 - See **Open Questions** below for upstream readiness
-  (`CAP.BSP.004.AUT`, `CAP.BSP.001.SIG`) and configuration source
-  (`CAP.BSP.001.TIE`).
+  (`CAP.BSP.004.AUT`, `BNK.RLVR.CAP.BSP.001.SIG`) and configuration source
+  (`BNK.RLVR.CAP.BSP.001.TIE`).
 
 ## Open Questions
 - [ ] **Upstream readiness — `CAP.BSP.004.AUT`** is not process-modelled
@@ -221,18 +222,18 @@ recomputation event, never one without the other. Retries from the bus
       is in the queue, or temporarily synthesise the two upstream RVTs
       from a local fixture for unit testing — but integration testing
       requires the real AUT stub.
-- [ ] **Upstream readiness — `CAP.BSP.001.SIG`** is not process-modelled
+- [ ] **Upstream readiness — `BNK.RLVR.CAP.BSP.001.SIG`** is not process-modelled
       either. Same mitigation as AUT. Until both are merged, two of the
       four trigger kinds (`RELAPSE_SIGNAL`, `PROGRESSION_SIGNAL`) cannot
       be exercised end-to-end. Confirm whether to ship Epic 2 in two
       waves (transactions first, signals second) or wait for both
       upstream stubs.
 - [ ] **Tier-thresholds read-through cache invalidation** — the
-      aggregate reads `tier_thresholds` from `CAP.BSP.001.TIE`
+      aggregate reads `tier_thresholds` from `BNK.RLVR.CAP.BSP.001.TIE`
       configuration. The roadmap (Open Question — "Tier-thresholds
       read-through caching") demands a cache-invalidation policy when
-      `CAP.BSP.001.TIE` updates its configuration. Specify the policy
+      `BNK.RLVR.CAP.BSP.001.TIE` updates its configuration. Specify the policy
       before implementing: TTL with re-fetch, event-driven invalidation
-      subscribed to a `CAP.BSP.001.TIE`-emitted RVT, or no cache
+      subscribed to a `BNK.RLVR.CAP.BSP.001.TIE`-emitted RVT, or no cache
       (read-through on every recomputation). The choice affects
       throughput and the dependency graph.

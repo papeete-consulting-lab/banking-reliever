@@ -1,6 +1,7 @@
 ---
 task_id: TASK-004
-capability_id: CAP.CHN.001.DSH
+capability_id: BNK.RLVR.CAP.CHN.001.DSH
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Dashboard
 epic: Epic 3 — Recent transactions feed (GET /transactions)
 status: todo
@@ -30,7 +31,7 @@ consumptions only; the decline render path is wired but inert until the
 upstream extends the RVT.
 
 ## Capability Reference
-- Capability: Beneficiary Dashboard (CAP.CHN.001.DSH)
+- Capability: Beneficiary Dashboard (BNK.RLVR.CAP.CHN.001.DSH)
 - Zone: CHANNEL
 - Governing FUNC ADR: ADR-BCM-FUNC-0009
 - Strategic-tech anchors: ADR-TECH-STRAT-003 (ETag), ADR-TECH-STRAT-004
@@ -42,7 +43,7 @@ upstream extends the RVT.
 ## What to Build
 1. **Query handler — `QRY.LIST_RECENT_TRANSACTIONS`**: `GET
    /capabilities/chn/001/dsh/cases/{case_id}/transactions?limit=N` per
-   `process/CAP.CHN.001.DSH/api.yaml.listRecentTransactions`. Reads
+   `process/BNK.RLVR.CAP.CHN.001.DSH/api.yaml.listRecentTransactions`. Reads
    directly from the aggregate's `recent_transactions` snapshot field
    (already bounded by `INV.DSH.005`: 50 entries, 30 d, FIFO eviction
    on `recorded_at`). Returns the list most-recent-first.
@@ -100,7 +101,7 @@ feeds `recent_transactions` in the aggregate.
 ## Definition of Done
 - [ ] `GET /capabilities/chn/001/dsh/cases/{case_id}/transactions?limit=N`
       returns the bounded list per
-      `process/CAP.CHN.001.DSH/api.yaml.listRecentTransactions`
+      `process/BNK.RLVR.CAP.CHN.001.DSH/api.yaml.listRecentTransactions`
 - [ ] `limit` defaults to 20, is capped at 50 (values > 50 are
       silently capped, NOT 400-rejected, per the api.yaml contract);
       response is most-recent-first by `recorded_at`
@@ -138,7 +139,7 @@ feeds `recent_transactions` in the aggregate.
 - [ ] If the TASK-001 stub is still running, its
       `GET /transactions` endpoint is now shadowed by the real one;
       decommissioning note updated
-- [ ] No write to `process/CAP.CHN.001.DSH/`
+- [ ] No write to `process/BNK.RLVR.CAP.CHN.001.DSH/`
 
 ## Acceptance Criteria (Business)
 A beneficiary scrolling the dashboard sees their recent envelope

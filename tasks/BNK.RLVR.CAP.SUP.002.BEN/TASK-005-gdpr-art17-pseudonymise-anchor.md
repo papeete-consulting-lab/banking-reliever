@@ -1,6 +1,7 @@
 ---
 task_id: TASK-005
-capability_id: CAP.SUP.002.BEN
+capability_id: BNK.RLVR.CAP.SUP.002.BEN
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 5 — GDPR Art. 17 pseudonymisation
 status: todo
@@ -31,7 +32,7 @@ DoD checkboxes that touch PII or pseudonymisation need IT Security and
 DPO sign-off (per the roadmap risk matrix).
 
 ## Capability Reference
-- Capability: Beneficiary Identity Anchor (CAP.SUP.002.BEN)
+- Capability: Beneficiary Identity Anchor (BNK.RLVR.CAP.SUP.002.BEN)
 - Zone: SUPPORT
 - Governing FUNC ADR: ADR-BCM-FUNC-0016
 - Strategic-tech anchors: ADR-TECH-STRAT-001, ADR-TECH-STRAT-003,
@@ -61,7 +62,7 @@ Extend the microservice from TASK-002–004 to handle
    a UUIDv7.
 3. **Crypto-shredding** — wipes `last_name`, `first_name`,
    `date_of_birth`, `contact_details` (the four PII fields of
-   `OBJ.SUP.002.BENEFICIARY_RECORD`) so they are NOT recoverable from
+   `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD`) so they are NOT recoverable from
    the database. Implementation uses `pgcrypto` + Vault transit per
    `ADR-TECH-TACT-002`. The model constrains only the observable
    post-condition: a DB-level inspection of the anchor row after
@@ -76,11 +77,11 @@ Extend the microservice from TASK-002–004 to handle
    duplicate `command_id` returns the prior result via the idempotency
    path WITHOUT re-running crypto-shredding (idempotent on
    `command_id`, NOT idempotent on outcome — terminal status).
-7. **Outbox** — emits one `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+7. **Outbox** — emits one `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
    `transition_kind: PSEUDONYMISED`, `revision = N+1`, **PII fields
    null in the payload**, `right_exercise_id` set, `pseudonymized_at`
    set. The conditional `if/then` block of
-   `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json` is exercised.
+   `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json` is exercised.
 8. **Cross-command guards** — UPDATE / ARCHIVE / RESTORE issued against
    a PSEUDONYMISED anchor return `409 ANCHOR_PSEUDONYMISED` (already
    enforced by TASK-003 / TASK-004; verified here as cross-verb
@@ -91,13 +92,13 @@ Extend the microservice from TASK-002–004 to handle
    immediately.
 
 ## Business Events to Produce
-- `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind:
+- `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind:
   PSEUDONYMISED` — emitted on successful pseudonymisation. The
   payload's four PII fields are null; `right_exercise_id` is set;
   `pseudonymized_at` is set; `revision = N+1`.
 
 ## Business Objects Involved
-- `OBJ.SUP.002.BENEFICIARY_RECORD` — terminally pseudonymised; PII
+- `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD` — terminally pseudonymised; PII
   destroyed, `internal_id` preserved
 
 ## Event Subscriptions Required
@@ -137,7 +138,7 @@ SCOPE for this task.
       `pseudonymized_at` is set; `transition_kind: PSEUDONYMISED`;
       `revision = N+1`
 - [ ] Emitted payload validates against
-      `schemas/RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`,
+      `schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`,
       including the conditional `if/then` block (PSEUDONYMISED ⇒ PII
       null + `right_exercise_id` set)
 - [ ] `PRJ.ANCHOR_DIRECTORY` ingests the event and overwrites the row
@@ -154,7 +155,7 @@ SCOPE for this task.
       inline in the service README — surface the decision as a
       TECH-TACT delta to OQ.BEN.002 (key strategy) referenced in the
       roadmap OQ-2
-- [ ] No write to `process/CAP.SUP.002.BEN/`
+- [ ] No write to `process/BNK.RLVR.CAP.SUP.002.BEN/`
 - [ ] `pytest` integration suite covers: ACTIVE→PSEUDONYMISED happy
       path, ARCHIVED→PSEUDONYMISED happy path, terminality
       (PSEUDONYMISED→{UPDATE,ARCHIVE,RESTORE,PSEUDONYMISE} all reject),

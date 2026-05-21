@@ -1,6 +1,7 @@
 ---
 task_id: TASK-002
-capability_id: CAP.BSP.001.SCO
+capability_id: BNK.RLVR.CAP.BSP.001.SCO
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Behavioural Score
 epic: Epic 1 — Contract and Development Stub (extension)
 status: done
@@ -20,51 +21,51 @@ pr_url: https://github.com/Banking-Reliever/banking/pull/10
 
 ## Context
 `TASK-001` (PR #2 + remediation PR #5, both merged) shipped the first
-iteration of the contract stub for `CAP.BSP.001.SCO`, covering only
-`RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`. The process model has since
-landed two new resource events in `process/CAP.BSP.001.SCO/bus.yaml`
-(v0.2.0) — `RVT.BSP.001.ENTRY_SCORE_COMPUTED` (Flow A baseline) and
-`RVT.BSP.001.SCORE_THRESHOLD_REACHED` (paired with `CURRENT_SCORE_RECOMPUTED`
+iteration of the contract stub for `BNK.RLVR.CAP.BSP.001.SCO`, covering only
+`BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`. The process model has since
+landed two new resource events in `process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml`
+(v0.2.0) — `BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED` (Flow A baseline) and
+`BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED` (paired with `CURRENT_SCORE_RECOMPUTED`
 on threshold crossing per `INV.SCO.003`). This task extends the stub to
 publish all three resource events, on the same exchange / topology, so
-downstream consumers (`CAP.BSP.001.ARB`, `CAP.BSP.001.TIE`,
-`CAP.CHN.001.DSH`, `CAP.CHN.002.VUE`) can develop against the complete
+downstream consumers (`BNK.RLVR.CAP.BSP.001.ARB`, `BNK.RLVR.CAP.BSP.001.TIE`,
+`BNK.RLVR.CAP.CHN.001.DSH`, `CAP.CHN.002.VUE`) can develop against the complete
 frozen contract before the real algorithm (Epic 2) lands.
 
 Schema authority has moved: the canonical schemas for all three RVTs now
-live under `process/CAP.BSP.001.SCO/schemas/` (PR #8). The legacy copy
-under `sources/CAP.BSP.001.SCO/stub/.../schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
+live under `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/` (PR #8). The legacy copy
+under `sources/BNK.RLVR.CAP.BSP.001.SCO/stub/.../schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
 must be retired: the stub validates against the canonical `process/`
 location only.
 
 ## Capability Reference
-- Capability: Behavioural Score (CAP.BSP.001.SCO)
+- Capability: Behavioural Score (BNK.RLVR.CAP.BSP.001.SCO)
 - Zone: BUSINESS_SERVICE_PRODUCTION
 - Governing FUNC ADR: ADR-BCM-FUNC-0005
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (bus / Rule 2-3-4), ADR-TECH-STRAT-007 (UUIDv7 envelope), ADR-TECH-STRAT-008 (multi-faceted producer)
 - Tactical stack: ADR-TECH-TACT-003 (Python + FastAPI + PostgreSQL + RabbitMQ operational rail + Kafka analytical rail)
 
 ## What to Build
-A runnable extension of `sources/CAP.BSP.001.SCO/stub/` that publishes
+A runnable extension of `sources/BNK.RLVR.CAP.BSP.001.SCO/stub/` that publishes
 synthetic but contract-conforming payloads for **all three** resource
-events declared in `process/CAP.BSP.001.SCO/bus.yaml`. Adapt the existing
+events declared in `process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml`. Adapt the existing
 stub bundle:
 
 1. **Publish three RVT families** on the owned topic exchange
    `bsp.001.sco-events`, with the routing keys mandated by `bus.yaml`:
-   - `EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.ENTRY_SCORE_COMPUTED` —
+   - `BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED` —
      simulated entry-score baselines (Flow A)
-   - `EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` —
+   - `BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` —
      simulated recomputation outcomes (Flow B) — already covered by
      TASK-001, must keep working under the new schema source
-   - `EVT.BSP.001.SCORE_THRESHOLD_REACHED.RVT.BSP.001.SCORE_THRESHOLD_REACHED` —
+   - `BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED.BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED` —
      simulated threshold-crossing events, **bundled in the same emission
      batch** as a `CURRENT_SCORE_RECOMPUTED` whose score crosses a
      synthetic threshold (per `INV.SCO.003` — atomicity).
 2. **Validate every outgoing payload** against the canonical schema under
-   `process/CAP.BSP.001.SCO/schemas/RVT.*.schema.json` before publishing.
+   `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/RVT.*.schema.json` before publishing.
 3. **Decommission the legacy schema location** —
-   `sources/CAP.BSP.001.SCO/stub/{src,test}/.../schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
+   `sources/BNK.RLVR.CAP.BSP.001.SCO/stub/{src,test}/.../schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
    is removed; the stub reads schemas from the `process/` folder (e.g.
    via a copy step at build time, or a path resolved relative to the
    repo root — the implementer chooses, but the canonical source of
@@ -80,14 +81,14 @@ stub bundle:
 6. **Activate / deactivate** the entire emitter via `STUB_ACTIVE=true|false`.
 
 ## Events to Stub
-- `RVT.BSP.001.ENTRY_SCORE_COMPUTED` — synthetic one-shot baseline per
+- `BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED` — synthetic one-shot baseline per
   rotating fixture `case_id`; payload validates against
-  `process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.ENTRY_SCORE_COMPUTED.schema.json`
-- `RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` — existing emitter; same
+  `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED.schema.json`
+- `BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` — existing emitter; same
   fixtures, now validating against the canonical
-  `process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
+  `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
   (no functional change beyond the schema-source relocation)
-- `RVT.BSP.001.SCORE_THRESHOLD_REACHED` — bundled with a
+- `BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED` — bundled with a
   `CURRENT_SCORE_RECOMPUTED` emission whose new score crosses a
   synthetic threshold; both messages publish atomically (transactional
   outbox or in-process two-message commit acceptable for a stub —
@@ -100,25 +101,25 @@ delivered by Epic 4 (TASK-005). The stub stays bus-only, matching
 TASK-001's scope.
 
 ## Business Objects Involved
-- `OBJ.BSP.001.EVALUATION` — carried by all three RVTs (full snapshot of
+- `BNK.RLVR.OBJ.BSP.001.EVALUATION` — carried by all three RVTs (full snapshot of
   the post-transition aggregate)
 
 ## Required Event Subscriptions
 None — the stub is a pure producer.
 
 ## Definition of Done
-- [ ] Stub source under `sources/CAP.BSP.001.SCO/stub/` extended (no
+- [ ] Stub source under `sources/BNK.RLVR.CAP.BSP.001.SCO/stub/` extended (no
       new microservice; reuse the existing bundle from TASK-001)
 - [ ] `docker compose up` from the stub folder starts the worker + a
       local RabbitMQ; no PostgreSQL needed for the stub
 - [ ] On startup the stub re-declares the `bsp.001.sco-events` topic
-      exchange (durable=true, owner=CAP.BSP.001.SCO) — idempotent with
+      exchange (durable=true, owner=BNK.RLVR.CAP.BSP.001.SCO) — idempotent with
       TASK-001's startup
 - [ ] For each of the three `RVT.*` declared in `bus.yaml`, the stub
       publishes at least one synthetic event with the correct routing
       key from the bus topology
 - [ ] Every emitted payload validates against the corresponding
-      `process/CAP.BSP.001.SCO/schemas/RVT.*.schema.json` before
+      `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/RVT.*.schema.json` before
       publishing (fail-fast on contract drift)
 - [ ] Threshold detection is atomic with recomputation: when the
       synthetic recomputation crosses a threshold, **both**
@@ -137,22 +138,22 @@ None — the stub is a pure producer.
       holds (threshold ⇒ paired recomputation) — runnable in CI without
       bus connectivity
 - [ ] Legacy schema location
-      `sources/CAP.BSP.001.SCO/stub/{src,test}/.../schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
+      `sources/BNK.RLVR.CAP.BSP.001.SCO/stub/{src,test}/.../schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json`
       is removed (or proven to be a copy-at-build artefact, not an
       authored source) — the canonical schema location is
-      `process/CAP.BSP.001.SCO/schemas/`
+      `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/`
 - [ ] **Decommissioning** — the stub's README is updated to state that
       the stub is retired (or kept inert via `STUB_ACTIVE=false`) once
       Epic 2 (TASK-003) ships the real `CURRENT_SCORE_RECOMPUTED` +
       `SCORE_THRESHOLD_REACHED` and Epic 3 (TASK-004) ships the real
       `ENTRY_SCORE_COMPUTED`; each RVT family is retired independently
       as its real producer reaches feature parity
-- [ ] No write to `process/CAP.BSP.001.SCO/` (schemas are read-only
+- [ ] No write to `process/BNK.RLVR.CAP.BSP.001.SCO/` (schemas are read-only
       from there)
 
 ## Acceptance Criteria (Business)
-A developer working on any anticipated consumer (`CAP.BSP.001.ARB`,
-`CAP.BSP.001.TIE`, `CAP.CHN.001.DSH`, `CAP.CHN.002.VUE`) can, with only
+A developer working on any anticipated consumer (`BNK.RLVR.CAP.BSP.001.ARB`,
+`BNK.RLVR.CAP.BSP.001.TIE`, `BNK.RLVR.CAP.CHN.001.DSH`, `CAP.CHN.002.VUE`) can, with only
 the artifacts produced by this task, bind a queue to `bsp.001.sco-events`
 on any of the three routing-key families and receive validating
 event payloads. When a `SCORE_THRESHOLD_REACHED` arrives it is always
