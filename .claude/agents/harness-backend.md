@@ -498,7 +498,7 @@ servers:
 
 channels:
   # ── Publish side — owned exchange (Rule 5 of ADR-TECH-STRAT-001) ──
-  bsp.001.sco-events/BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
+  bsp.001.sco-events/BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
     description: Threshold-agnostic recomputation outcome on the owned exchange.
     bindings:
       amqp:
@@ -514,7 +514,7 @@ channels:
         kind: emitted-resource-event
         process:
           source: process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml
-          routing_key: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          routing_key: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
           payload_form: domain-event-ddd
           owned_by: AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY
           issued_after: CMD.BSP.001.SCO.RECOMPUTE_SCORE
@@ -526,7 +526,7 @@ channels:
           tech_strat_rule: "ADR-TECH-STRAT-001 Rules 2 + 4"
         x-known-consumers:
           - capability: BNK.RLVR.CAP.BSP.001.ARB
-            binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+            binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
           - capability: BNK.RLVR.CAP.CHN.001.DSH
             binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.#
       message: { $ref: "#/components/messages/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" }
@@ -550,7 +550,7 @@ channels:
         kind: consumed-resource-event
         process:
           source: process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml
-          binding_pattern: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED.RVT.BSP.004.PAYMENT_GRANTED
+          binding_pattern: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED.BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
           consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
           issues_command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
         bcm:
@@ -578,7 +578,7 @@ components:
 Conventions:
 - **Channel names mirror the exchange + binding pattern** so a reader who
   knows RabbitMQ can derive the topology from the channel id alone.
-- The `<EVT.…>.<RVT.…>` routing-key form (TECH-STRAT-001 Rule 4) is preserved
+- The `<BNK.RLVR.EVT.…>.<BNK.RLVR.RVT.…>` routing-key form (TECH-STRAT-001 Rule 4) is preserved
   literally in channel ids and `bindings.amqp.exchange.routingKey`.
 - `x-known-consumers` is a non-normative AsyncAPI extension; it documents
   expected downstream consumers from BCM but does not constrain the broker.
@@ -841,7 +841,7 @@ verdict is written to `contracts/specs/harness-report.md`.
 
 - Every `CMD.*` declared in `process/{cap}/commands.yaml` has a matching
   OpenAPI `operation` whose `x-lineage.process.command` equals it.
-- Every `RVT.*` listed in `process/{cap}/bus.yaml.routing_keys` has a
+- Every `BNK.RLVR.RVT.*` listed in `process/{cap}/bus.yaml.routing_keys` has a
   matching AsyncAPI `publish` operation whose
   `x-lineage.bcm.resource_event` equals it.
 - Every `subscriptions[*]` in `process/{cap}/bus.yaml` has a matching
@@ -854,13 +854,13 @@ verdict is written to `contracts/specs/harness-report.md`.
 
 ### 6.2 BCM-side closure
 
-- Every `RVT.*` in the AsyncAPI `publish` operations appears in
+- Every `BNK.RLVR.RVT.*` in the AsyncAPI `publish` operations appears in
   `bcm-pack.emitted_resource_events`.
-- Every `RVT.*` in the AsyncAPI `subscribe` operations appears in
+- Every `BNK.RLVR.RVT.*` in the AsyncAPI `subscribe` operations appears in
   `bcm-pack.consumed_resource_events`.
-- Every `RES.*` referenced as a query response schema appears in
+- Every `BNK.RLVR.RES.*` referenced as a query response schema appears in
   `bcm-pack.carried_objects` (with the same business object family).
-- Every `EVT.*` listed in routing keys appears in
+- Every `BNK.RLVR.EVT.*` listed in routing keys appears in
   `bcm-pack.emitted_business_events` (publish) or
   `bcm-pack.consumed_business_events` (subscribe).
 - Every `BNK.RLVR.SUB.BUSINESS.*` / `BNK.RLVR.SUB.RESOURCE.*` referenced in bus subscriptions
@@ -875,7 +875,7 @@ differs:
 |---|---|---|
 | Every HTTP action maps to an OpenAPI operation (by route + verb), and vice-versa — no orphan paths in the spec | `Assembly.LoadFrom` the compiled `Presentation` assembly; enumerate `[HttpPost]` / `[HttpGet]` (or Minimal-API `MapPost` / `MapGet`) endpoints | `import {namespace}_{capability_module}.presentation.app; app = create_app(); for r in app.routes: …` — walk `APIRoute` instances (path, methods, endpoint) |
 | Every bus consumer maps to an AsyncAPI `subscribe` operation (by queue name + binding) | enumerate consumers registered with the bus library (MassTransit, Saunter) via DI inspection | import `{namespace}_{capability_module}.presentation.messaging.consumer`, walk the module for `aio_pika.RobustQueue` declarations and routing-key constants (look for `bus.yaml`-derived constants — they should be exported at module scope) |
-| Every event publisher maps to an AsyncAPI `publish` operation (by message name) | inspect `Contracts/Events/` types | inspect `contracts.events` pydantic models — each `RVT.*`/`EVT.*` class name must match a `publish` message |
+| Every event publisher maps to an AsyncAPI `publish` operation (by message name) | inspect `Contracts/Events/` types | inspect `contracts.events` pydantic models — each `BNK.RLVR.RVT.*`/`BNK.RLVR.EVT.*` class name must match a `publish` message |
 
 When walking Python routes/consumers, run the import inside a subprocess
 (`python -c "from … import create_app; …"`) so any startup side-effects
@@ -925,11 +925,11 @@ bcm-pack ref:    <ref>
 |---------------------------------------|------:|----------------:|--------|
 | process/commands.yaml (CMD.*)         |     N |               N | ✅ |
 | process/read-models.yaml (QRY.*)      |     N |               N | ✅ |
-| process/bus.yaml (publish RVT.*)      |     N |               N | ✅ |
+| process/bus.yaml (publish BNK.RLVR.RVT.*)      |     N |               N | ✅ |
 | process/bus.yaml (subscribe bindings) |     N |               N | ✅ |
 | bcm-pack emitted_resource_events      |     N |               N | ✅ |
 | bcm-pack consumed_resource_events     |     N |               N | ✅ |
-| bcm-pack carried_objects (RES.*)      |     N |               N | ✅ |
+| bcm-pack carried_objects (BNK.RLVR.RES.*)      |     N |               N | ✅ |
 
 ## Lineage closure
 
