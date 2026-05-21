@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json",
+  "title": "BeneficiaryAnchorUpdatedEvent",
+  "description": "Payload of BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED — emitted on every accepted state transition of an AGG.SUP.002.BEN.IDENTITY_ANCHOR. Carries the full post-transition snapshot plus the monotonic revision and the transition_kind discriminator. For PSEUDONYMISED transitions, the four PII fields are null (crypto-shredded by the aggregate).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "envelope",
+    "internal_id",
+    "anchor_status",
+    "creation_date",
+    "revision",
+    "transition_kind",
+    "occurred_at"
+  ],
+  "properties": {
+    "envelope": { "$ref": "#/$defs/Envelope" },
+
+    "internal_id": {
+      "$ref": "#/$defs/Uuidv7",
+      "description": "Stable anchor identifier, immutable, never recycled (per ADR-TECH-STRAT-007)."
+    },
+
+    "last_name":     { "type": ["string", "null"], "description": "PII — null when transition_kind is PSEUDONYMISED." },
+    "first_name":    { "type": ["string", "null"] },
+    "date_of_birth": { "type": ["string", "null"], "format": "date" },
+    "contact_details": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/ContactDetails" }
+      ]
+    },
+
+    "anchor_status": {
+      "type": "string",
+      "enum": ["ACTIVE", "ARCHIVED", "PSEUDONYMISED"]
+    },
+    "creation_date":     { "type": "string", "format": "date" },
+    "pseudonymized_at":  { "type": ["string", "null"], "format": "date-time" },
+
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic counter on the aggregate; consumers use (internal_id, revision) for last-write-wins reconciliation."
+    },
+
+    "transition_kind": {
+      "type": "string",
+      "enum": ["MINTED", "UPDATED", "ARCHIVED", "RESTORED", "PSEUDONYMISED"]
+    },
+
+    "command_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/Uuidv7" }
+      ],
+      "description": "Caller-supplied command_id of the command that produced this transition. For MINTED transitions, this is the client_request_id; for the other transitions it is the command_id."
+    },
+
+    "right_exercise_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/Uuidv7" }
+      ],
+      "description": "Set only for PSEUDONYMISED transitions — links to the upstream right-to-be-forgotten request."
+    },
+
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wall-clock timestamp of the transition at the aggregate."
+    }
+  },
+
+  "allOf": [
+    {
+      "if":   { "properties": { "transition_kind": { "const": "PSEUDONYMISED" } } },
+      "then": {
+        "properties": {
+          "last_name":         { "type": "null" },
+          "first_name":        { "type": "null" },
+          "date_of_birth":     { "type": "null" },
+          "contact_details":   { "type": "null" },
+          "anchor_status":     { "const": "PSEUDONYMISED" },
+          "pseudonymized_at":  { "type": "string", "format": "date-time" },
+          "right_exercise_id": { "$ref": "#/$defs/Uuidv7" }
+        },
+        "required": ["pseudonymized_at", "right_exercise_id"]
+      }
+    },
+    {
+      "if":   { "properties": { "transition_kind": { "enum": ["MINTED", "UPDATED", "RESTORED"] } } },
+      "then": {
+        "required": ["last_name", "first_name", "date_of_birth"],
+        "properties": {
+          "anchor_status":    { "const": "ACTIVE" },
+          "pseudonymized_at": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if":   { "properties": { "transition_kind": { "const": "ARCHIVED" } } },
+      "then": {
+        "required": ["last_name", "first_name", "date_of_birth"],
+        "properties": {
+          "anchor_status":    { "const": "ARCHIVED" },
+          "pseudonymized_at": { "type": "null" }
+        }
+      }
+    }
+  ],
+
+  "$defs": {
+    "Uuidv7": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUIDv7 (RFC 9562 §5.7)."
+    },
+    "Actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "subject"],
+      "description": "Principal that issued the command which produced this BNK.RLVR.RVT. Derived at the producer from the authentication context per ADR-TECH-STRAT-003 (REST bearer-token JWT). System-emitted events (e.g. outbox replay, scheduled jobs) use kind=system. Service-to-service calls authenticated via a service principal use kind=service with the capability id as subject.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["human", "service", "system"],
+          "description": "Classifier — drives audit / observability filters and lets PRJ.ANCHOR_HISTORY distinguish operator actions from automated ones."
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "kind=human: UUIDv7 of the user (the JWT `sub` claim). kind=service: capability id of the caller (e.g. BNK.RLVR.CAP.SUP.001.RET). kind=system: a stable token identifying the system process (e.g. `system:outbox-replay`, `system:scheduler:retention-purge`)."
+        },
+        "on_behalf_of": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Optional UUIDv7 of the end-user a system / service acted for (e.g. PSEUDONYMISE issued by BNK.RLVR.CAP.SUP.001.RET on behalf of the data subject). Null when the action is purely administrative."
+        }
+      }
+    },
+    "ContactDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "email":         { "type": ["string", "null"], "format": "email" },
+        "phone":         { "type": ["string", "null"] },
+        "postal_address": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "line1":       { "type": "string" },
+            "line2":       { "type": "string" },
+            "postal_code": { "type": "string" },
+            "city":        { "type": "string" },
+            "country":     { "type": "string" }
+          }
+        }
+      }
+    },
+    "Envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_id", "schema_version", "emitted_at", "emitting_capability", "correlation_id", "actor"],
+      "properties": {
+        "message_id":          { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of THIS bus message (per ADR-TECH-STRAT-007 Rule 4)." },
+        "schema_version":      { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "SemVer of this RVT schema." },
+        "emitted_at":          { "type": "string", "format": "date-time", "description": "Wall-clock timestamp at the producer outbox." },
+        "emitting_capability": { "type": "string", "const": "BNK.RLVR.CAP.SUP.002.BEN" },
+        "correlation_id":      { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of the originating business operation; equals internal_id for events whose root operation is anchor-scoped." },
+        "actor":               { "$ref": "#/$defs/Actor", "description": "Principal that issued the command which produced this RVT (per ADR-TECH-STRAT-003). Sourced into PRJ.ANCHOR_HISTORY.actor by the projection consumer." },
+        "causation_id":        { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of the immediate cause (the command_id of the accepted command)." }
+      }
+    }
+  }
+}

@@ -14,9 +14,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Path math:
 #   settings.py = .../backend/src/reliever_beneficiary_anchor/presentation/settings.py
 #   parents[0]=presentation parents[1]=reliever_beneficiary_anchor parents[2]=src
-#   parents[3]=backend parents[4]=BNK.RLVR.CAP.SUP.002.BEN parents[5]=sources parents[6]=<repo>
-_REPO_ROOT = Path(__file__).resolve().parents[6]
-_DEFAULT_SCHEMAS_DIR = _REPO_ROOT / "process" / "BNK.RLVR.CAP.SUP.002.BEN" / "schemas"
+# JSON Schemas are a package-local *vendored* snapshot of the upstream contract
+# (this service owns the snapshot it validates against). Refresh via
+# `bcm-pack process BNK.RLVR.CAP.SUP.002.BEN` (`.schemas["<FILE>.schema.json"]`).
+_PKG_ROOT = Path(__file__).resolve().parents[1]  # reliever_beneficiary_anchor/
+_DEFAULT_SCHEMAS_DIR = (
+    _PKG_ROOT / "infrastructure" / "schema_validation" / "schemas"
+)
 # Migrations live under .../backend/migrations.
 _DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "migrations"
 

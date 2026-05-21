@@ -3,7 +3,7 @@
 Topology (from process/BNK.RLVR.CAP.SUP.002.BEN/bus.yaml + ADR-TECH-STRAT-001):
   exchange       : sup.002.ben-events (topic, durable, owned by BNK.RLVR.CAP.SUP.002.BEN)
   routing key    : BNK.RLVR.EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED
-  payload schema : process/BNK.RLVR.CAP.SUP.002.BEN/schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json
+  payload schema : vendored snapshot schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json
 
 Cadence is configurable via env vars (``RELIEVER_CADENCE_MIN_PER_MINUTE`` /
 ``RELIEVER_CADENCE_MAX_PER_MINUTE``); default 1–10 events / minute.

@@ -6,13 +6,21 @@ from pathlib import Path
 
 import pytest
 
-# Repo root  =  tests/../../../../../   (tests → backend → BNK.RLVR.CAP.SUP.002.BEN → sources → repo)
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]  # tests → backend
 
 
 @pytest.fixture(scope="session")
 def schemas_dir() -> Path:
-    return _REPO_ROOT / "process" / "BNK.RLVR.CAP.SUP.002.BEN" / "schemas"
+    # Package-local vendored snapshot — same dir the service loads at runtime
+    # (refresh via `bcm-pack process BNK.RLVR.CAP.SUP.002.BEN`).
+    return (
+        _BACKEND_ROOT
+        / "src"
+        / "reliever_beneficiary_anchor"
+        / "infrastructure"
+        / "schema_validation"
+        / "schemas"
+    )
 
 
 @pytest.fixture(scope="session")

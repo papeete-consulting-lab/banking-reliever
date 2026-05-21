@@ -1,7 +1,7 @@
 """Entry point — `python -m bsp_sco_stub` or `bsp-sco-stub`.
 
 Runs an async loop that:
-  1) loads canonical schemas from process/BNK.RLVR.CAP.BSP.001.SCO/schemas/
+  1) loads the vendored schema snapshot from bsp_sco_stub/schemas/
   2) connects to RabbitMQ and declares the owned exchange
   3) ticks at `STUB_CADENCE_PER_MIN` events / minute combined
   4) on each tick, builds + validates + publishes the next emission

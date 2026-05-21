@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE.schema.json",
+  "title": "ComputeEntryScoreCommand",
+  "description": "Payload for CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE — compute the one-time baseline behavioural score at enrolment. Idempotent on case_id over the lifetime of the case (INV.SCO.001).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "model_version", "declarative_signals"],
+  "properties": {
+    "case_id":       { "$ref": "#/$defs/Uuidv7", "description": "UUIDv7 of the participation case minted upstream." },
+    "model_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "SemVer of the scoring model to apply for this baseline." },
+    "declarative_signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Snapshot of the declarative signals collected at enrolment. The exact field set is owned by the FUNC ADR; this schema constrains the shape but not the enum of features (those are model-versioned and live in implement-capability-python).",
+      "properties": {
+        "income_band":        { "type": ["string", "null"] },
+        "household_size":     { "type": ["integer", "null"], "minimum": 0 },
+        "prior_incidents":    { "type": ["integer", "null"], "minimum": 0 },
+        "support_network":    { "type": ["string", "null"] },
+        "additional_factors": { "type": "object", "additionalProperties": true }
+      }
+    }
+  },
+  "$defs": {
+    "Uuidv7": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUIDv7 (RFC 9562 §5.7) — version nibble = 7, variant nibble = 8/9/a/b. Per ADR-TECH-STRAT-007."
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reliever.example.com/process/CAP.BSP.004.ENV/RVT.BSP.004.CONSUMPTION_RECORDED/0.1.0/schema.json",
+  "x-process-version": "0.1.0",
+  "x-process-role": "resource-event-payload",
+  "x-process-capability": "CAP.BSP.004.ENV",
+  "x-process-resource-event": "RVT.BSP.004.CONSUMPTION_RECORDED",
+  "x-process-paired-business-event": "EVT.BSP.004.ENVELOPE_CONSUMED",
+  "x-process-routing-key": "EVT.BSP.004.ENVELOPE_CONSUMED.RVT.BSP.004.CONSUMPTION_RECORDED",
+  "x-process-emitted-by": "AGG.BSP.004.ENV.PERIOD_BUDGET",
+  "x-process-carried-resource": "RES.BSP.004.OPEN_ENVELOPE",
+  "x-process-correlation-key": "case_id",
+  "title": "RVT.BSP.004.CONSUMPTION_RECORDED — A transaction has been debited against an envelope",
+  "description": "Domain-event-DDD payload published by AGG.BSP.004.ENV.PERIOD_BUDGET on every successful CMD.RECORD_CONSUMPTION. Always emitted on a successful debit. When the same debit causes the envelope to reach its cap, RVT.BSP.004.ENVELOPE_CAP_REACHED is also emitted in the same transaction (see INV.ENV.004).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "occurred_at", "case_id", "period_index", "allocation_id", "category", "amount", "consumed_amount_after", "remaining_amount"],
+  "properties": {
+    "event_id": { "type": "string", "minLength": 1 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "case_id": { "type": "string", "minLength": 1, "description": "CORRELATION KEY." },
+    "period_index": { "type": "integer", "minimum": 0 },
+    "allocation_id": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "amount": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Debit amount applied by this consumption."
+    },
+    "consumed_amount_after": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total consumed_amount of the envelope after applying this debit."
+    },
+    "remaining_amount": {
+      "type": "number",
+      "minimum": 0,
+      "description": "cap_amount - consumed_amount_after. Zero when the envelope is exactly capped (paired RVT.ENVELOPE_CAP_REACHED in same transaction)."
+    },
+    "transaction_id": {
+      "type": "string",
+      "description": "Reference to the underlying transaction (for traceability)."
+    },
+    "causation_event_id": {
+      "type": "string",
+      "description": "Identifier of the upstream transaction-authorised resource event that triggered the debit."
+    }
+  }
+}

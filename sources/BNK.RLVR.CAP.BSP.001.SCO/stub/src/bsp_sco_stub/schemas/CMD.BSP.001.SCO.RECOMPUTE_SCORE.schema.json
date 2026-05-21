@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json",
+  "x-process-version": "0.2.0",
+  "x-process-role": "command-payload",
+  "x-process-capability": "BNK.RLVR.CAP.BSP.001.SCO",
+  "x-process-command": "CMD.BSP.001.SCO.RECOMPUTE_SCORE",
+  "x-process-aggregate": "AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY",
+  "x-process-correlation-key": "case_id",
+  "x-process-idempotency-key": "trigger.event_id",
+  "title": "CMD.BSP.001.SCO.RECOMPUTE_SCORE — Recompute current behavioural score from a behavioural trigger",
+  "description": "Payload of the RECOMPUTE_SCORE command. Issued by POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER, handled by AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY, emits BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED (always) and BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED (conditional on threshold crossing). Idempotent on trigger.event_id over a 30-day window. Sketch: contracts in this folder mirror the JSON Schemas already produced for resource events under plan/BNK.RLVR.CAP.BSP.001.SCO/contracts/ and would migrate here under the proposed structure.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "trigger"],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "CORRELATION KEY. UUIDv7 of the participation case (per ADR-TECH-STRAT-007 Rule 1, minted upstream — likely by BNK.RLVR.CAP.BSP.002.ENR). Identity resolution to BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD.internal_id is delegated to consumers via BNK.RLVR.CAP.SUP.002.BEN lookup (relocated from BNK.RLVR.CAP.REF.001.BEN on 2026-05-15 per ADR-BCM-FUNC-0016)."
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "kind"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "IDEMPOTENCY KEY. UUIDv7 of the upstream resource event that triggered this command (per ADR-TECH-STRAT-007 Rule 4 — bus-message identifier). Causal link of the resulting domain event."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["TRANSACTION_AUTHORIZED", "TRANSACTION_REFUSED", "RELAPSE_SIGNAL", "PROGRESSION_SIGNAL"],
+          "description": "Discriminator. See trigger_kinds in commands.yaml for the upstream event mapping and polarity of each kind."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Transaction amount (only for TRANSACTION_AUTHORIZED / TRANSACTION_REFUSED triggers)."
+        },
+        "category": {
+          "type": "string",
+          "description": "Transaction or signal category (semantic grouping used by the scoring model)."
+        },
+        "impact_score": {
+          "type": "number",
+          "description": "Pre-computed impact score (only for RELAPSE_SIGNAL / PROGRESSION_SIGNAL triggers, sourced from BNK.RLVR.CAP.BSP.001.SIG)."
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the upstream behavioural fact (ISO-8601, UTC recommended). Used for ordering, NOT for idempotency."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["TRANSACTION_AUTHORIZED", "TRANSACTION_REFUSED"] } } },
+          "then": { "required": ["amount", "category"] }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["RELAPSE_SIGNAL", "PROGRESSION_SIGNAL"] } } },
+          "then": { "required": ["impact_score", "category"] }
+        }
+      ]
+    }
+  }
+}

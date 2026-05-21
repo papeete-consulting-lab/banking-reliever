@@ -18,9 +18,10 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-# Canonical schemas live in process/BNK.RLVR.CAP.BSP.001.SCO/schemas/ — four
-# directories up from this test file.
-SCHEMAS_DIR = ROOT.parents[2] / "process" / "BNK.RLVR.CAP.BSP.001.SCO" / "schemas"
+# Schemas are a package-local vendored snapshot under
+# src/bsp_sco_stub/schemas/ (refreshable via
+# `bcm-pack process BNK.RLVR.CAP.BSP.001.SCO`).
+SCHEMAS_DIR = SRC / "bsp_sco_stub" / "schemas"
 
 
 from bsp_sco_stub.config import StubConfig  # noqa: E402
@@ -30,8 +31,9 @@ from bsp_sco_stub.schema_validator import SchemaValidator  # noqa: E402
 @pytest.fixture(scope="session")
 def schemas_dir() -> Path:
     assert SCHEMAS_DIR.is_dir(), (
-        f"Canonical schemas dir missing: {SCHEMAS_DIR}. "
-        "Tests must read RVT.*.schema.json from process/BNK.RLVR.CAP.BSP.001.SCO/schemas/."
+        f"Vendored schemas dir missing: {SCHEMAS_DIR}. "
+        "Tests read RVT.*.schema.json from the package-local snapshot "
+        "src/bsp_sco_stub/schemas/."
     )
     return SCHEMAS_DIR
 

@@ -1,5 +1,7 @@
-"""JSON Schema validation — loads schemas from process/ (read-only) and
-validates every outgoing payload (bus and HTTP) before emission.
+"""JSON Schema validation — loads schemas from the package-local *vendored*
+snapshot (``reliever_beneficiary_identity_anchor_stub/schemas/``; refresh via
+``bcm-pack process BNK.RLVR.CAP.SUP.002.BEN``) and validates every outgoing
+payload (bus and HTTP) before emission.
 
 Fail-fast on contract drift: any validation error raises, the caller is
 expected to abort the publish / response (or refuse to start, for fixtures).

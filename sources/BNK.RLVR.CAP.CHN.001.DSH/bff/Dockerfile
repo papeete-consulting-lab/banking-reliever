@@ -1,19 +1,18 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage build for Reliever.BeneficiaryDashboard.Bff (BNK.RLVR.CAP.CHN.001.DSH).
 # Notes:
-#   - Upstream RVT JSON Schemas live OUTSIDE this folder (process/CAP.BSP.*/schemas/).
-#     The .csproj <Content Include="..\..\..\..\..\process\..."/> relies on the repo
-#     root being the build context. Run from the repo root:
+#   - The upstream RVT JSON Schemas the BFF validates against are VENDORED into
+#     the project under src/Reliever.BeneficiaryDashboard.Bff/process-schemas/
+#     (the process model itself lives upstream in banking-knowledge, consumed via
+#     `bcm-pack process`). They ship with the project copy below — no separate
+#     process/ mount is needed. Build context can be this folder or the repo root:
 #       docker build -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/Dockerfile -t chn-001-dsh-bff:dev .
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /repo
 
-# Copy project + read-only process schemas (mounted at the right relative path).
+# Copy the project (the vendored process-schemas/ travels with it).
 COPY sources/BNK.RLVR.CAP.CHN.001.DSH/bff /repo/sources/BNK.RLVR.CAP.CHN.001.DSH/bff
-COPY process/BNK.RLVR.CAP.BSP.001.SCO/schemas /repo/process/BNK.RLVR.CAP.BSP.001.SCO/schemas
-COPY process/BNK.RLVR.CAP.BSP.001.TIE/schemas /repo/process/BNK.RLVR.CAP.BSP.001.TIE/schemas
-COPY process/CAP.BSP.004.ENV/schemas /repo/process/CAP.BSP.004.ENV/schemas
 
 WORKDIR /repo/sources/BNK.RLVR.CAP.CHN.001.DSH/bff
 RUN dotnet restore Reliever.BeneficiaryDashboard.Bff.sln

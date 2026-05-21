@@ -28,15 +28,17 @@
     The validator under test reads upstream schemas from
     process-schemas/<source-cap>/RVT.*.schema.json relative to AppContext.BaseDirectory.
     Re-copy them into the test bin so UpstreamSchemaValidatorTests can load them.
+    Source = the BFF project's vendored snapshots (single source of truth); the
+    process model itself lives upstream in banking-knowledge (`bcm-pack process`).
   -->
   <ItemGroup>
-    <Content Include="..\..\..\..\..\process\BNK.RLVR.CAP.BSP.001.SCO\schemas\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"
+    <Content Include="..\..\src\Reliever.BeneficiaryDashboard.Bff\process-schemas\bsp.001.sco\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"
              Link="process-schemas\bsp.001.sco\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"
              CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\..\..\..\process\BNK.RLVR.CAP.BSP.001.TIE\schemas\BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json"
+    <Content Include="..\..\src\Reliever.BeneficiaryDashboard.Bff\process-schemas\bsp.001.tie\BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json"
              Link="process-schemas\bsp.001.tie\BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json"
              CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\..\..\..\process\CAP.BSP.004.ENV\schemas\RVT.BSP.004.CONSUMPTION_RECORDED.schema.json"
+    <Content Include="..\..\src\Reliever.BeneficiaryDashboard.Bff\process-schemas\bsp.004.env\RVT.BSP.004.CONSUMPTION_RECORDED.schema.json"
              Link="process-schemas\bsp.004.env\RVT.BSP.004.CONSUMPTION_RECORDED.schema.json"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
