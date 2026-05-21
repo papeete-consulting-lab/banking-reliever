@@ -34,15 +34,17 @@ jobs:
 
           # process/{capability-id}/ is the DDD tactical model. It is owned
           # exclusively by the /process skill, which works on a dedicated
-          # branch named `process/CAP.<...>` and publishes via its own PR.
+          # branch named `process/<CAP_ID>` and publishes via its own PR.
           # No other branch (in particular feat/TASK-NNN-* PRs from
           # /launch-task, /code, /fix) may modify process/.
           # See CLAUDE.md and README.md for the full invariant.
           PROTECTED_REGEX='^process/'
 
           # Allow modifications under process/ only from a dedicated
-          # process/<CAP_ID> branch.
-          if [[ "$HEAD_REF" =~ ^process/CAP\..+ ]]; then
+          # process/<CAP_ID> branch. <CAP_ID> is the full source-context-prefixed
+          # form (process/BNK.RLVR.CAP.…) since bcm-pack v1.0.0, with a
+          # back-compatible fallback to the legacy short form (process/CAP.…).
+          if [[ "$HEAD_REF" =~ ^process/([A-Z][A-Z0-9]*\.[A-Z][A-Z0-9]*\.)?CAP\..+ ]]; then
             echo "✓ Head branch '$HEAD_REF' is a /process branch — process/ modifications allowed."
             exit 0
           fi
