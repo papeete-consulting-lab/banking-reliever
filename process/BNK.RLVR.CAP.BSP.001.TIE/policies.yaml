@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.TIE
+  capability: BNK.RLVR.CAP.BSP.001.TIE
   layer: process-modelling
   version: 0.1.0
   governing_adrs:
@@ -18,13 +18,13 @@ policies:
   - id: POL.BSP.001.TIE.ON_SCORE_THRESHOLD_REACHED
     name: Apply tier transition on behavioural score threshold crossing
     intent: >-
-      Translate every score-threshold crossing emitted by CAP.BSP.001.SCO into
+      Translate every score-threshold crossing emitted by BNK.RLVR.CAP.BSP.001.SCO into
       a tier-transition command. The polarity (UPGRADE or DOWNGRADE) is derived
       from the threshold metadata — never from a redundant computation here.
     listens_to:
-      - resource_event: RVT.BSP.001.SCORE_THRESHOLD_REACHED
-        business_subscription: SUB.BUSINESS.BSP.001.TIE.001    # to be authored — see open question
-        resource_subscription: SUB.RESOURCE.BSP.001.TIE.001    # to be authored — see open question
+      - resource_event: BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.001    # to be authored — see open question
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.001    # to be authored — see open question
         trigger_kind: SCORE_THRESHOLD
     issues: CMD.BSP.001.TIE.APPLY_TIER_TRANSITION
     mapping_rule: >-
@@ -59,24 +59,24 @@ policies:
         rationale: Policy mapping inconsistency — the threshold metadata is suspect.
     delivery: at-least-once
     open_question: >-
-      The BCM corpus does not currently declare SUB.BUSINESS.BSP.001.TIE.001
-      and SUB.RESOURCE.BSP.001.TIE.001 (TIE consuming SCO). The producer
-      side (CAP.BSP.001.SCO/bus.yaml) already lists CAP.BSP.001.TIE as a
-      consumer of EVT.SCORE_THRESHOLD_REACHED.#, so the contract is
+      The BCM corpus does not currently declare BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.001
+      and BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.001 (TIE consuming SCO). The producer
+      side (BNK.RLVR.CAP.BSP.001.SCO/bus.yaml) already lists BNK.RLVR.CAP.BSP.001.TIE as a
+      consumer of BNK.RLVR.EVT.SCORE_THRESHOLD_REACHED.#, so the contract is
       effectively in place — but the formal subscription chain must be
       added in banking-knowledge before /code runs.
 
   - id: POL.BSP.001.TIE.ON_ARBITRATION_OVERRIDE_VALIDATED
     name: Confirm prescriber override on arbitration validation
     intent: >-
-      When CAP.BSP.001.ARB emits a validated-override event, mark the matching
+      When BNK.RLVR.CAP.BSP.001.ARB emits a validated-override event, mark the matching
       active override as CONFIRMED_BY_ARBITRATION inside the TIE aggregate.
       The override remains in force; algorithmic resumption is still gated
       until ARB emits a closure event.
     listens_to:
-      - resource_event: RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED
-        business_subscription: SUB.BUSINESS.BSP.001.TIE.002    # to be authored
-        resource_subscription: SUB.RESOURCE.BSP.001.TIE.002    # to be authored
+      - resource_event: BNK.RLVR.RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.002    # to be authored
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.002    # to be authored
         trigger_kind: OVERRIDE_VALIDATED
     issues: CMD.BSP.001.TIE.CONFIRM_PRESCRIBER_OVERRIDE
     mapping_rule: >-
@@ -106,14 +106,14 @@ policies:
   - id: POL.BSP.001.TIE.ON_ARBITRATION_ALGORITHM_REAFFIRMED
     name: Close prescriber override on arbitration reaffirming the algorithm
     intent: >-
-      When CAP.BSP.001.ARB emits an algorithm-reaffirmed event (override is
+      When BNK.RLVR.CAP.BSP.001.ARB emits an algorithm-reaffirmed event (override is
       to be closed), clear the active override on the TIE aggregate. If the
       algorithm-resolved tier differs from the override-applied tier, the
       command atomically emits the corresponding transition event.
     listens_to:
-      - resource_event: RVT.BSP.001.OVERRIDE_CLOSED
-        business_subscription: SUB.BUSINESS.BSP.001.TIE.003    # to be authored
-        resource_subscription: SUB.RESOURCE.BSP.001.TIE.003    # to be authored
+      - resource_event: BNK.RLVR.RVT.BSP.001.OVERRIDE_CLOSED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.003    # to be authored
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.003    # to be authored
         trigger_kind: ALGORITHM_REAFFIRMED
     issues: CMD.BSP.001.TIE.CLOSE_PRESCRIBER_OVERRIDE
     mapping_rule: >-
@@ -139,7 +139,7 @@ policies:
       The closure command needs the algorithm-resolved tier to decide whether
       to emit a realignment transition. Sketch assumes ARB carries this in
       the OVERRIDE_CLOSED payload (algorithmic_tier_code + score_event_id).
-      If ARB cannot supply it, TIE must query CAP.BSP.001.SCO at command
+      If ARB cannot supply it, TIE must query BNK.RLVR.CAP.BSP.001.SCO at command
       time — see README "Open process-level questions".
 
   - id: POL.BSP.001.TIE.ON_BENEFICIARY_ENROLLED
@@ -147,17 +147,17 @@ policies:
     status: placeholder
     intent: >-
       When a beneficiary completes enrolment, materialise the TIE aggregate
-      with the entry tier resolved from CAP.REF.001.TIE — proactive seeding,
+      with the entry tier resolved from BNK.RLVR.CAP.REF.001.TIE — proactive seeding,
       symmetric with POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED. Without this
       policy the aggregate is materialised lazily on the first algorithmic
       transition or override; both paths converge on the same starting tier.
     listens_to:
-      - business_event: EVT.BSP.002.ENROLMENT_COMPLETED  # FUNC-0006 (CAP.BSP.002 — Access & Enrollment). Symmetric with POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED. Upstream not yet process-modelled — promote to resource_event + bus.yaml subscription once a SUB.BUSINESS is declared in BCM for CAP.BSP.001.TIE.
+      - business_event: BNK.RLVR.EVT.BSP.002.ENROLMENT_COMPLETED  # FUNC-0006 (BNK.RLVR.CAP.BSP.002 — Access & Enrollment). Symmetric with POL.BSP.001.SCO.ON_ENROLMENT_COMPLETED. Upstream not yet process-modelled — promote to resource_event + bus.yaml subscription once a BNK.RLVR.SUB.BUSINESS is declared in BCM for BNK.RLVR.CAP.BSP.001.TIE.
     issues: null
     open_question: >-
       Two options: (a) add this policy and a CMD.SEED_INITIAL_TIER (no bus
       event emitted, silent state creation), or (b) keep lazy materialisation
-      via read-through to CAP.REF.001.TIE. Sketch defaults to (b) — the
+      via read-through to BNK.RLVR.CAP.REF.001.TIE. Sketch defaults to (b) — the
       aggregate has no observable "uninitialised" state from a consumer
       perspective. Revisit if dashboards need the entry tier visible before
       the first transition.
@@ -168,16 +168,16 @@ policies:
     name: Refresh cached tier definitions on referential change
     status: placeholder
     intent: >-
-      When CAP.REF.001.TIE updates its definitions, refresh the
+      When BNK.RLVR.CAP.REF.001.TIE updates its definitions, refresh the
       tier_definitions_version snapshot held in TIE so subsequent commands
       validate against the new ordering and codes. No tier transition is
       issued by this policy — only configuration sync.
     listens_to:
-      - business_event: EVT.REF.001.TIER_DEFINITION_UPDATED
-        # corresponding RVT to be confirmed once CAP.REF.001.TIE process model exists
+      - business_event: BNK.RLVR.EVT.REF.001.TIER_DEFINITION_UPDATED
+        # corresponding RVT to be confirmed once BNK.RLVR.CAP.REF.001.TIE process model exists
     issues: null
     open_question: >-
-      CAP.REF.001.TIE has not been processed yet — its emitted resource event
+      BNK.RLVR.CAP.REF.001.TIE has not been processed yet — its emitted resource event
       and routing key are unknown. Mark as placeholder until the REF process
       model is authored.
     error_handling: []

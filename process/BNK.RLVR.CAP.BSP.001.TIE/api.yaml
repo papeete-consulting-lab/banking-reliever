@@ -1,9 +1,9 @@
 meta:
-  capability: CAP.BSP.001.TIE
+  capability: BNK.RLVR.CAP.BSP.001.TIE
   layer: process-modelling
   version: 0.1.0
   derivation: >-
-    This file is the synthesised HTTP/RPC surface of CAP.BSP.001.TIE. It is
+    This file is the synthesised HTTP/RPC surface of BNK.RLVR.CAP.BSP.001.TIE. It is
     DERIVED from commands.yaml + read-models.yaml — the api_binding fields
     declared there. Keep in sync; the BFF/microservice scaffolding agents
     consume this view, not the raw command/query files. CMDs whose
@@ -13,7 +13,7 @@ meta:
 
 api:
   base_path: /capabilities/bsp/001/tie
-  authentication: bearer-token (sourced from CAP.SUP.001 — out of scope here)
+  authentication: bearer-token (sourced from BNK.RLVR.CAP.SUP.001 — out of scope here)
 
   # ── Command endpoints (state-mutating) ──
   commands:
@@ -31,7 +31,7 @@ api:
       note: >-
         This endpoint exists primarily for back-channel triggers and tests.
         The canonical flow is event-driven via
-        POL.ON_SCORE_THRESHOLD_REACHED on RVT.SCORE_THRESHOLD_REACHED.
+        POL.ON_SCORE_THRESHOLD_REACHED on BNK.RLVR.RVT.SCORE_THRESHOLD_REACHED.
 
     - operation_id: applyPrescriberOverride
       method: POST
@@ -39,13 +39,13 @@ api:
       issues: CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE
       request_schema: schemas/CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE.schema.json
       responses:
-        201: { description: Override activated; body mirrors RVT.OVERRIDE_ACTIVATED }
+        201: { description: Override activated; body mirrors BNK.RLVR.RVT.OVERRIDE_ACTIVATED }
         404: { description: BENEFICIARY_UNKNOWN }
         403: { description: PRESCRIBER_NOT_AUTHORISED }
         409: { description: OVERRIDE_ALREADY_ACTIVE }
         422: { description: INVALID_TIER_CODE }
       note: >-
-        Issued by CAP.CHN.002.VUE on prescriber action. The override is
+        Issued by BNK.RLVR.CAP.CHN.002.VUE on prescriber action. The override is
         durable — it remains in force until ARB closes it via the
         OVERRIDE_CLOSED event.
 
@@ -58,9 +58,9 @@ api:
       cache: { etag: true, max_age: PT5S }
       responses:
         200: { description: Current tier view (with optional active override summary) }
-        404: { description: case_id unknown to CAP.REF.001.BEN }
+        404: { description: case_id unknown to BNK.RLVR.CAP.REF.001.BEN }
       note: >-
-        Returns the entry tier from CAP.REF.001.TIE when no transition has
+        Returns the entry tier from BNK.RLVR.CAP.REF.001.TIE when no transition has
         been recorded yet — never 404s for a case that exists in the
         beneficiary referential.
 
@@ -73,4 +73,4 @@ api:
         - { name: limit, in: query, type: integer, default: 50, max: 500 }
       responses:
         200: { description: Tier transition history (chronological) }
-        404: { description: case_id unknown to CAP.REF.001.BEN }
+        404: { description: case_id unknown to BNK.RLVR.CAP.REF.001.BEN }

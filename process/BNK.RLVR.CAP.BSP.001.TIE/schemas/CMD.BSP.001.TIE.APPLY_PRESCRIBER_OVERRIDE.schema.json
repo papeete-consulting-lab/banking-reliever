@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.example.com/process/CAP.BSP.001.TIE/CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE/0.1.0/schema.json",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.BSP.001.TIE/CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE/0.1.0/schema.json",
   "x-process-version": "0.1.0",
   "x-process-role": "command-payload",
-  "x-process-capability": "CAP.BSP.001.TIE",
+  "x-process-capability": "BNK.RLVR.CAP.BSP.001.TIE",
   "x-process-command": "CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE",
   "x-process-aggregate": "AGG.BSP.001.TIE.TIER_OF_CASE",
   "x-process-correlation-key": "case_id",
   "x-process-idempotency-key": "override_id",
   "title": "CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE — Apply a prescriber tier override",
-  "description": "Payload of the APPLY_PRESCRIBER_OVERRIDE command. Issued by CAP.CHN.002.VUE on prescriber action, handled by AGG.BSP.001.TIE.TIER_OF_CASE. Emits RVT.OVERRIDE_ACTIVATED with paired EVT.TIER_OVERRIDE_APPLIED. Idempotent on override_id (caller-supplied UUID) over a 30-day window. Rejects if an override is already active.",
+  "description": "Payload of the APPLY_PRESCRIBER_OVERRIDE command. Issued by BNK.RLVR.CAP.CHN.002.VUE on prescriber action, handled by AGG.BSP.001.TIE.TIER_OF_CASE. Emits BNK.RLVR.RVT.OVERRIDE_ACTIVATED with paired BNK.RLVR.EVT.TIER_OVERRIDE_APPLIED. Idempotent on override_id (caller-supplied UUID) over a 30-day window. Rejects if an override is already active.",
   "type": "object",
   "additionalProperties": false,
   "required": ["case_id", "override_id", "prescriber_id", "applied_tier_code", "rationale"],
@@ -27,12 +27,12 @@
     "prescriber_id": {
       "type": "string",
       "minLength": 1,
-      "description": "Identifier of the prescriber issuing the override. Authorised through CAP.SUP.001 — the aggregate trusts the bearer-token identity injected by the API layer."
+      "description": "Identifier of the prescriber issuing the override. Authorised through BNK.RLVR.CAP.SUP.001 — the aggregate trusts the bearer-token identity injected by the API layer."
     },
     "applied_tier_code": {
       "type": "string",
       "minLength": 1,
-      "description": "Tier code the prescriber forces on the case. Validated against the current CAP.REF.001.TIE definition snapshot (INV.TIE.003)."
+      "description": "Tier code the prescriber forces on the case. Validated against the current BNK.RLVR.CAP.REF.001.TIE definition snapshot (INV.TIE.003)."
     },
     "rationale": {
       "type": "string",

@@ -1,27 +1,27 @@
-# Process Model — CAP.BSP.001.TIE (Tier Management)
+# Process Model — BNK.RLVR.CAP.BSP.001.TIE (Tier Management)
 
 > **Layer**: Process Modelling (DDD tactical) — sits between Big-Picture Event Storming
 > (banking-knowledge: BCM, FUNC ADR) and Software Design (this repo's `sources/`).
 > **Source of truth for**: commands accepted, aggregate boundaries, reactive policies,
 > read-model surface, bus topology, wire schemas of this capability.
 > **NOT a plan**: this folder is durable across re-plans and re-implementations of the
-> same FUNC ADR. The future `plan/CAP.BSP.001.TIE/` folder consumes it.
+> same FUNC ADR. The future `plan/BNK.RLVR.CAP.BSP.001.TIE/` folder consumes it.
 
 ## Upstream knowledge (consumed, not re-stated)
 
-Fetched via `bcm-pack pack CAP.BSP.001.TIE --deep`. Anything in those slices is
+Fetched via `bcm-pack pack BNK.RLVR.CAP.BSP.001.TIE --deep`. Anything in those slices is
 canonical and must NOT be duplicated here:
 
-- `capabilities-reliever-L2.yaml` — capability definition, parent (CAP.BSP.001), zone (BSP), owner
-- `func-adr/ADR-BCM-FUNC-0005` — L2 breakdown of CAP.BSP.001 (also governs SCO, SIG, ARB)
-- `business-event-reliever.yaml` — `EVT.BSP.001.TIER_UPGRADED`, `EVT.BSP.001.TIER_DOWNGRADED`, `EVT.BSP.001.TIER_OVERRIDE_APPLIED`
-- `resource-event-reliever.yaml` — `RVT.BSP.001.TIER_UPGRADE_RECORDED`, `RVT.BSP.001.TIER_DOWNGRADE_RECORDED`, `RVT.BSP.001.OVERRIDE_ACTIVATED`
-- `business-object-reliever.yaml` — `OBJ.BSP.001.TIER_CHANGE`, `OBJ.BSP.001.ALGORITHMIC_OVERRIDE`
-- `resource-reliever.yaml` — `RES.BSP.001.TIER_UPGRADE`, `RES.BSP.001.TIER_DOWNGRADE`, `RES.BSP.001.ACTIVE_OVERRIDE`
+- `capabilities-reliever-L2.yaml` — capability definition, parent (BNK.RLVR.CAP.BSP.001), zone (BSP), owner
+- `func-adr/ADR-BCM-FUNC-0005` — L2 breakdown of BNK.RLVR.CAP.BSP.001 (also governs SCO, SIG, ARB)
+- `business-event-reliever.yaml` — `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED`, `BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED`, `BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED`
+- `resource-event-reliever.yaml` — `BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED`, `BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED`, `BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED`
+- `business-object-reliever.yaml` — `BNK.RLVR.OBJ.BSP.001.TIER_CHANGE`, `BNK.RLVR.OBJ.BSP.001.ALGORITHMIC_OVERRIDE`
+- `resource-reliever.yaml` — `BNK.RLVR.RES.BSP.001.TIER_UPGRADE`, `BNK.RLVR.RES.BSP.001.TIER_DOWNGRADE`, `BNK.RLVR.RES.BSP.001.ACTIVE_OVERRIDE`
 - Sibling capability event surfaces (consumed by TIE):
-  - `CAP.BSP.001.SCO` — emits `RVT.BSP.001.SCORE_THRESHOLD_REACHED`
-  - `CAP.BSP.001.ARB` — emits `RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED`, `RVT.BSP.001.OVERRIDE_CLOSED`
-  - `CAP.REF.001.TIE` — owns canonical tier definitions (read-through; future `EVT.REF.001.TIER_DEFINITION_UPDATED` cache-sync subscription)
+  - `BNK.RLVR.CAP.BSP.001.SCO` — emits `BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED`
+  - `BNK.RLVR.CAP.BSP.001.ARB` — emits `BNK.RLVR.RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED`, `BNK.RLVR.RVT.BSP.001.OVERRIDE_CLOSED`
+  - `BNK.RLVR.CAP.REF.001.TIE` — owns canonical tier definitions (read-through; future `BNK.RLVR.EVT.REF.001.TIER_DEFINITION_UPDATED` cache-sync subscription)
 - `tech-vision/adr/ADR-TECH-STRAT-001` — bus topology rules (NORMATIVE)
 
 ## What this folder declares (Process Modelling output)
@@ -44,9 +44,9 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
 ### Flow A — Algorithmic tier transition on score threshold
 
 ```
-[CAP.BSP.001.SCO]
-  emits RVT.BSP.001.SCORE_THRESHOLD_REACHED
-  routing-key EVT.BSP.001.SCORE_THRESHOLD_REACHED.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+[BNK.RLVR.CAP.BSP.001.SCO]
+  emits BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+  routing-key BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED.BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
             │
             ▼
   POL.BSP.001.TIE.ON_SCORE_THRESHOLD_REACHED
@@ -60,20 +60,20 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
             ├── INV.TIE.002 — rejected if active override (ack-and-drop)
             │
             ▼ on success, emits exactly one of
-  RVT.BSP.001.TIER_UPGRADE_RECORDED   (paired EVT.TIER_UPGRADED)
+  BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED   (paired BNK.RLVR.EVT.TIER_UPGRADED)
    OR
-  RVT.BSP.001.TIER_DOWNGRADE_RECORDED (paired EVT.TIER_DOWNGRADED)
+  BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED (paired BNK.RLVR.EVT.TIER_DOWNGRADED)
             │
             ▼ consumed by
-  CAP.BSP.004.ENV (envelope reallocation)
-  CAP.B2B.001.CRD (card rule reconfiguration)
-  CAP.CHN.001.DSH (dashboard celebration / soft notice)
+  BNK.RLVR.CAP.BSP.004.ENV (envelope reallocation)
+  BNK.RLVR.CAP.B2B.001.CRD (card rule reconfiguration)
+  BNK.RLVR.CAP.CHN.001.DSH (dashboard celebration / soft notice)
 ```
 
 ### Flow B — Prescriber override lifecycle
 
 ```
-[Prescriber action via CAP.CHN.002.VUE]
+[Prescriber action via BNK.RLVR.CAP.CHN.002.VUE]
   POST /cases/{case_id}/overrides
             │
             ▼ issues directly (no upstream event)
@@ -83,13 +83,13 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
   AGG.BSP.001.TIE.TIER_OF_CASE  (state.active_override.validation_state = PENDING_ARBITRATION)
             │
             ▼ emits
-  RVT.BSP.001.OVERRIDE_ACTIVATED   (paired EVT.TIER_OVERRIDE_APPLIED)
+  BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED   (paired BNK.RLVR.EVT.TIER_OVERRIDE_APPLIED)
             │
             ▼ consumed by
-  CAP.BSP.001.ARB  (begins validation cycle)
+  BNK.RLVR.CAP.BSP.001.ARB  (begins validation cycle)
             │
             ▼ ARB eventually emits ONE of:
-  RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED   (paired EVT.ARBITRATION_OVERRIDE_VALIDATED)
+  BNK.RLVR.RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED   (paired BNK.RLVR.EVT.ARBITRATION_OVERRIDE_VALIDATED)
             │
             ▼
   POL.BSP.001.TIE.ON_ARBITRATION_OVERRIDE_VALIDATED
@@ -101,7 +101,7 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
             ▼ no bus event emitted (ARB already published the validation)
 
   --- OR, later, ARB decides to close the override and emits ---
-  RVT.BSP.001.OVERRIDE_CLOSED   (paired EVT.ARBITRATION_ALGORITHM_REAFFIRMED)
+  BNK.RLVR.RVT.BSP.001.OVERRIDE_CLOSED   (paired BNK.RLVR.EVT.ARBITRATION_ALGORITHM_REAFFIRMED)
             │
             ▼  see Flow C
 ```
@@ -109,9 +109,9 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
 ### Flow C — Override realignment on closure
 
 ```
-[CAP.BSP.001.ARB]
-  emits RVT.BSP.001.OVERRIDE_CLOSED
-  routing-key EVT.BSP.001.ARBITRATION_ALGORITHM_REAFFIRMED.RVT.BSP.001.OVERRIDE_CLOSED
+[BNK.RLVR.CAP.BSP.001.ARB]
+  emits BNK.RLVR.RVT.BSP.001.OVERRIDE_CLOSED
+  routing-key BNK.RLVR.EVT.BSP.001.ARBITRATION_ALGORITHM_REAFFIRMED.BNK.RLVR.RVT.BSP.001.OVERRIDE_CLOSED
   payload carries algorithmic_tier_at_closure (computed from latest score state)
             │
             ▼
@@ -129,10 +129,10 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
             │
             ├── if EQUAL: silent closure, no bus event
             │
-            ├── if algorithmic > override: emits RVT.BSP.001.TIER_UPGRADE_RECORDED
+            ├── if algorithmic > override: emits BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
             │                              with transition.cause = OVERRIDE_REALIGNMENT
             │
-            └── if algorithmic < override: emits RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+            └── if algorithmic < override: emits BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
                                           with transition.cause = OVERRIDE_REALIGNMENT
             │
             ▼ consumers see the corrected tier with full causation lineage
@@ -142,17 +142,17 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
 ## Open process-level questions (must be resolved before `/code`)
 
 - **Missing BCM subscription chain for TIE consumption.** The producer-side
-  bus topologies of CAP.BSP.001.SCO and CAP.BSP.001.ARB list `CAP.BSP.001.TIE`
-  as a consumer of `EVT.SCORE_THRESHOLD_REACHED.#` and the two ARB events.
-  However, the corresponding `SUB.BUSINESS.BSP.001.TIE.{001..003}` and
-  `SUB.RESOURCE.BSP.001.TIE.{001..003}` entries do **not** exist in the BCM
+  bus topologies of BNK.RLVR.CAP.BSP.001.SCO and BNK.RLVR.CAP.BSP.001.ARB list `BNK.RLVR.CAP.BSP.001.TIE`
+  as a consumer of `BNK.RLVR.EVT.SCORE_THRESHOLD_REACHED.#` and the two ARB events.
+  However, the corresponding `BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.{001..003}` and
+  `BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.{001..003}` entries do **not** exist in the BCM
   YAML. They must be authored in `banking-knowledge` before `/code` runs;
   the `bus.yaml` file declares the IDs we expect.
 
 - **Initial tier seeding — lazy vs proactive.** This sketch picks **lazy
   materialisation**: the aggregate is created on the first algorithmic
   transition or override, with `current_tier_code` resolved by read-through
-  to `CAP.REF.001.TIE`. The alternative is `POL.ON_BENEFICIARY_ENROLLED`
+  to `BNK.RLVR.CAP.REF.001.TIE`. The alternative is `POL.ON_BENEFICIARY_ENROLLED`
   (kept here as a placeholder) issuing a `CMD.SEED_INITIAL_TIER` that
   silently materialises the aggregate (no new BCM event is invented). The
   read model `PRJ.CURRENT_TIER_VIEW` already implements a fallback that
@@ -165,7 +165,7 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
   emit a realignment transition (INV.TIE.005). This sketch assumes ARB
   carries it in the `OVERRIDE_CLOSED` payload (`algorithmic_tier_code` +
   `score_event_id`). If ARB cannot supply it, TIE must query
-  `CAP.BSP.001.SCO` at command time — a synchronous cross-capability call
+  `BNK.RLVR.CAP.BSP.001.SCO` at command time — a synchronous cross-capability call
   that breaks the event-driven model for this branch. Confirm with the ARB
   process model when authored.
 
@@ -194,7 +194,7 @@ Three flows — **algorithmic transition**, **prescriber override lifecycle**, a
 
 | ADR | Role |
 |---|---|
-| `ADR-BCM-FUNC-0005` | L2 breakdown of CAP.BSP.001 — defines emitted/consumed events for SCO, TIE, SIG, ARB |
+| `ADR-BCM-FUNC-0005` | L2 breakdown of BNK.RLVR.CAP.BSP.001 — defines emitted/consumed events for SCO, TIE, SIG, ARB |
 | `ADR-BCM-URBA-0007/8/9` | Event meta-model + capability event ownership |
 | `ADR-BCM-URBA-0010/11` | L2 as urbanisation pivot, local L3 decomposition |
 | `ADR-BCM-URBA-0012` | Canonical concepts (CPT.BCM.000.TIER governs tier semantics) |

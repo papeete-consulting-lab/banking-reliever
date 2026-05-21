@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.TIE
+  capability: BNK.RLVR.CAP.BSP.001.TIE
   layer: process-modelling
   version: 0.1.0
 
@@ -17,9 +17,9 @@ read_models:
     name: Current tier view of a case
     backs_resource: null   # the CURRENT_TIER snapshot is not a BCM-declared resource
     fed_by:
-      - RVT.BSP.001.TIER_UPGRADE_RECORDED
-      - RVT.BSP.001.TIER_DOWNGRADE_RECORDED
-      - RVT.BSP.001.OVERRIDE_ACTIVATED
+      - BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
     fields:
       - case_id
       - current_tier_code
@@ -31,7 +31,7 @@ read_models:
     consistency: eventual
     fallback: >-
       When no transition has been recorded yet for a case, the projection
-      returns the entry tier resolved from CAP.REF.001.TIE — same value the
+      returns the entry tier resolved from BNK.RLVR.CAP.REF.001.TIE — same value the
       aggregate would resolve on lazy materialisation. This avoids 404s
       for newly enrolled beneficiaries who have not yet crossed any
       threshold.
@@ -40,9 +40,9 @@ read_models:
     name: Tier transition history (audit trail)
     backs_resource: null
     fed_by:
-      - RVT.BSP.001.TIER_UPGRADE_RECORDED
-      - RVT.BSP.001.TIER_DOWNGRADE_RECORDED
-      - RVT.BSP.001.OVERRIDE_ACTIVATED
+      - BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+      - BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
     fields:
       - case_id
       - transition_id
@@ -78,12 +78,12 @@ queries:
         - has_active_override
         - active_override_summary
     consumers:
-      - CAP.CHN.001.DSH    # beneficiary dashboard — current tier label and badge
-      - CAP.CHN.002.VUE    # prescriber view — tier + override controls
-      - CAP.BSP.004.ENV    # envelope allocation needs the current tier
-      - CAP.B2B.001.CRD    # dedicated card rules keyed on current tier
-      - CAP.BSP.001.SCO    # scoring may read current tier for context
-      - CAP.BSP.001.ARB    # arbitration evaluates algorithm vs override
+      - BNK.RLVR.CAP.CHN.001.DSH    # beneficiary dashboard — current tier label and badge
+      - BNK.RLVR.CAP.CHN.002.VUE    # prescriber view — tier + override controls
+      - BNK.RLVR.CAP.BSP.004.ENV    # envelope allocation needs the current tier
+      - BNK.RLVR.CAP.B2B.001.CRD    # dedicated card rules keyed on current tier
+      - BNK.RLVR.CAP.BSP.001.SCO    # scoring may read current tier for context
+      - BNK.RLVR.CAP.BSP.001.ARB    # arbitration evaluates algorithm vs override
     api_binding: { method: GET, path: /cases/{case_id}/tier }
     cache: { etag: true, max_age: PT5S }
 
@@ -105,6 +105,6 @@ queries:
         - rationale
         - occurred_at
     consumers:
-      - CAP.CHN.002.VUE    # prescriber timeline of tier transitions
-      - CAP.BSP.001.ARB    # arbitration audit
+      - BNK.RLVR.CAP.CHN.002.VUE    # prescriber timeline of tier transitions
+      - BNK.RLVR.CAP.BSP.001.ARB    # arbitration audit
     api_binding: { method: GET, path: /cases/{case_id}/tier-history }

@@ -1,17 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.example.com/process/CAP.BSP.001.TIE/RVT.BSP.001.OVERRIDE_ACTIVATED/0.1.0/schema.json",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.BSP.001.TIE/BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED/0.1.0/schema.json",
   "x-process-version": "0.1.0",
   "x-process-role": "resource-event-payload",
-  "x-process-capability": "CAP.BSP.001.TIE",
-  "x-process-resource-event": "RVT.BSP.001.OVERRIDE_ACTIVATED",
-  "x-process-business-event": "EVT.BSP.001.TIER_OVERRIDE_APPLIED",
-  "x-process-carried-resource": "RES.BSP.001.ACTIVE_OVERRIDE",
+  "x-process-capability": "BNK.RLVR.CAP.BSP.001.TIE",
+  "x-process-resource-event": "BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED",
+  "x-process-business-event": "BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED",
+  "x-process-carried-resource": "BNK.RLVR.RES.BSP.001.ACTIVE_OVERRIDE",
   "x-process-aggregate": "AGG.BSP.001.TIE.TIER_OF_CASE",
-  "x-process-routing-key": "EVT.BSP.001.TIER_OVERRIDE_APPLIED.RVT.BSP.001.OVERRIDE_ACTIVATED",
+  "x-process-routing-key": "BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED.BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED",
   "x-process-payload-form": "domain-event-ddd",
-  "title": "RVT.BSP.001.OVERRIDE_ACTIVATED — Prescriber override activated",
-  "description": "Resource event emitted by AGG.BSP.001.TIE.TIER_OF_CASE when CMD.APPLY_PRESCRIBER_OVERRIDE successfully activates a prescriber override. The override pauses algorithmic tier transitions until ARB closes it. CAP.BSP.001.ARB consumes this event to begin its validation cycle.",
+  "title": "BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED — Prescriber override activated",
+  "description": "Resource event emitted by AGG.BSP.001.TIE.TIER_OF_CASE when CMD.APPLY_PRESCRIBER_OVERRIDE successfully activates a prescriber override. The override pauses algorithmic tier transitions until ARB closes it. BNK.RLVR.CAP.BSP.001.ARB consumes this event to begin its validation cycle.",
   "type": "object",
   "additionalProperties": false,
   "required": ["event_id", "case_id", "override", "occurred_at"],
@@ -68,7 +68,7 @@
         },
         "tier_definitions_version": {
           "type": "string",
-          "description": "CAP.REF.001.TIE definitions version used to validate applied_tier_code at activation time."
+          "description": "BNK.RLVR.CAP.REF.001.TIE definitions version used to validate applied_tier_code at activation time."
         }
       }
     },

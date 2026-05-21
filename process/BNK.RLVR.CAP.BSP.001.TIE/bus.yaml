@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.TIE
+  capability: BNK.RLVR.CAP.BSP.001.TIE
   layer: process-modelling
   version: 0.1.0
   governing_adrs:
@@ -21,43 +21,43 @@ publication:
     name: bsp.001.tie-events
     type: topic
     durable: true
-    owned_by: CAP.BSP.001.TIE
+    owned_by: BNK.RLVR.CAP.BSP.001.TIE
     rule_reference: ADR-TECH-STRAT-001 Rules 1, 5
 
   # Per Rule 2, only resource events generate autonomous bus messages.
   # Business events appear ONLY as the prefix of the routing key (Rule 4).
   routing_keys:
-    - resource_event: RVT.BSP.001.TIER_UPGRADE_RECORDED
-      paired_business_event: EVT.BSP.001.TIER_UPGRADED
-      routing_key: EVT.BSP.001.TIER_UPGRADED.RVT.BSP.001.TIER_UPGRADE_RECORDED
-      schema: schemas/RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json
+    - resource_event: BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      paired_business_event: BNK.RLVR.EVT.BSP.001.TIER_UPGRADED
+      routing_key: BNK.RLVR.EVT.BSP.001.TIER_UPGRADED.BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      schema: schemas/BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json
       payload_form: domain-event-ddd
       emitted_by:
         - CMD.BSP.001.TIE.APPLY_TIER_TRANSITION    # when transition.direction == UPGRADE
         - CMD.BSP.001.TIE.CLOSE_PRESCRIBER_OVERRIDE  # when realignment is upward (INV.TIE.005)
 
-    - resource_event: RVT.BSP.001.TIER_DOWNGRADE_RECORDED
-      paired_business_event: EVT.BSP.001.TIER_DOWNGRADED
-      routing_key: EVT.BSP.001.TIER_DOWNGRADED.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
-      schema: schemas/RVT.BSP.001.TIER_DOWNGRADE_RECORDED.schema.json
+    - resource_event: BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+      paired_business_event: BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED
+      routing_key: BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED.BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+      schema: schemas/BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED.schema.json
       payload_form: domain-event-ddd
       emitted_by:
         - CMD.BSP.001.TIE.APPLY_TIER_TRANSITION    # when transition.direction == DOWNGRADE
         - CMD.BSP.001.TIE.CLOSE_PRESCRIBER_OVERRIDE  # when realignment is downward (INV.TIE.005)
 
-    - resource_event: RVT.BSP.001.OVERRIDE_ACTIVATED
-      paired_business_event: EVT.BSP.001.TIER_OVERRIDE_APPLIED
-      routing_key: EVT.BSP.001.TIER_OVERRIDE_APPLIED.RVT.BSP.001.OVERRIDE_ACTIVATED
-      schema: schemas/RVT.BSP.001.OVERRIDE_ACTIVATED.schema.json
+    - resource_event: BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
+      paired_business_event: BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED
+      routing_key: BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED.BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
+      schema: schemas/BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED.schema.json
       payload_form: domain-event-ddd
       emitted_by:
         - CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE
 
   correlation_key: case_id
   identity_resolution: >-
-    Consumers resolve case_id → OBJ.REF.001.BENEFICIARY_RECORD.internal_id via
-    a CAP.REF.001.BEN lookup. The producer NEVER carries the canonical
-    internal_id on the bus, in line with CAP.BSP.001.SCO and the rest of the
+    Consumers resolve case_id → BNK.RLVR.OBJ.REF.001.BENEFICIARY_RECORD.internal_id via
+    a BNK.RLVR.CAP.REF.001.BEN lookup. The producer NEVER carries the canonical
+    internal_id on the bus, in line with BNK.RLVR.CAP.BSP.001.SCO and the rest of the
     BSP zone.
 
 # ──────────────────────────────────────────────────────────────
@@ -68,28 +68,28 @@ publication:
 # ──────────────────────────────────────────────────────────────
 
 subscriptions:
-  - source_capability: CAP.BSP.001.SCO
+  - source_capability: BNK.RLVR.CAP.BSP.001.SCO
     source_exchange: bsp.001.sco-events
-    binding_pattern: EVT.BSP.001.SCORE_THRESHOLD_REACHED.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED.BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
     queue: bsp.001.tie.q.score-threshold-reached
-    business_subscription: SUB.BUSINESS.BSP.001.TIE.001     # to be authored in banking-knowledge
-    resource_subscription: SUB.RESOURCE.BSP.001.TIE.001     # to be authored in banking-knowledge
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.001     # to be authored in banking-knowledge
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.001     # to be authored in banking-knowledge
     consumed_by: POL.BSP.001.TIE.ON_SCORE_THRESHOLD_REACHED
 
-  - source_capability: CAP.BSP.001.ARB
+  - source_capability: BNK.RLVR.CAP.BSP.001.ARB
     source_exchange: bsp.001.arb-events
-    binding_pattern: EVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED.RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED.BNK.RLVR.RVT.BSP.001.ARBITRATION_OVERRIDE_VALIDATED
     queue: bsp.001.tie.q.override-validated
-    business_subscription: SUB.BUSINESS.BSP.001.TIE.002     # to be authored
-    resource_subscription: SUB.RESOURCE.BSP.001.TIE.002     # to be authored
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.002     # to be authored
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.002     # to be authored
     consumed_by: POL.BSP.001.TIE.ON_ARBITRATION_OVERRIDE_VALIDATED
 
-  - source_capability: CAP.BSP.001.ARB
+  - source_capability: BNK.RLVR.CAP.BSP.001.ARB
     source_exchange: bsp.001.arb-events
-    binding_pattern: EVT.BSP.001.ARBITRATION_ALGORITHM_REAFFIRMED.RVT.BSP.001.OVERRIDE_CLOSED
+    binding_pattern: BNK.RLVR.EVT.BSP.001.ARBITRATION_ALGORITHM_REAFFIRMED.BNK.RLVR.RVT.BSP.001.OVERRIDE_CLOSED
     queue: bsp.001.tie.q.algorithm-reaffirmed
-    business_subscription: SUB.BUSINESS.BSP.001.TIE.003     # to be authored
-    resource_subscription: SUB.RESOURCE.BSP.001.TIE.003     # to be authored
+    business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.TIE.003     # to be authored
+    resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.TIE.003     # to be authored
     consumed_by: POL.BSP.001.TIE.ON_ARBITRATION_ALGORITHM_REAFFIRMED
 
 # ──────────────────────────────────────────────────────────────
@@ -100,42 +100,42 @@ subscriptions:
 # ──────────────────────────────────────────────────────────────
 
 consumers:
-  - capability: CAP.BSP.004.ENV
+  - capability: BNK.RLVR.CAP.BSP.004.ENV
     binds_to:
-      - EVT.BSP.001.TIER_UPGRADED.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.EVT.BSP.001.TIER_UPGRADED.BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
     rationale: >-
       Tier upgrade triggers recalibration of budget envelopes for the new
-      tier (SUB.BUSINESS.BSP.004.005 / SUB.RESOURCE.BSP.004.005).
+      tier (BNK.RLVR.SUB.BUSINESS.BSP.004.005 / BNK.RLVR.SUB.RESOURCE.BSP.004.005).
 
-  - capability: CAP.CHN.001.DSH
+  - capability: BNK.RLVR.CAP.CHN.001.DSH
     binds_to:
-      - EVT.BSP.001.TIER_UPGRADED.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.EVT.BSP.001.TIER_UPGRADED.BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
     rationale: >-
       Beneficiary dashboard surfaces tier upgrades as a major progression
-      event with a celebratory animation (SUB.BUSINESS.CHN.001.002 /
-      SUB.RESOURCE.CHN.001.002).
+      event with a celebratory animation (BNK.RLVR.SUB.BUSINESS.CHN.001.002 /
+      BNK.RLVR.SUB.RESOURCE.CHN.001.002).
 
-  - capability: CAP.B2B.001.CRD
+  - capability: BNK.RLVR.CAP.B2B.001.CRD
     binds_to:
-      - EVT.BSP.001.TIER_UPGRADED.RVT.BSP.001.TIER_UPGRADE_RECORDED
-      - EVT.BSP.001.TIER_DOWNGRADED.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+      - BNK.RLVR.EVT.BSP.001.TIER_UPGRADED.BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+      - BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED.BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
     rationale: >-
       Dedicated card rules are reconfigured on every tier change
       (FUNC-0005 — "triggers updates to the dedicated card rules"). Both
       directions are consumed; the corresponding business-subscription
       entries are not yet declared in the BCM corpus — see open question.
     open_question: >-
-      No SUB.BUSINESS.B2B.001.* / SUB.RESOURCE.B2B.001.* exist yet for these
+      No BNK.RLVR.SUB.BUSINESS.B2B.001.* / BNK.RLVR.SUB.RESOURCE.B2B.001.* exist yet for these
       bindings. To be authored in banking-knowledge before /code runs on
-      CAP.B2B.001.CRD.
+      BNK.RLVR.CAP.B2B.001.CRD.
 
-  - capability: CAP.BSP.001.ARB
+  - capability: BNK.RLVR.CAP.BSP.001.ARB
     binds_to:
-      - EVT.BSP.001.TIER_OVERRIDE_APPLIED.RVT.BSP.001.OVERRIDE_ACTIVATED
+      - BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED.BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
     rationale: >-
       Arbitration receives every prescriber override to begin its validation
       cycle. Subscription chain to be authored — see open question.
     open_question: >-
-      No SUB.BUSINESS.BSP.001.ARB.* / SUB.RESOURCE.BSP.001.ARB.* exist yet
+      No BNK.RLVR.SUB.BUSINESS.BSP.001.ARB.* / BNK.RLVR.SUB.RESOURCE.BSP.001.ARB.* exist yet
       for this binding. To be authored in banking-knowledge alongside the
       ARB process model.

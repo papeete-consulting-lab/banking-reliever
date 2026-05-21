@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.TIE
+  capability: BNK.RLVR.CAP.BSP.001.TIE
   layer: process-modelling
   version: 0.1.0
   governing_adrs:
@@ -29,11 +29,11 @@ commands:
     payload_schema: schemas/CMD.BSP.001.TIE.APPLY_TIER_TRANSITION.schema.json
     preconditions:
       - id: PRE.001
-        rule: case_id resolves to an active beneficiary record in CAP.REF.001.BEN.
+        rule: case_id resolves to an active beneficiary record in BNK.RLVR.CAP.REF.001.BEN.
       - id: PRE.002
         rule: No active prescriber override is currently in force on this case.
       - id: PRE.003
-        rule: target_tier_code is a valid tier in the current CAP.REF.001.TIE definition.
+        rule: target_tier_code is a valid tier in the current BNK.RLVR.CAP.REF.001.TIE definition.
       - id: PRE.004
         rule: trigger.event_id has not already been processed (idempotency by causation).
     invariants_enforced:
@@ -44,18 +44,18 @@ commands:
     emits:
       # Exactly one of the following, depending on transition.direction.
       # Only resource events are autonomous bus messages (Rule 2 of ADR-TECH-STRAT-001).
-      # The paired business-event family (EVT.BSP.001.TIER_UPGRADED /
-      # EVT.BSP.001.TIER_DOWNGRADED) appears only as the prefix of the
+      # The paired business-event family (BNK.RLVR.EVT.BSP.001.TIER_UPGRADED /
+      # BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED) appears only as the prefix of the
       # routing key — see bus.yaml.
-      - RVT.BSP.001.TIER_UPGRADE_RECORDED        # when transition.direction == UPGRADE
-      - RVT.BSP.001.TIER_DOWNGRADE_RECORDED      # when transition.direction == DOWNGRADE
+      - BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED        # when transition.direction == UPGRADE
+      - BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED      # when transition.direction == DOWNGRADE
     errors:
       - code: BENEFICIARY_UNKNOWN
-        when: case_id does not resolve in CAP.REF.001.BEN.
+        when: case_id does not resolve in BNK.RLVR.CAP.REF.001.BEN.
       - code: OVERRIDE_IN_FORCE
         when: An active prescriber override is currently applied — algorithmic transitions are suspended.
       - code: INVALID_TIER_CODE
-        when: target_tier_code is not declared in CAP.REF.001.TIE.
+        when: target_tier_code is not declared in BNK.RLVR.CAP.REF.001.TIE.
       - code: TRIGGER_ALREADY_PROCESSED
         when: trigger.event_id has previously been applied.
       - code: TRIGGER_DIRECTION_MISMATCH
@@ -73,19 +73,19 @@ commands:
     intent: >-
       A prescriber forces a tier on a case against the algorithmic decision.
       Activates the override (state PENDING_ARBITRATION), pauses algorithmic
-      transitions, and emits an OVERRIDE_ACTIVATED event so CAP.BSP.001.ARB
+      transitions, and emits an OVERRIDE_ACTIVATED event so BNK.RLVR.CAP.BSP.001.ARB
       can begin its validation cycle.
     accepted_by: AGG.BSP.001.TIE.TIER_OF_CASE
     issued_by:
-      - http_caller: CAP.CHN.002.VUE   # prescriber UI
+      - http_caller: BNK.RLVR.CAP.CHN.002.VUE   # prescriber UI
     payload_schema: schemas/CMD.BSP.001.TIE.APPLY_PRESCRIBER_OVERRIDE.schema.json
     preconditions:
       - id: PRE.001
-        rule: case_id resolves to an active beneficiary record in CAP.REF.001.BEN.
+        rule: case_id resolves to an active beneficiary record in BNK.RLVR.CAP.REF.001.BEN.
       - id: PRE.002
-        rule: prescriber_id is authorised to act on this case (resolved via CAP.SUP.001 — out of scope).
+        rule: prescriber_id is authorised to act on this case (resolved via BNK.RLVR.CAP.SUP.001 — out of scope).
       - id: PRE.003
-        rule: applied_tier_code is a valid tier in the current CAP.REF.001.TIE definition.
+        rule: applied_tier_code is a valid tier in the current BNK.RLVR.CAP.REF.001.TIE definition.
       - id: PRE.004
         rule: No prior override is active on the case (a closed override unblocks this command).
     invariants_enforced:
@@ -93,16 +93,16 @@ commands:
       - INV.TIE.003
       - INV.TIE.004
     emits:
-      - RVT.BSP.001.OVERRIDE_ACTIVATED
+      - BNK.RLVR.RVT.BSP.001.OVERRIDE_ACTIVATED
       # Paired business-event family (routing-key only, no autonomous message — Rule 2):
-      # EVT.BSP.001.TIER_OVERRIDE_APPLIED
+      # BNK.RLVR.EVT.BSP.001.TIER_OVERRIDE_APPLIED
     errors:
       - code: BENEFICIARY_UNKNOWN
-        when: case_id does not resolve in CAP.REF.001.BEN.
+        when: case_id does not resolve in BNK.RLVR.CAP.REF.001.BEN.
       - code: PRESCRIBER_NOT_AUTHORISED
         when: prescriber_id is not authorised to act on this case.
       - code: INVALID_TIER_CODE
-        when: applied_tier_code is not declared in CAP.REF.001.TIE.
+        when: applied_tier_code is not declared in BNK.RLVR.CAP.REF.001.TIE.
       - code: OVERRIDE_ALREADY_ACTIVE
         when: An active override already exists on the case — close it first.
     idempotency:
@@ -113,7 +113,7 @@ commands:
   - id: CMD.BSP.001.TIE.CONFIRM_PRESCRIBER_OVERRIDE
     name: Confirm a prescriber override after arbitration validation
     intent: >-
-      Mark the active override as CONFIRMED_BY_ARBITRATION when CAP.BSP.001.ARB
+      Mark the active override as CONFIRMED_BY_ARBITRATION when BNK.RLVR.CAP.BSP.001.ARB
       emits an arbitration-validated event. The override remains in force; the
       algorithmic resumption is still gated until ARB emits a closure event.
       No bus event is emitted by TIE — the arbitration validation itself is
@@ -146,7 +146,7 @@ commands:
     name: Close a prescriber override and resume algorithmic control
     intent: >-
       Clear the active override following an arbitration-algorithm-reaffirmed
-      event from CAP.BSP.001.ARB. If the algorithm-resolved tier (computed
+      event from BNK.RLVR.CAP.BSP.001.ARB. If the algorithm-resolved tier (computed
       from the latest known score and the current tier-definition snapshot)
       differs from the override-applied tier, atomically emit the corresponding
       transition event so consumers see the realignment. Otherwise the closure
@@ -167,8 +167,8 @@ commands:
     emits:
       # Conditional — only when the algorithm-resolved tier differs from the
       # override-applied tier. Exactly one of the following is emitted, or none.
-      - RVT.BSP.001.TIER_UPGRADE_RECORDED        # if algorithmic tier > override tier
-      - RVT.BSP.001.TIER_DOWNGRADE_RECORDED      # if algorithmic tier < override tier
+      - BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED        # if algorithmic tier > override tier
+      - BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED      # if algorithmic tier < override tier
     errors:
       - code: NO_ACTIVE_OVERRIDE
         when: No active override exists for case_id.
@@ -189,10 +189,10 @@ commands:
 
 transition_directions:
   - id: UPGRADE
-    semantics: target tier strictly above source tier in CAP.REF.001.TIE ordering.
-    emits: RVT.BSP.001.TIER_UPGRADE_RECORDED
-    paired_business_event: EVT.BSP.001.TIER_UPGRADED
+    semantics: target tier strictly above source tier in BNK.RLVR.CAP.REF.001.TIE ordering.
+    emits: BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+    paired_business_event: BNK.RLVR.EVT.BSP.001.TIER_UPGRADED
   - id: DOWNGRADE
-    semantics: target tier strictly below source tier in CAP.REF.001.TIE ordering.
-    emits: RVT.BSP.001.TIER_DOWNGRADE_RECORDED
-    paired_business_event: EVT.BSP.001.TIER_DOWNGRADED
+    semantics: target tier strictly below source tier in BNK.RLVR.CAP.REF.001.TIE ordering.
+    emits: BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED
+    paired_business_event: BNK.RLVR.EVT.BSP.001.TIER_DOWNGRADED
