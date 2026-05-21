@@ -1,6 +1,7 @@
 ---
 task_id: TASK-003
-capability_id: CAP.CHN.001.DSH
+capability_id: BNK.RLVR.CAP.CHN.001.DSH
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Dashboard
 epic: Epic 2 — Synthesised dashboard view with dignity-compliant layout
 status: todo
@@ -30,7 +31,7 @@ The dignity rule is not a CSS polish but a functional constraint of
 machine-checkable assertions so it cannot silently regress.
 
 ## Capability Reference
-- Capability: Beneficiary Dashboard (CAP.CHN.001.DSH)
+- Capability: Beneficiary Dashboard (BNK.RLVR.CAP.CHN.001.DSH)
 - Zone: CHANNEL
 - Governing FUNC ADR: ADR-BCM-FUNC-0009 (dignity rule)
 - Strategic-tech anchors: ADR-TECH-STRAT-003 (ETag / `Cache-Control:
@@ -43,7 +44,7 @@ Promote the empty-state shell delivered by TASK-002 into a real,
 fully-rendered synthesised view.
 
 1. **Query handler — `QRY.GET_DASHBOARD`**: `GET /capabilities/chn/001/dsh/cases/{case_id}/dashboard`
-   per `process/CAP.CHN.001.DSH/api.yaml.getDashboard`. Reads directly
+   per `process/BNK.RLVR.CAP.CHN.001.DSH/api.yaml.getDashboard`. Reads directly
    from the aggregate's snapshot fields (no separate projection — the
    aggregate IS the projection per the Framing Decisions in the
    roadmap). Returns a `DashboardView` shape with: `current_tier_code`,
@@ -104,7 +105,7 @@ None new — TASK-002 owns the three subscriptions.
 ## Definition of Done
 - [ ] `GET /capabilities/chn/001/dsh/cases/{case_id}/dashboard`
       returns the `DashboardView` shape per
-      `process/CAP.CHN.001.DSH/api.yaml.getDashboard`
+      `process/BNK.RLVR.CAP.CHN.001.DSH/api.yaml.getDashboard`
 - [ ] ETag computed deterministically over the snapshot fields;
       `Cache-Control: max-age=PT5S`; `If-None-Match` matching returns
       `304`; `304` rate verifiable in the OTel metrics
@@ -144,7 +145,7 @@ None new — TASK-002 owns the three subscriptions.
       `GET /dashboard` is now shadowed by the real one — the stub's
       decommissioning note is updated to reflect this surface being
       real
-- [ ] No write to `process/CAP.CHN.001.DSH/`
+- [ ] No write to `process/BNK.RLVR.CAP.CHN.001.DSH/`
 
 ## Acceptance Criteria (Business)
 A beneficiary opening the dashboard sees their current autonomy tier

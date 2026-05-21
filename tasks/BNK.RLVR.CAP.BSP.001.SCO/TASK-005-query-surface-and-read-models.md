@@ -1,6 +1,7 @@
 ---
 task_id: TASK-005
-capability_id: CAP.BSP.001.SCO
+capability_id: BNK.RLVR.CAP.BSP.001.SCO
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Behavioural Score
 epic: Epic 4 — Query surface & read-models
 status: todo
@@ -19,10 +20,10 @@ producer — operational bus + analytical bus + synchronous REST query
 surface. This task delivers the REST query face: `GET
 /cases/{case_id}/score` (current view) and `GET
 /cases/{case_id}/score-history`, backed by two event-sourced projections
-fed by `RVT.BSP.001.ENTRY_SCORE_COMPUTED` and
-`RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`. Dashboards
-(`CAP.CHN.001.DSH`), prescriber views (`CAP.CHN.002.VUE`), and
-arbitration (`CAP.BSP.001.ARB`) can consume scoring state without
+fed by `BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED` and
+`BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`. Dashboards
+(`BNK.RLVR.CAP.CHN.001.DSH`), prescriber views (`CAP.CHN.002.VUE`), and
+arbitration (`BNK.RLVR.CAP.BSP.001.ARB`) can consume scoring state without
 subscribing to the bus or polling the aggregate directly.
 
 The projections are **eventually consistent** per
@@ -32,7 +33,7 @@ contract makes this explicit via the `ETag` + `PT5S max-age` cache
 header on the current-score endpoint.
 
 ## Capability Reference
-- Capability: Behavioural Score (CAP.BSP.001.SCO)
+- Capability: Behavioural Score (BNK.RLVR.CAP.BSP.001.SCO)
 - Zone: BUSINESS_SERVICE_PRODUCTION
 - Governing FUNC ADR: ADR-BCM-FUNC-0005
 - Strategic-tech anchors: ADR-TECH-STRAT-003 (REST), ADR-TECH-STRAT-004
@@ -45,9 +46,9 @@ Extend the microservice from TASK-003 (and optionally TASK-004 for the
 `entry_score` field) to deliver the read side.
 
 1. **Projection — `PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW`** per
-   `read-models.yaml`. Backs `RES.BSP.001.CURRENT_SCORE`. Fed by
-   `RVT.BSP.001.ENTRY_SCORE_COMPUTED` and
-   `RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`. Fields: `case_id`,
+   `read-models.yaml`. Backs `BNK.RLVR.RES.BSP.001.CURRENT_SCORE`. Fed by
+   `BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED` and
+   `BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`. Fields: `case_id`,
    `score_value`, `delta_score`, `computation_timestamp`,
    `model_version`, `last_evaluation_id`. One row per `case_id` —
    last-write-wins on the projection by `evaluation_id` (or by the
@@ -86,9 +87,9 @@ Extend the microservice from TASK-003 (and optionally TASK-004 for the
    is exposed as a metric per `ADR-TECH-STRAT-005`. Detailed dashboards
    are Epic 5; this task only emits the signals.
 8. **No PII** — score payloads carry `case_id` only, never PII or
-   `internal_id`. The query consumers (`CAP.CHN.001.DSH`,
-   `CAP.CHN.002.VUE`, `CAP.BSP.001.ARB`) resolve identity separately
-   against `CAP.SUP.002.BEN`.
+   `internal_id`. The query consumers (`BNK.RLVR.CAP.CHN.001.DSH`,
+   `CAP.CHN.002.VUE`, `BNK.RLVR.CAP.BSP.001.ARB`) resolve identity separately
+   against `BNK.RLVR.CAP.SUP.002.BEN`.
 9. **Eventual-consistency contract** is documented explicitly in the
    OpenAPI of the two endpoints (e.g. a `Cache-Control: max-age=5`
    header + a `Last-Modified` header reflecting the
@@ -98,13 +99,13 @@ Extend the microservice from TASK-003 (and optionally TASK-004 for the
 None — read-side only.
 
 ## Business Objects Involved
-- `OBJ.BSP.001.EVALUATION` — projected (without PII) into the two
+- `BNK.RLVR.OBJ.BSP.001.EVALUATION` — projected (without PII) into the two
   read-models
 
 ## Event Subscriptions Required
-- `RVT.BSP.001.ENTRY_SCORE_COMPUTED` (own emitted event) — consumed by
+- `BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED` (own emitted event) — consumed by
   the in-process projection consumer to feed both projections
-- `RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` (own emitted event) — same
+- `BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` (own emitted event) — same
 
 ## Definition of Done
 - [ ] PostgreSQL schema declares the two projection tables with
@@ -139,11 +140,11 @@ None — read-side only.
       `read-models.yaml.retention`; the retention window is
       configurable via env var
 - [ ] Both endpoints are exercised by integration tests against three
-      consumer shapes: `CAP.CHN.001.DSH` (progression bar),
-      `CAP.CHN.002.VUE` (prescriber timeline), `CAP.BSP.001.ARB`
+      consumer shapes: `BNK.RLVR.CAP.CHN.001.DSH` (progression bar),
+      `CAP.CHN.002.VUE` (prescriber timeline), `BNK.RLVR.CAP.BSP.001.ARB`
       (algorithmic vs override check) — verified by stub clients
       shipped in `tests/`
-- [ ] No write to `process/CAP.BSP.001.SCO/`
+- [ ] No write to `process/BNK.RLVR.CAP.BSP.001.SCO/`
 
 ## Acceptance Criteria (Business)
 A dashboard or prescriber view can render the beneficiary's current

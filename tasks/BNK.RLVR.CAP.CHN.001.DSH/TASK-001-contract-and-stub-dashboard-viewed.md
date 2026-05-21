@@ -1,6 +1,7 @@
 ---
 task_id: TASK-001
-capability_id: CAP.CHN.001.DSH
+capability_id: BNK.RLVR.CAP.CHN.001.DSH
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Dashboard
 epic: Epic 0 — Contract and Development Stub
 status: done
@@ -13,7 +14,7 @@ superseded_by: TASK-002
 superseded_reason: |
   Sequencing inversion — TASK-002 (Epic 1, real BFF foundation) shipped first
   (PR #17, in review on 2026-05-16). TASK-002 writes to the same canonical
-  paths (sources/CAP.CHN.001.DSH/bff/ and sources/CAP.CHN.001.DSH/frontend/)
+  paths (sources/BNK.RLVR.CAP.CHN.001.DSH/bff/ and sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/)
   with the production-shape implementation, which subsumes the canned stub
   this task would have produced. The decommissioning clause already baked
   into TASK-001's DoD ("the stub bundle's README states that the stub is
@@ -30,8 +31,8 @@ superseded_reason: |
 # TASK-001 — Contract and development stub for the Beneficiary Dashboard BFF + frontend
 
 ## Context
-`CAP.CHN.001.DSH` is a CHANNEL-zone capability that exposes ONE emitted
-resource event (`RVT.CHN.001.DASHBOARD_VIEWED` — telemetry) and a
+`BNK.RLVR.CAP.CHN.001.DSH` is a CHANNEL-zone capability that exposes ONE emitted
+resource event (`BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` — telemetry) and a
 three-operation HTTP surface (`POST /cases/{case_id}/dashboard-views`,
 `GET /cases/{case_id}/dashboard`, `GET /cases/{case_id}/transactions`).
 Per `ADR-BCM-URBA-0009` this capability owns the contract of both. As
@@ -42,14 +43,14 @@ with canned cold data, so downstream consumers — the analytical rail
 harness on the HTTP side — can develop in complete isolation.
 
 Per `ADR-TECH-TACT-001` the CHANNEL stack is fixed: **.NET 10 Minimal
-API BFF** under `sources/CAP.CHN.001.DSH/bff/` and **vanilla HTML5 /
-CSS3 / JS frontend** under `sources/CAP.CHN.001.DSH/frontend/`. Stage 4
+API BFF** under `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/` and **vanilla HTML5 /
+CSS3 / JS frontend** under `sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/`. Stage 4
 routes any `task_type: contract-stub` to a bundle that produces both
 halves with canned data — the same agents (`create-bff` +
 `code-web-frontend`) that will later carry the real implementation.
 
 ## Capability Reference
-- Capability: Beneficiary Dashboard (CAP.CHN.001.DSH)
+- Capability: Beneficiary Dashboard (BNK.RLVR.CAP.CHN.001.DSH)
 - Zone: CHANNEL
 - Governing FUNC ADR: ADR-BCM-FUNC-0009
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (bus / Rule 2-4),
@@ -65,15 +66,15 @@ halves with canned data — the same agents (`create-bff` +
 A runnable development stub spanning the BFF + the frontend, under the
 canonical CHANNEL-zone layout:
 
-1. **BFF stub** (`sources/CAP.CHN.001.DSH/bff/`):
+1. **BFF stub** (`sources/BNK.RLVR.CAP.CHN.001.DSH/bff/`):
    - On startup, declares the topic exchange `chn.001.dsh-events`
-     (durable=true, owned by `CAP.CHN.001.DSH`) per `bus.yaml`.
-   - Publishes synthetic `RVT.CHN.001.DASHBOARD_VIEWED` envelopes on the
+     (durable=true, owned by `BNK.RLVR.CAP.CHN.001.DSH`) per `bus.yaml`.
+   - Publishes synthetic `BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` envelopes on the
      routing key
-     `EVT.CHN.001.DASHBOARD_VIEWED.RVT.CHN.001.DASHBOARD_VIEWED` at a
+     `BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED.BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` at a
      configurable cadence (default 1–10 events/min). Payloads validate
      against
-     `process/CAP.CHN.001.DSH/schemas/RVT.CHN.001.DASHBOARD_VIEWED.schema.json`.
+     `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED.schema.json`.
    - Carries the UUIDv7 envelope trio (`message_id`, `correlation_id` =
      synthetic `case_id`, `causation_id` = synthetic `client_request_id`)
      + `schema_version` semver per `ADR-TECH-STRAT-007` Rule 4.
@@ -97,7 +98,7 @@ canonical CHANNEL-zone layout:
    - Activated / deactivated via `STUB_ACTIVE=true|false`.
    - Branch isolation per `CLAUDE.md`: exchange / port carry the branch
      slug.
-2. **Frontend stub** (`sources/CAP.CHN.001.DSH/frontend/`):
+2. **Frontend stub** (`sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/`):
    - A minimal vanilla HTML5/CSS3/JS shell that polls the canned BFF
      endpoints every 5 s, renders the dashboard chrome (tier panel +
      envelopes + recent transactions), and fires
@@ -117,11 +118,11 @@ canonical CHANNEL-zone layout:
    fixture, runnable in CI without bus / HTTP.
 
 ## Events to Stub
-- `RVT.CHN.001.DASHBOARD_VIEWED` — published on `chn.001.dsh-events`
+- `BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED` — published on `chn.001.dsh-events`
   with routing key
-  `EVT.CHN.001.DASHBOARD_VIEWED.RVT.CHN.001.DASHBOARD_VIEWED`. Payload
+  `BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED.BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED`. Payload
   validates against
-  `process/CAP.CHN.001.DSH/schemas/RVT.CHN.001.DASHBOARD_VIEWED.schema.json`.
+  `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED.schema.json`.
   Synthetic emitter cycles across the optional payload variants
   (`current_tier_code` populated vs null, `current_score` populated vs
   null, with and without `client_context`).
@@ -145,20 +146,20 @@ None — the stub is a producer + HTTP server, not a consumer. The real
 BFF (TASK-002) wires three upstream subscriptions; the stub does not.
 
 ## Definition of Done
-- [ ] BFF stub source under `sources/CAP.CHN.001.DSH/bff/` (.NET 10
+- [ ] BFF stub source under `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/` (.NET 10
       Minimal API per `ADR-TECH-TACT-001`)
-- [ ] Frontend stub source under `sources/CAP.CHN.001.DSH/frontend/`
+- [ ] Frontend stub source under `sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/`
       (vanilla HTML5/CSS3/JS — no framework, no CDN)
 - [ ] `docker compose up` (or the project's equivalent) from the BFF
       folder starts the service + a local RabbitMQ; the frontend is
       served as static files on a separate dev port; branch-isolated
       port + exchange names per `CLAUDE.md`
 - [ ] On startup the BFF declares the `chn.001.dsh-events` topic
-      exchange (durable=true, owner=CAP.CHN.001.DSH)
-- [ ] The synthetic emitter publishes `RVT.CHN.001.DASHBOARD_VIEWED`
+      exchange (durable=true, owner=BNK.RLVR.CAP.CHN.001.DSH)
+- [ ] The synthetic emitter publishes `BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED`
       at 1–10 events/min on the canonical routing key; every payload
       validates against
-      `process/CAP.CHN.001.DSH/schemas/RVT.CHN.001.DASHBOARD_VIEWED.schema.json`
+      `process/BNK.RLVR.CAP.CHN.001.DSH/schemas/BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED.schema.json`
       (covering both the no-snapshot variant and the populated-snapshot
       variant)
 - [ ] Every emitted envelope carries UUIDv7 `message_id`,
@@ -200,7 +201,7 @@ BFF (TASK-002) wires three upstream subscriptions; the stub does not.
       stub is retired once Epic 1 (TASK-002) ships the real BFF
       foundation and subscription bindings; further endpoints are
       phased out as TASK-003 / TASK-004 / TASK-005 deliver them
-- [ ] No write to `process/CAP.CHN.001.DSH/` (read-only)
+- [ ] No write to `process/BNK.RLVR.CAP.CHN.001.DSH/` (read-only)
 
 ## Acceptance Criteria (Business)
 A developer working on the analytical rail consumer (future

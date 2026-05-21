@@ -1,6 +1,7 @@
 ---
 task_id: TASK-004
-capability_id: CAP.SUP.002.BEN
+capability_id: BNK.RLVR.CAP.SUP.002.BEN
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 4 — Anchor lifecycle (archive / restore)
 status: in_progress
@@ -29,7 +30,7 @@ extend the aggregate in different directions and can run in parallel
 after TASK-002 lands.
 
 ## Capability Reference
-- Capability: Beneficiary Identity Anchor (CAP.SUP.002.BEN)
+- Capability: Beneficiary Identity Anchor (BNK.RLVR.CAP.SUP.002.BEN)
 - Zone: SUPPORT
 - Governing FUNC ADR: ADR-BCM-FUNC-0016
 - Strategic-tech anchors: ADR-TECH-STRAT-001, ADR-TECH-STRAT-003,
@@ -62,7 +63,7 @@ Extend the microservice from TASK-002 to handle two lifecycle commands.
    30-day window). Duplicate `command_id` returns `200 OK` with the
    prior snapshot and `COMMAND_ALREADY_PROCESSED`.
 5. **Outbox** — each successful transition emits one
-   `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind:
+   `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind:
    ARCHIVED` or `RESTORED`, `revision = N+1`, full snapshot. Same
    routing key / exchange / envelope rules as TASK-002.
 6. **GET continues to resolve archived anchors** — `GET
@@ -72,13 +73,13 @@ Extend the microservice from TASK-002 to handle two lifecycle commands.
    references resolve).
 
 ## Business Events to Produce
-- `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind: ARCHIVED`
+- `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind: ARCHIVED`
   — emitted on successful ARCHIVE
-- `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind: RESTORED`
+- `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with `transition_kind: RESTORED`
   — emitted on successful RESTORE
 
 ## Business Objects Involved
-- `OBJ.SUP.002.BENEFICIARY_RECORD` — `anchor_status` lifecycle field
+- `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD` — `anchor_status` lifecycle field
   transitions; PII left unchanged
 
 ## Event Subscriptions Required
@@ -107,7 +108,7 @@ None.
       relay publishes one RVT with the correct `transition_kind` and
       `revision = N+1`
 - [ ] Emitted payloads validate against
-      `schemas/RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`
+      `schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`
 - [ ] PII fields in the snapshot are unchanged across ARCHIVE / RESTORE
       (`INV.BEN.002`); only `anchor_status` and `revision` change
 - [ ] `GET /anchors/{internal_id}` continues to resolve archived
@@ -118,7 +119,7 @@ None.
       wins on `(internal_id, revision)`, drops out-of-order events
 - [ ] `UPDATE` (TASK-003) issued against an ARCHIVED anchor returns
       `409 ANCHOR_ARCHIVED` — cross-verb state-machine test
-- [ ] No write to `process/CAP.SUP.002.BEN/`
+- [ ] No write to `process/BNK.RLVR.CAP.SUP.002.BEN/`
 - [ ] `pytest` suite covers: ACTIVE→ARCHIVED→ACTIVE round-trip,
       illegal transitions (409 paths), idempotency hit/miss, reason
       enum validation, snapshot continuity (PII unchanged)

@@ -1,6 +1,7 @@
 ---
 task_id: TASK-006
-capability_id: CAP.CHN.001.DSH
+capability_id: BNK.RLVR.CAP.CHN.001.DSH
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Dashboard
 epic: Epic 5 — Real-CORE handoff and operability hardening
 status: todo
@@ -15,8 +16,8 @@ max_loops: 10
 
 ## Context
 This task closes the dashboard's path to staging. Up to now (TASKs
-002–005) the BFF binds to the upstream **stubs** of `CAP.BSP.001.SCO`,
-`CAP.BSP.001.TIE`, and `CAP.BSP.004.ENV` — synthetic events with
+002–005) the BFF binds to the upstream **stubs** of `BNK.RLVR.CAP.BSP.001.SCO`,
+`BNK.RLVR.CAP.BSP.001.TIE`, and `CAP.BSP.004.ENV` — synthetic events with
 contract-correct shape but no real domain truth. Epic 5 decommissions
 those stubs in favour of real producers, hardens observability (OTel
 dashboards, DLQ runbook, JWT actor enforcement against
@@ -29,7 +30,7 @@ to be meaningful, the JWT enforcement needs real consent integration,
 the polling validation needs real upstream traffic.
 
 ## Capability Reference
-- Capability: Beneficiary Dashboard (CAP.CHN.001.DSH)
+- Capability: Beneficiary Dashboard (BNK.RLVR.CAP.CHN.001.DSH)
 - Zone: CHANNEL
 - Governing FUNC ADR: ADR-BCM-FUNC-0009
 - Strategic-tech anchors: ADR-TECH-STRAT-001, ADR-TECH-STRAT-003
@@ -55,7 +56,7 @@ Five orthogonal hardening axes, each measurable.
      `STUB_ACTIVE=false`) in its own capability — coordinate the
      decommission, do not delete upstream code from this task.
 2. **OpenTelemetry dashboards-as-code** under
-   `sources/CAP.CHN.001.DSH/bff/observability/` (Grafana JSON or the
+   `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/observability/` (Grafana JSON or the
    deployment platform's equivalent), exposing at minimum:
    - Subscription queue depth per upstream RVT (3 panels).
    - End-to-end latency: RVT received → aggregate updated → next
@@ -78,7 +79,7 @@ Five orthogonal hardening axes, each measurable.
      the BFF returns `403 Forbidden` and never reaches the
      aggregate.
 4. **DLQ runbook** under
-   `sources/CAP.CHN.001.DSH/bff/README.md#runbook--dead-letter-queues`.
+   `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/README.md#runbook--dead-letter-queues`.
    `EVENT_ALREADY_PROCESSED` (`INV.DSH.002`) and `STALE_EVENT`
    (`INV.DSH.003`) are ack-and-drop by design — they never DLQ.
    The DLQ scenario is **out-of-spec payloads** (schema-validation
@@ -116,14 +117,14 @@ implementations swap from stub to real).
 
 ## Definition of Done
 - [ ] **Upstream handoff verified**: integration test against the
-      three real producers (`CAP.BSP.001.SCO` Flow B,
-      `CAP.BSP.001.TIE` real tier engine, `CAP.BSP.004.ENV` real
+      three real producers (`BNK.RLVR.CAP.BSP.001.SCO` Flow B,
+      `BNK.RLVR.CAP.BSP.001.TIE` real tier engine, `CAP.BSP.004.ENV` real
       envelope engine) shows the aggregate populates end-to-end with
       no functional regression on the three HTTP endpoints. Each
       producer's stub is documented as retired in its own
       capability's stub README (coordination, not direct edit)
 - [ ] **OTel dashboards-as-code** under
-      `sources/CAP.CHN.001.DSH/bff/observability/` cover the five
+      `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/observability/` cover the five
       panels enumerated above; a `make dashboards` target (or the
       deployment platform's equivalent) renders them locally for
       review
@@ -135,7 +136,7 @@ implementations swap from stub to real).
       gate on the frontend reads the agreed claim and exits to the
       explanatory view when the claim is missing or revoked
 - [ ] **DLQ runbook** present in
-      `sources/CAP.CHN.001.DSH/bff/README.md` covering schema-
+      `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/README.md` covering schema-
       validation failures on inbound RVTs (the only legitimate DLQ
       scenario for this capability)
 - [ ] **Polling economics load test** at 100+ concurrent dashboards
@@ -145,7 +146,7 @@ implementations swap from stub to real).
       follow-up task referenced — but no silent cadence change
 - [ ] **Contract harness via `/harness-backend`** OR an equivalent
       contract-validation step in CI that re-derives the OpenAPI +
-      AsyncAPI surfaces of the BFF from `process/CAP.CHN.001.DSH/`
+      AsyncAPI surfaces of the BFF from `process/BNK.RLVR.CAP.CHN.001.DSH/`
       on every build (note: `/harness-backend` is described as
       targeting non-CHANNEL zones in its skill description; if the
       tooling has not yet been extended to CHANNEL BFFs, surface the
@@ -154,7 +155,7 @@ implementations swap from stub to real).
       `bus.yaml` — same intent, different mechanism). Either way:
       the public contract is provably aligned with `process/` on
       every build
-- [ ] No write to `process/CAP.CHN.001.DSH/`
+- [ ] No write to `process/BNK.RLVR.CAP.CHN.001.DSH/`
 
 ## Acceptance Criteria (Business)
 The dashboard ships to staging with real upstream producers, real
@@ -176,10 +177,10 @@ explicitly opened as a TECH-TACT delta with the data to back it.
 ## Open Questions
 - [ ] **Real upstream producers readiness — same as Epic 5's entry
       condition.** This task can only be launched when:
-      (a) `CAP.BSP.001.SCO` Flow B is operational (CAP.BSP.001.SCO/TASK-003
+      (a) `BNK.RLVR.CAP.BSP.001.SCO` Flow B is operational (BNK.RLVR.CAP.BSP.001.SCO/TASK-003
       done — currently needs_info, blocked on AUT/SIG upstream + tier-
       cache policy);
-      (b) `CAP.BSP.001.TIE` real tier engine is operational
+      (b) `BNK.RLVR.CAP.BSP.001.TIE` real tier engine is operational
       (TIE roadmap not yet authored — only the contract stub is done);
       (c) `CAP.BSP.004.ENV` real envelope engine is operational
       (ENV roadmap not yet authored — only the contract stub is done).

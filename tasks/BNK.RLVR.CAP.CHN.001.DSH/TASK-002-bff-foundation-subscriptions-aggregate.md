@@ -1,11 +1,12 @@
 ---
 task_id: TASK-002
-capability_id: CAP.CHN.001.DSH
+capability_id: BNK.RLVR.CAP.CHN.001.DSH
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Dashboard
 epic: Epic 1 — BFF foundation, subscription bindings, dashboard aggregate
 status: done
 priority: high
-depends_on: [CAP.BSP.001.SCO/TASK-001, CAP.BSP.001.TIE/TASK-001, CAP.BSP.004.ENV/TASK-001]
+depends_on: [BNK.RLVR.CAP.BSP.001.SCO/TASK-001, BNK.RLVR.CAP.BSP.001.TIE/TASK-001, CAP.BSP.004.ENV/TASK-001]
 task_type: full-microservice
 loop_count: 0
 max_loops: 10
@@ -20,7 +21,7 @@ pr_url: https://github.com/Banking-Reliever/banking/pull/17
 ## Context
 This task stands up the production-shape BFF and the frontend shell,
 wires the three upstream subscriptions declared in
-`process/CAP.CHN.001.DSH/bus.yaml`, and materialises the
+`process/BNK.RLVR.CAP.CHN.001.DSH/bus.yaml`, and materialises the
 `AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD` aggregate lazily on the first
 incoming RVT for a given `case_id`. From this point on, every upstream
 event (score recomputation, tier upgrade, envelope consumption) for a
@@ -29,13 +30,13 @@ even though the frontend chrome only displays an empty-state placeholder
 until Epic 2 (TASK-003) renders the synthesised view.
 
 The CHANNEL stack is fixed by `ADR-TECH-TACT-001`: .NET 10 Minimal API
-BFF under `sources/CAP.CHN.001.DSH/bff/`, vanilla HTML5/CSS3/JS frontend
-under `sources/CAP.CHN.001.DSH/frontend/`. The aggregate IS the
+BFF under `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/`, vanilla HTML5/CSS3/JS frontend
+under `sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/`. The aggregate IS the
 projection — no separate read store — per the Framing Decisions section
 of the roadmap.
 
 ## Capability Reference
-- Capability: Beneficiary Dashboard (CAP.CHN.001.DSH)
+- Capability: Beneficiary Dashboard (BNK.RLVR.CAP.CHN.001.DSH)
 - Zone: CHANNEL
 - Governing FUNC ADR: ADR-BCM-FUNC-0009
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (Rule 5 — consumer-owned
@@ -53,7 +54,7 @@ aggregate, plus an empty-state-capable frontend shell.
 
 1. **Aggregate** — `AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD` (one
    instance per `case_id`) with the state declared in
-   `process/CAP.CHN.001.DSH/aggregates.yaml`. State fields:
+   `process/BNK.RLVR.CAP.CHN.001.DSH/aggregates.yaml`. State fields:
    `case_id` (identity), `current_tier_code`, `tier_upgraded_at`,
    `current_score`, `score_recomputed_at`, `open_envelopes` (list),
    `recent_transactions` (bounded list — populated by this task,
@@ -62,15 +63,15 @@ aggregate, plus an empty-state-capable frontend shell.
    Lazy materialisation on first accepted command (`INV.DSH.006`).
 2. **Three subscription bindings** — the BFF declares three
    consumer-owned queues bound to the producers' topic exchanges per
-   `process/CAP.CHN.001.DSH/bus.yaml.subscriptions`:
+   `process/BNK.RLVR.CAP.CHN.001.DSH/bus.yaml.subscriptions`:
    - `chn.001.dsh.q.score-recomputed` on `bsp.001.sco-events` with
      binding pattern
-     `EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`
+     `BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED`
      — consumed by `POL.ON_SCORE_RECOMPUTED` → issues
      `CMD.SYNCHRONIZE_SCORE`.
    - `chn.001.dsh.q.tier-upgraded` on `bsp.001.tie-events` with
      binding pattern
-     `EVT.BSP.001.TIER_UPGRADED.RVT.BSP.001.TIER_UPGRADE_RECORDED` —
+     `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED.BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED` —
      consumed by `POL.ON_TIER_UPGRADE_RECORDED` → issues
      `CMD.SYNCHRONIZE_TIER`.
    - `chn.001.dsh.q.envelope-consumed` on `bsp.004.env-events` with
@@ -83,7 +84,7 @@ aggregate, plus an empty-state-capable frontend shell.
 3. **Three reactive policies** — each policy validates the inbound
    payload against the upstream's published schema in `process/CAP.BSP.*/schemas/`,
    maps it to a homogeneous internal command, and applies the
-   error-handling rules from `process/CAP.CHN.001.DSH/policies.yaml`:
+   error-handling rules from `process/BNK.RLVR.CAP.CHN.001.DSH/policies.yaml`:
    `EVENT_ALREADY_PROCESSED` → ack-and-drop (idempotency);
    `STALE_EVENT` → ack-and-drop (out-of-order delivery is expected);
    payload-shape errors → DLQ for investigation.
@@ -119,7 +120,7 @@ aggregate, plus an empty-state-capable frontend shell.
 
 ## Business Events to Produce
 None in this task. The single emitted RVT
-(`RVT.CHN.001.DASHBOARD_VIEWED`) is the responsibility of Epic 4
+(`BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED`) is the responsibility of Epic 4
 (TASK-005). Epic 1 only consumes upstream events.
 
 ## Business Objects Involved
@@ -127,10 +128,10 @@ None in this task. The single emitted RVT
   dashboard aggregate, keyed on `case_id`
 
 ## Event Subscriptions Required
-- `RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` (from `CAP.BSP.001.SCO` via
+- `BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED` (from `BNK.RLVR.CAP.BSP.001.SCO` via
   `bsp.001.sco-events`) — consumed by `POL.ON_SCORE_RECOMPUTED` to
   apply `CMD.SYNCHRONIZE_SCORE`
-- `RVT.BSP.001.TIER_UPGRADE_RECORDED` (from `CAP.BSP.001.TIE` via
+- `BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED` (from `BNK.RLVR.CAP.BSP.001.TIE` via
   `bsp.001.tie-events`) — consumed by `POL.ON_TIER_UPGRADE_RECORDED`
   to apply `CMD.SYNCHRONIZE_TIER`
 - `RVT.BSP.004.CONSUMPTION_RECORDED` (from `CAP.BSP.004.ENV` via
@@ -139,18 +140,18 @@ None in this task. The single emitted RVT
   `CMD.RECORD_ENVELOPE_CONSUMPTION`
 
 ## Definition of Done
-- [ ] BFF source under `sources/CAP.CHN.001.DSH/bff/` (.NET 10
+- [ ] BFF source under `sources/BNK.RLVR.CAP.CHN.001.DSH/bff/` (.NET 10
       Minimal API, MassTransit/RabbitMQ client, in-process aggregate
       store) — runnable via `dotnet run`
-- [ ] Frontend shell under `sources/CAP.CHN.001.DSH/frontend/`
+- [ ] Frontend shell under `sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/`
       (vanilla HTML5/CSS3/JS) — served on a branch-isolated dev port
 - [ ] On startup the BFF declares the three queues exactly as
-      enumerated in `process/CAP.CHN.001.DSH/bus.yaml.subscriptions`;
+      enumerated in `process/BNK.RLVR.CAP.CHN.001.DSH/bus.yaml.subscriptions`;
       queue names carry the branch slug
 - [ ] Each inbound payload is validated against the upstream
       capability's published JSON Schema (under
-      `process/CAP.BSP.001.SCO/schemas/`,
-      `process/CAP.BSP.001.TIE/schemas/`,
+      `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/`,
+      `process/BNK.RLVR.CAP.BSP.001.TIE/schemas/`,
       `process/CAP.BSP.004.ENV/schemas/`); malformed payloads land in
       the DLQ with a structured error
 - [ ] Aggregate is lazily materialised on the first accepted command
@@ -183,8 +184,8 @@ None in this task. The single emitted RVT
 - [ ] Branch isolation: exchange / queue / port names carry the
       branch slug; two parallel worktrees can run concurrently
       without colliding on RabbitMQ resources
-- [ ] No write to `process/CAP.CHN.001.DSH/` (read-only)
-- [ ] If a `sources/CAP.CHN.001.DSH/frontend/` stub from TASK-001 is
+- [ ] No write to `process/BNK.RLVR.CAP.CHN.001.DSH/` (read-only)
+- [ ] If a `sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/` stub from TASK-001 is
       present, its README is updated to note that the subscription
       bindings and aggregate materialisation are now served by the
       real BFF; the stub's HTTP endpoints stay runnable for the
@@ -198,7 +199,7 @@ None in this task. The single emitted RVT
 ## Acceptance Criteria (Business)
 With this task in place, a developer running the BFF locally (in a
 branch-isolated worktree) and pointing it at the three upstream
-contract stubs (`CAP.BSP.001.SCO`, `CAP.BSP.001.TIE`,
+contract stubs (`BNK.RLVR.CAP.BSP.001.SCO`, `BNK.RLVR.CAP.BSP.001.TIE`,
 `CAP.BSP.004.ENV` — all `TASK-001 done` on `main`) observes the
 dashboard aggregate populate end-to-end as synthetic events flow.
 Opening the dashboard URL shows the French empty-state placeholder
@@ -209,9 +210,9 @@ without losing its outbox guarantees (snapshotting every 100 events
 per `aggregates.yaml.snapshotting`).
 
 ## Dependencies
-- `CAP.BSP.001.SCO/TASK-001` — upstream contract stub (✅ done,
+- `BNK.RLVR.CAP.BSP.001.SCO/TASK-001` — upstream contract stub (✅ done,
   PR #2): supplies `RVT.CURRENT_SCORE_RECOMPUTED`.
-- `CAP.BSP.001.TIE/TASK-001` — upstream contract stub (✅ done,
+- `BNK.RLVR.CAP.BSP.001.TIE/TASK-001` — upstream contract stub (✅ done,
   PR #1): supplies `RVT.TIER_UPGRADE_RECORDED`.
 - `CAP.BSP.004.ENV/TASK-001` — upstream contract stub (✅ done,
   PR #6): supplies `RVT.CONSUMPTION_RECORDED`.

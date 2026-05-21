@@ -1,4 +1,4 @@
-# Roadmap — Beneficiary Identity Anchor (CAP.SUP.002.BEN)
+# Roadmap — Beneficiary Identity Anchor (BNK.RLVR.CAP.SUP.002.BEN)
 
 ## Capability Summary
 
@@ -8,10 +8,10 @@
 
 The capability is the **single source of truth** for beneficiary identity in
 the IS — every other capability either subscribes to
-`RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` to hydrate a local cache or calls
+`BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` to hydrate a local cache or calls
 `QRY.GET_ANCHOR` synchronously. Joint custody: IT Security / Identity & DPO.
 
-Owned business object: `OBJ.SUP.002.BENEFICIARY_RECORD` (UUIDv7
+Owned business object: `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD` (UUIDv7
 `internal_id`, four PII fields wipeable under Art. 17, anchor lifecycle status
 ACTIVE → ARCHIVED → PSEUDONYMISED). Owned canonical concept:
 `CPT.BCM.000.BENEFICIARY` (carried, not authored — authored upstream).
@@ -42,7 +42,7 @@ ACTIVE → ARCHIVED → PSEUDONYMISED). Owned canonical concept:
   This is the first non-.NET microservice in the programme; `/code` will
   dispatch to `implement-capability-python`.
 - **Process Modelling layer** (read-only contract for this roadmap):
-  `process/CAP.SUP.002.BEN/` — 1 aggregate (`AGG.IDENTITY_ANCHOR`),
+  `process/BNK.RLVR.CAP.SUP.002.BEN/` — 1 aggregate (`AGG.IDENTITY_ANCHOR`),
   5 commands, 0 policies (v1), 2 read-models, 2 queries, 1 emitted RVT.
   Mixed file versions: `bus.yaml` and `read-models.yaml` are at **v0.2.0**
   (REST/JWT actor + multi-faceted-producer framing, UUIDv7 envelope on
@@ -55,27 +55,27 @@ ACTIVE → ARCHIVED → PSEUDONYMISED). Owned canonical concept:
 ### Epic 1 — Contract & development stub
 
 **Goal**: Publish a runnable stub that emits well-formed
-`RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` envelopes on the
+`BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` envelopes on the
 `sup.002.ben-events` exchange so downstream consumers (the SCO / ENR / ENV
 / DSH / AUD migrations) can develop against the wire format before the
 real microservice exists.
-**Entry condition**: `process/CAP.SUP.002.BEN/` merged on `main`
+**Entry condition**: `process/BNK.RLVR.CAP.SUP.002.BEN/` merged on `main`
 (satisfied as of PR #7).
 **Exit condition**:
-- A `sources/CAP.SUP.002.BEN/stub/` Python worker is runnable via
+- A `sources/BNK.RLVR.CAP.SUP.002.BEN/stub/` Python worker is runnable via
   `docker compose up`.
 - It connects to a local RabbitMQ, declares the
   `sup.002.ben-events` topic exchange, and publishes one synthetic RVT
   per transition kind (`MINTED`, `UPDATED`, `ARCHIVED`, `RESTORED`,
   `PSEUDONYMISED`) on the canonical routing key.
 - Each emitted payload validates against
-  `schemas/RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json` (the
+  `schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json` (the
   conditional `if/then` for `PSEUDONYMISED` — null PII fields,
   `right_exercise_id` set — is exercised in fixtures).
 - The envelope carries UUIDv7 `message_id` / `correlation_id` /
   `causation_id` per `ADR-TECH-STRAT-007` Rule 4.
 **Complexity**: S
-**Unlocks events**: `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` (stub, all
+**Unlocks events**: `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` (stub, all
 five `transition_kind`s).
 **Dependencies**: none beyond merged process model.
 **Task hint**: `task_type: contract-stub` — dispatches to
@@ -97,13 +97,13 @@ canonical identity has a working API to call.
   200, NOT 201.
 - `GET /anchors/{internal_id}` resolves the anchor from the
   `PRJ.ANCHOR_DIRECTORY` projection, with ETag/304 (60s freshness).
-- The MINT transition emits `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+- The MINT transition emits `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
   `transition_kind: MINTED`, `revision: 1`, full snapshot, via a
   transactional outbox (`ADR-TECH-STRAT-001` Rule 3 — at-least-once).
 - 404 on lookup of an unknown `internal_id`; 400 on missing required
   identity fields.
 **Complexity**: M
-**Unlocks events**: `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+**Unlocks events**: `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
 `transition_kind: MINTED`.
 **Dependencies**: Epic 1; PostgreSQL provisioned in the dev environment;
 RabbitMQ provisioned.
@@ -123,13 +123,13 @@ this capability from a naive mass-update endpoint.
 - Idempotency on `command_id` (UUIDv7, 30-day window) is enforced — a
   duplicate `command_id` returns the prior post-transition snapshot.
 - Rejected with 409 when `anchor_status` is `ARCHIVED` or `PSEUDONYMISED`.
-- The transition emits `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+- The transition emits `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
   `transition_kind: UPDATED`, `revision = N+1`.
 - `GET /anchors/{internal_id}` reflects the change (with `revision` bumped)
   within the 60s freshness window — ETag changes immediately, but the
   cached body may be served until `max-age` expires.
 **Complexity**: M
-**Unlocks events**: `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+**Unlocks events**: `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
 `transition_kind: UPDATED`.
 **Dependencies**: Epic 2.
 
@@ -150,12 +150,12 @@ historical references resolve, but no further `UPDATE` is accepted until
 - Both verbs are idempotent on `command_id` (30-day window).
 - Both are rejected with 409 when `anchor_status` is `PSEUDONYMISED`
   (`PSEUDONYMISED` is terminal).
-- Both emit `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with the correct
+- Both emit `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with the correct
   `transition_kind`.
 - `GET /anchors/{internal_id}` continues to resolve archived records
   (referential reads are not gated on status).
 **Complexity**: S
-**Unlocks events**: `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+**Unlocks events**: `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
 `transition_kind: ARCHIVED | RESTORED`.
 **Dependencies**: Epic 2.
 
@@ -174,7 +174,7 @@ state machine is complete (`ACTIVE` and `ARCHIVED` both transition into
   `CMD.PSEUDONYMISE_ANCHOR` and:
   - crypto-shreds `last_name`, `first_name`, `date_of_birth`,
     `contact_details` (the four PII fields tagged in
-    `OBJ.SUP.002.BENEFICIARY_RECORD`) so they are not recoverable from
+    `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD`) so they are not recoverable from
     the database (verifiable: a database-level inspection of the anchor
     row shows null PII or unrecoverable ciphertext);
   - flips `anchor_status` to `PSEUDONYMISED` and sets `pseudonymized_at`
@@ -188,7 +188,7 @@ state machine is complete (`ACTIVE` and `ARCHIVED` both transition into
 - Operation is **irreversible** — there is no UN-PSEUDONYMISE command, and
   a duplicate `command_id` returns the prior result without re-invoking
   crypto-shredding.
-- Emits `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+- Emits `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
   `transition_kind: PSEUDONYMISED`. The payload's PII fields are null;
   the `right_exercise_id` is set; the conditional `if/then` block of
   the RVT schema validates the shape.
@@ -198,7 +198,7 @@ state machine is complete (`ACTIVE` and `ARCHIVED` both transition into
 - `UPDATE` / `ARCHIVE` / `RESTORE` issued against a `PSEUDONYMISED`
   anchor return 409.
 **Complexity**: L
-**Unlocks events**: `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
+**Unlocks events**: `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` with
 `transition_kind: PSEUDONYMISED`.
 **Dependencies**: Epic 2 (mandatory); Epics 3 and 4 (recommended);
 HashiCorp Vault transit engine provisioned in the dev environment;
@@ -216,7 +216,7 @@ deliver an interim version after Epic 4, but Epic 5's audit story needs
 this one.
 **Exit condition**:
 - The `PRJ.ANCHOR_HISTORY` projection ingests every received
-  `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` and writes one row per event
+  `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` and writes one row per event
   keyed on `(internal_id, revision)`. Rows carry `transition_kind`,
   `command_id`, `right_exercise_id` (for `PSEUDONYMISED` only), `actor`
   (subject claim from the JWT — `ADR-TECH-STRAT-003`), `occurred_at`.
@@ -236,7 +236,7 @@ this one.
 
 | Epic | Depends On | Type |
 |------|-----------|------|
-| Epic 1 | merged `process/CAP.SUP.002.BEN/` | Stage gate |
+| Epic 1 | merged `process/BNK.RLVR.CAP.SUP.002.BEN/` | Stage gate |
 | Epic 2 | Epic 1 | Sequential |
 | Epic 3 | Epic 2 | Sequential |
 | Epic 4 | Epic 2 | Sequential (parallel with Epic 3) |
@@ -253,10 +253,10 @@ exposes the new feed):
 
 | Consumer | Migration |
 |---|---|
-| `CAP.BSP.001.SCO` | Re-run `/process CAP.BSP.001.SCO` to re-point `bus.yaml.identity_resolution` and the binding pattern at the new exchange / event family |
+| `BNK.RLVR.CAP.BSP.001.SCO` | Re-run `/process BNK.RLVR.CAP.BSP.001.SCO` to re-point `bus.yaml.identity_resolution` and the binding pattern at the new exchange / event family |
 | `CAP.BSP.004.ENV` | Same — already names the old capability as identity resolver |
 | `CAP.BSP.002.ENR` | Anticipated (most likely caller of `MINT_ANCHOR`); re-process when its model is authored |
-| `CAP.CHN.001.DSH`, `CAP.CHN.002.VIE` | Anticipated subscribers; re-process when their models are authored |
+| `BNK.RLVR.CAP.CHN.001.DSH`, `CAP.CHN.002.VIE` | Anticipated subscribers; re-process when their models are authored |
 | `CAP.B2B.001.FLW` | Anticipated KYC handover consumer |
 | `CAP.SUP.001.AUD`, `CAP.SUP.001.RET` | Anticipated `CAP.SUP.001.RET` is also the future emitter of `RightExercised.Processed` (see Open Question #1) |
 | `CAP.DAT.*` | Analytical rail (Kafka / data-mesh) ingest |
@@ -267,7 +267,7 @@ exposes the new feed):
 |------|-------------|--------|------------|
 | **Crypto-shredding mechanics are subtle** — getting the pgcrypto + Vault transit interaction right (per-anchor key vs per-zone key, key rotation, recovery semantics) is non-trivial and easy to get wrong in ways that *look* correct but leave PII recoverable | M | H | Make Epic 5 the most heavily tested epic; mandate a database-level inspection in the DoD; involve DPO + IT Security in the test design (joint custody is on the box) |
 | **First Python service in the repo** — `implement-capability-python` will be exercised end-to-end for the first time on a non-trivial capability. Tooling gaps (test harness, contract harness, BFF integration) are likely to surface late | M | M | Sequence Epic 1 as a low-stakes shake-down of the Python toolchain; surface tooling gaps to the implementation pipeline before Epic 2 starts |
-| **Downstream lookup paths from the prior model have no replacement** — consumers that previously resolved a beneficiary via a secondary lookup key minted upstream now have no equivalent path. The answer for each consumer is either "use your own correlation field on MINT" or "we need a new BCM event" | M | M | Confirm with each downstream consumer (`CAP.BSP.001.SCO`, `CAP.BSP.002.ENR`, `CAP.BSP.004.ENV`) before Epic 2 ships; if any consumer needs an alternate lookup, route it back through banking-knowledge as a new BCM event before extending this roadmap |
+| **Downstream lookup paths from the prior model have no replacement** — consumers that previously resolved a beneficiary via a secondary lookup key minted upstream now have no equivalent path. The answer for each consumer is either "use your own correlation field on MINT" or "we need a new BCM event" | M | M | Confirm with each downstream consumer (`BNK.RLVR.CAP.BSP.001.SCO`, `CAP.BSP.002.ENR`, `CAP.BSP.004.ENV`) before Epic 2 ships; if any consumer needs an alternate lookup, route it back through banking-knowledge as a new BCM event before extending this roadmap |
 | **`PSEUDONYMISE` is HTTP-only in v1** — `CAP.SUP.001.RET` calls it via REST rather than via a bus subscription. If the call fails or is missed, the right-to-be-forgotten request is not honoured. The BCM does not yet expose the consumed event chain | L | H | Open Question #1 — track until BCM is updated; defensive: require synchronous success from `CAP.SUP.001.RET` before the right is closed; future Epic 7 (event-driven trigger) when BCM grows the chain |
 | **Joint-custody governance overhead** — IT Security and DPO co-own the capability. Any DoD checkbox that touches PII or pseudonymisation needs sign-off from both, which can slow the loop | M | L | Surface PII-touching DoD items explicitly in the TASK files; pre-align on the DoD with both owners at the start of Epic 5 |
 
@@ -298,7 +298,7 @@ Suggested wave plan:
   not yet declare the consumed event chain. When it does, add an Epic 7
   ("Reactive pseudonymisation policy") that wires
   `POL.SUP.002.BEN.ON_RIGHT_EXERCISED` (the placeholder body is documented
-  inline in `process/CAP.SUP.002.BEN/policies.yaml`).
+  inline in `process/BNK.RLVR.CAP.SUP.002.BEN/policies.yaml`).
 - **OQ-2** — **Crypto-shredding key strategy** (per-anchor vs per-zone vs
   per-IS): deferred to `implement-capability-python` per `ADR-TECH-TACT-002`.
   The model only constrains the observable post-condition (PII not
@@ -323,7 +323,7 @@ Suggested wave plan:
 - `bcm-pack` ref: `main` (default)
 - Capability pack mode: `--deep --compact`
 - Pack date: 2026-05-16
-- Process model ref: `process/CAP.SUP.002.BEN/` on `main` (PR #7 merged)
+- Process model ref: `process/BNK.RLVR.CAP.SUP.002.BEN/` on `main` (PR #7 merged)
   — mixed v0.1.0 / v0.2.0 file versions (see Strategic Alignment).
 - This roadmap supersedes the implicit roadmap of the prior
   `CAP.REF.001.BEN` model. The 5 orphan tasks under

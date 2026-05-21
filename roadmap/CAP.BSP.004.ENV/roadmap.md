@@ -11,9 +11,9 @@
 
 ## Framing Decisions
 
-- **Contract-first delivery**: per `ADR-BCM-URBA-0009`, this capability owns the contract of every event it emits. The first deliverable is the JSON Schemas of `EVT.BSP.004.ENVELOPE_CONSUMED` and `RVT.BSP.004.CONSUMPTION_RECORDED` plus a development stub publishing them. Consumers (`CAP.CHN.001.DSH`, future `CAP.CHN.001.NOT`, scoring feedback loops) develop against these artifacts without waiting for the real envelope engine.
+- **Contract-first delivery**: per `ADR-BCM-URBA-0009`, this capability owns the contract of every event it emits. The first deliverable is the JSON Schemas of `EVT.BSP.004.ENVELOPE_CONSUMED` and `RVT.BSP.004.CONSUMPTION_RECORDED` plus a development stub publishing them. Consumers (`BNK.RLVR.CAP.CHN.001.DSH`, future `BNK.RLVR.CAP.CHN.001.NOT`, scoring feedback loops) develop against these artifacts without waiting for the real envelope engine.
 - **Producer-owned stub**: the development stub belongs to this plan. It is decommissioned by this capability when the real envelope engine is ready, transparently for consumers.
-- **Scope of Epic 1 = consumption only**: only `EVT.BSP.004.ENVELOPE_CONSUMED` is contracted in Epic 1, because that is what `CAP.CHN.001.DSH` consumes today (per ADR-BCM-FUNC-0009). The other envelope events (`ENVELOPE_ALLOCATED`, `ENVELOPE_UNCONSUMED`) will get their own contract+stub epics when their consumers begin development.
+- **Scope of Epic 1 = consumption only**: only `EVT.BSP.004.ENVELOPE_CONSUMED` is contracted in Epic 1, because that is what `BNK.RLVR.CAP.CHN.001.DSH` consumes today (per ADR-BCM-FUNC-0009). The other envelope events (`ENVELOPE_ALLOCATED`, `ENVELOPE_UNCONSUMED`) will get their own contract+stub epics when their consumers begin development.
 - **Real implementation deferred**: the actual envelope allocation logic, transactional consumption tracking, and persistence are out of scope for the current horizon and will be added when the BSP.004 implementation cycle begins.
 
 ---
@@ -33,7 +33,7 @@
 
 **Complexity**: S
 
-**Unlocked**: development of `CAP.CHN.001.DSH` (and any future consumer of envelope-consumption events) without dependency on the real envelope engine.
+**Unlocked**: development of `BNK.RLVR.CAP.CHN.001.DSH` (and any future consumer of envelope-consumption events) without dependency on the real envelope engine.
 
 **Dependencies**: none.
 

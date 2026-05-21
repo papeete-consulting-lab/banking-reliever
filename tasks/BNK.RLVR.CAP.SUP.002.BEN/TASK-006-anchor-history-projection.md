@@ -1,6 +1,7 @@
 ---
 task_id: TASK-006
-capability_id: CAP.SUP.002.BEN
+capability_id: BNK.RLVR.CAP.SUP.002.BEN
+bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 6 — Anchor history projection (audit trail)
 status: todo
@@ -27,7 +28,7 @@ capability — TASK-002 delivered the canonical-directory projection,
 this delivers the audit history.
 
 ## Capability Reference
-- Capability: Beneficiary Identity Anchor (CAP.SUP.002.BEN)
+- Capability: Beneficiary Identity Anchor (BNK.RLVR.CAP.SUP.002.BEN)
 - Zone: SUPPORT
 - Governing FUNC ADR: ADR-BCM-FUNC-0016
 - Strategic-tech anchors: ADR-TECH-STRAT-003 (REST), ADR-TECH-STRAT-004
@@ -55,7 +56,7 @@ serve `QRY.SUP.002.BEN.GET_ANCHOR_HISTORY`.
    changes the source location of any field, the projection consumer
    must be updated in lockstep — the `fed_by` block is the contract.
 2. **Projection consumer** — ingests every received
-   `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` from
+   `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` from
    `sup.002.ben-events` (or from the in-process domain event stream if
    the implementation chooses to materialise the history in the same
    transaction as the directory — both are acceptable per
@@ -85,11 +86,11 @@ serve `QRY.SUP.002.BEN.GET_ANCHOR_HISTORY`.
 None — read-side only.
 
 ## Business Objects Involved
-- `OBJ.SUP.002.BENEFICIARY_RECORD` — observed; no PII materialised in
+- `BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD` — observed; no PII materialised in
   the projection
 
 ## Event Subscriptions Required
-- `RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` (own emitted event) —
+- `BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` (own emitted event) —
   consumed by the in-process projection consumer to feed
   `PRJ.ANCHOR_HISTORY`.
 
@@ -130,7 +131,7 @@ None — read-side only.
       (verifiable by negative tests: feed the consumer a hand-crafted
       RVT with PII set and assert PII never reaches the
       `anchor_history` table)
-- [ ] No write to `process/CAP.SUP.002.BEN/`
+- [ ] No write to `process/BNK.RLVR.CAP.SUP.002.BEN/`
 - [ ] `pytest` suite covers: full-lifecycle history (5 transitions →
       5 rows), `since_revision` filtering, at-least-once idempotency
       on the composite key, ETag/304 path, retention purge, PII-free
