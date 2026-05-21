@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE.schema.json",
   "title": "ComputeEntryScoreCommand",
   "description": "Payload for CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE — compute the one-time baseline behavioural score at enrolment. Idempotent on case_id over the lifetime of the case (INV.SCO.001).",
   "type": "object",

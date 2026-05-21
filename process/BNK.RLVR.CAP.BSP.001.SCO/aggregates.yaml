@@ -1,12 +1,12 @@
 meta:
-  capability: CAP.BSP.001.SCO
+  capability: BNK.RLVR.CAP.BSP.001.SCO
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
     - ADR-BCM-FUNC-0005
     - ADR-BCM-URBA-0009
     - ADR-TECH-STRAT-001  # Rule 3 — payload form is a domain event DDD (atomic transition)
-    - ADR-TECH-STRAT-007  # identifier strategy — case_id is a UUIDv7 minted upstream (likely CAP.BSP.002.ENR); never recycled
+    - ADR-TECH-STRAT-007  # identifier strategy — case_id is a UUIDv7 minted upstream (likely BNK.RLVR.CAP.BSP.002.ENR); never recycled
     - ADR-TECH-TACT-003   # tactical stack — Python / FastAPI / PostgreSQL / RabbitMQ (operational rail) / Kafka (analytical rail)
 
 # ──────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ aggregates:
 
   - id: AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY
     name: Score of a beneficiary
-    business_object: OBJ.BSP.001.EVALUATION
+    business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
     aggregate_id_field: case_id
     cardinality: one-per-case
     description: >-
@@ -34,11 +34,11 @@ aggregates:
         kind: identity
         description: >-
           UUIDv7 minted upstream by the participation-case capability (likely
-          CAP.BSP.002.ENR). Per ADR-TECH-STRAT-007 Rule 1 (federated minting)
+          BNK.RLVR.CAP.BSP.002.ENR). Per ADR-TECH-STRAT-007 Rule 1 (federated minting)
           and Rule 7.b (no-recycle-forever) it is opaque from this capability's
           perspective and is never re-issued. Resolution to the canonical
-          beneficiary identity (UUIDv7 internal_id of OBJ.SUP.002.BENEFICIARY_RECORD)
-          is delegated to consumers via CAP.SUP.002.BEN — see bus.yaml.identity_resolution.
+          beneficiary identity (UUIDv7 internal_id of BNK.RLVR.OBJ.SUP.002.BENEFICIARY_RECORD)
+          is delegated to consumers via BNK.RLVR.CAP.SUP.002.BEN — see bus.yaml.identity_resolution.
       - field: entry_score
         kind: snapshot
         nullable_until_initialised: true
@@ -50,16 +50,16 @@ aggregates:
       - field: last_processed_trigger_event_id
         kind: idempotency
       - field: tier_thresholds
-        kind: read-through  # fetched from CAP.BSP.001.TIE configuration
+        kind: read-through  # fetched from BNK.RLVR.CAP.BSP.001.TIE configuration
 
     accepted_commands:
       - CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE
       - CMD.BSP.001.SCO.RECOMPUTE_SCORE
 
     emitted_resource_events:
-      - RVT.BSP.001.ENTRY_SCORE_COMPUTED
-      - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-      - RVT.BSP.001.SCORE_THRESHOLD_REACHED
+      - BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+      - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      - BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
 
     invariants:
       - id: INV.SCO.001
@@ -78,14 +78,14 @@ aggregates:
         rule: >-
           Threshold detection is computed in the same transaction as the recomputation.
           When current_score crosses a value listed in tier_thresholds (in either
-          direction), the aggregate emits BOTH RVT.CURRENT_SCORE_RECOMPUTED and
-          RVT.SCORE_THRESHOLD_REACHED — atomically — never one without the other.
+          direction), the aggregate emits BOTH BNK.RLVR.RVT.CURRENT_SCORE_RECOMPUTED and
+          BNK.RLVR.RVT.SCORE_THRESHOLD_REACHED — atomically — never one without the other.
         rationale: >-
           Prevents the race condition where a downstream observer sees a recomputation
           without the paired threshold event. Also matches the domain-event-DDD
           semantics of ADR-TECH-STRAT-001 Rule 3.
         open_question: >-
-          Could be lifted to a separate observer reacting to RVT.CURRENT_SCORE_RECOMPUTED.
+          Could be lifted to a separate observer reacting to BNK.RLVR.RVT.CURRENT_SCORE_RECOMPUTED.
           See README "Open process-level questions" for the trade-off.
 
       - id: INV.SCO.004

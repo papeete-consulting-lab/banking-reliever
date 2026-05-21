@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.banking/process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json",
   "title": "CurrentScoreRecomputedEvent",
-  "description": "Payload of RVT.BSP.001.CURRENT_SCORE_RECOMPUTED — emitted by AGG.SCORE_OF_BENEFICIARY on every accepted CMD.RECOMPUTE_SCORE. Carries the full post-recomputation state of RES.BSP.001.CURRENT_SCORE plus the trigger metadata so consumers can correlate to the upstream RVT (RVT.BSP.004.PAYMENT_GRANTED / PAYMENT_BLOCKED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED / PROGRESSION_SIGNAL_QUALIFIED).",
+  "description": "Payload of BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED — emitted by AGG.SCORE_OF_BENEFICIARY on every accepted CMD.RECOMPUTE_SCORE. Carries the full post-recomputation state of BNK.RLVR.RES.BSP.001.CURRENT_SCORE plus the trigger metadata so consumers can correlate to the upstream RVT (BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED / PAYMENT_BLOCKED, BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED / PROGRESSION_SIGNAL_QUALIFIED).",
   "type": "object",
   "additionalProperties": false,
   "required": ["envelope", "case_id", "evaluation_id", "score_value", "delta_score", "model_version", "evaluation_type", "computation_timestamp", "trigger", "contributing_factors"],
@@ -16,7 +16,7 @@
     "evaluation_type": {
       "type": "string",
       "const": "CURRENT",
-      "description": "Per OBJ.BSP.001.EVALUATION — CURRENT for post-trigger recomputations (always for this RVT)."
+      "description": "Per BNK.RLVR.OBJ.BSP.001.EVALUATION — CURRENT for post-trigger recomputations (always for this RVT)."
     },
     "computation_timestamp": { "type": "string", "format": "date-time" },
     "trigger": {
@@ -64,7 +64,7 @@
         "message_id":          { "$ref": "#/$defs/Uuidv7" },
         "schema_version":      { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
         "emitted_at":          { "type": "string", "format": "date-time" },
-        "emitting_capability": { "type": "string", "const": "CAP.BSP.001.SCO" },
+        "emitting_capability": { "type": "string", "const": "BNK.RLVR.CAP.BSP.001.SCO" },
         "correlation_id":      { "$ref": "#/$defs/Uuidv7", "description": "case_id." },
         "causation_id":        { "$ref": "#/$defs/Uuidv7", "description": "trigger.event_id (the upstream RVT that caused this recomputation)." }
       }

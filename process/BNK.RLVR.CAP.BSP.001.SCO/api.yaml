@@ -1,9 +1,9 @@
 meta:
-  capability: CAP.BSP.001.SCO
+  capability: BNK.RLVR.CAP.BSP.001.SCO
   layer: process-modelling
   version: 0.2.0
   derivation: >-
-    This file is the synthesised HTTP/RPC surface of CAP.BSP.001.SCO. It is
+    This file is the synthesised HTTP/RPC surface of BNK.RLVR.CAP.BSP.001.SCO. It is
     DERIVED from commands.yaml + read-models.yaml — the api_binding fields
     declared there. Keep in sync; the BFF/microservice scaffolding agents
     consume this view, not the raw command/query files.
@@ -14,7 +14,7 @@ meta:
 
 api:
   base_path: /capabilities/bsp/001/sco
-  authentication: bearer-token (sourced from CAP.SUP.001 — out of scope here)
+  authentication: bearer-token (sourced from BNK.RLVR.CAP.SUP.001 — out of scope here)
 
   # ── Command endpoints (state-mutating) ──
   commands:
@@ -24,7 +24,7 @@ api:
       issues: CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE
       request_schema: schemas/CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE.schema.json
       responses:
-        201: { description: Entry score computed; body mirrors RVT.ENTRY_SCORE_COMPUTED }
+        201: { description: Entry score computed; body mirrors BNK.RLVR.RVT.ENTRY_SCORE_COMPUTED }
         409: { description: ENTRY_SCORE_ALREADY_EXISTS }
         404: { description: BENEFICIARY_UNKNOWN }
 

@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.BSP.001.SCO
+  capability: BNK.RLVR.CAP.BSP.001.SCO
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -20,10 +20,10 @@ read_models:
 
   - id: PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW
     name: Current score view
-    backs_resource: RES.BSP.001.CURRENT_SCORE
+    backs_resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
     fed_by:
-      - RVT.BSP.001.ENTRY_SCORE_COMPUTED
-      - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      - BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+      - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
     fields:
       - case_id
       - score_value
@@ -36,8 +36,8 @@ read_models:
   - id: PRJ.BSP.001.SCO.SCORE_HISTORY
     name: Score history projection
     fed_by:
-      - RVT.BSP.001.ENTRY_SCORE_COMPUTED
-      - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+      - BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+      - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
     fields:
       - case_id
       - evaluation_id
@@ -58,9 +58,9 @@ queries:
       shape: object
       fields: [case_id, score_value, delta_score, computation_timestamp, model_version]
     consumers:
-      - CAP.CHN.001.DSH  # beneficiary dashboard
-      - CAP.CHN.002.VUE  # prescriber view
-      - CAP.BSP.001.ARB  # arbitration when checking algorithmic vs override
+      - BNK.RLVR.CAP.CHN.001.DSH  # beneficiary dashboard
+      - BNK.RLVR.CAP.CHN.002.VUE  # prescriber view
+      - BNK.RLVR.CAP.BSP.001.ARB  # arbitration when checking algorithmic vs override
     api_binding: { method: GET, path: /cases/{case_id}/score }
     cache: { etag: true, max_age: PT5S }
 
@@ -74,6 +74,6 @@ queries:
       shape: array
       item_fields: [evaluation_id, score_value, delta_score, evenement_declencheur, computation_timestamp]
     consumers:
-      - CAP.CHN.001.DSH  # progression bar
-      - CAP.CHN.002.VUE  # prescriber timeline
+      - BNK.RLVR.CAP.CHN.001.DSH  # progression bar
+      - BNK.RLVR.CAP.CHN.002.VUE  # prescriber timeline
     api_binding: { method: GET, path: /cases/{case_id}/score-history }
