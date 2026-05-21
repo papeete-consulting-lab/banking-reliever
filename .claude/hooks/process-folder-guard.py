@@ -48,7 +48,11 @@ SKETCH_MIRO_ALLOWED_BASENAMES = {"banking-miro.url", ".banking-miro.state.json"}
 WORKTREE_RE = re.compile(r"^/tmp/kanban-worktrees/TASK-[A-Za-z0-9-]+/")
 
 # /tmp/process-worktrees/<CAP_ID>/...  (worktree dédié au skill /process)
-PROCESS_WORKTREE_RE = re.compile(r"^/tmp/process-worktrees/CAP\.[A-Z0-9.]+/")
+# <CAP_ID> = forme pleine source-context-préfixée BNK.RLVR.CAP.… (CLI v1.0.0+),
+# avec repli rétro-compatible sur l'ancienne forme courte CAP.… .
+PROCESS_WORKTREE_RE = re.compile(
+    r"^/tmp/process-worktrees/(?:[A-Z]{2,}\.[A-Z]{2,}\.)?CAP\.[A-Z0-9.]+/"
+)
 
 GUARDED_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 

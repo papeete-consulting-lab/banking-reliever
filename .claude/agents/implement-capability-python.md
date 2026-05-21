@@ -205,6 +205,25 @@ Announce the chosen mode:
 bcm-pack pack {capability_id} --compact > /tmp/pack-impl-python.json
 ```
 
+`{capability_id}` is the **full source-context-prefixed ID** (e.g.
+`BNK.RLVR.CAP.SUP.002.BEN`); the v1.0.0 CLI rejects the short `CAP.…` form (exit 2).
+
+> **Asset-ID namespacing (CLI v1.0.0+).** Every ID `bcm-pack` returns —
+> `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
+> Use them **verbatim**: pydantic event models map to the full ID, routing keys
+> are the prefixed `<EVT-id>.<RVT-id>` from `process/{cap}/bus.yaml`, and the
+> topic-exchange / queue names derive from the **full lower-dotted capability ID**
+> (e.g. `bnk.rlvr.cap.sup.002.ben-events`). Tactical IDs you invent locally
+> (`CMD/AGG/POL/PRJ/QRY`) stay unprefixed.
+
+> **Platform substrate (optional, Mode A).** When the TECH-TACT / TECH-STRAT
+> slices reference a `BNK.TECH.CAP.…` runtime/deployment platform capability,
+> fetch its contract from the platform CLI: `pcm-pack pack {platform_capability_id}
+> --compact` (reads the `banking-platform` repo, prefix `BNK.TECH.`). Skip when no
+> `BNK.TECH.` dependency is referenced. Install caveat: `bcm-pack`/`pcm-pack` share
+> a `tools.pack` package — disambiguate `pcm-pack` with `--repo-root
+> <banking-platform>` or `BANKING_PLATFORM_ROOT` if both are installed.
+
 Inspect `slices.tactical_stack[0]`:
 
 - `tags` MUST contain `python` (case-insensitive). If absent — abort
@@ -275,11 +294,11 @@ do not invent a capability that has no functional grounding.
 | Decision | How to decide |
 |---|---|
 | **Namespace prefix** (snake_case for module, PascalCase for class names) | Detect by reading existing `pyproject.toml` files under `sources/`. If none exist, derive from product context (e.g. `reliever`, `foodaroo`) and state your choice |
-| **Capability module name** (snake_case) | From the capability name. Example: `beneficiary_identity_anchor` for CAP.SUP.002.BEN |
+| **Capability module name** (snake_case) | From the capability name. Example: `beneficiary_identity_anchor` for BNK.RLVR.CAP.SUP.002.BEN |
 | **Aggregate root name** (PascalCase class, snake_case module) | From the FUNC ADR's primary business object. Example class: `BeneficiaryAnchor`; module: `beneficiary_anchor` |
 | **Initial commands** (imperative noun, snake_case function or PascalCase class for the request DTO) | Map from the events the FUNC ADR says the L2 emits. Example: `AnchorUpdated` → command `update_anchor` / `UpdateAnchorCommand` |
 | **Initial events** (past tense, one per command) | Take from FUNC ADR's `business_events_emitted` list verbatim |
-| **Bus exchange** | One topic exchange per L2 producer (TECH-STRAT-001 Rule 1, 5). Default name: `{capability_id_lower_dotted}-events` (e.g. `cap.sup.002.ben-events`). Override only if the TECH-TACT ADR mandates otherwise |
+| **Bus exchange** | One topic exchange per L2 producer (TECH-STRAT-001 Rule 1, 5). Default name: `{capability_id_lower_dotted}-events` (e.g. `bnk.rlvr.cap.sup.002.ben-events`). Override only if the TECH-TACT ADR mandates otherwise |
 | **Bus channel slug (worktree-scoped)** | `{branch}-{ns-kebab}-{cap-kebab}-channel` (for OTel `environment` tag + queue names — same convention as the .NET sibling) |
 | **Database** | motor + MongoDB by default; psycopg v3 (async) OR asyncpg + PostgreSQL when the TECH-TACT ADR tags `postgresql`. Surface the choice in your assumption block. |
 | **Ports** | Generate randomly per "Ports allocation" below |
@@ -380,7 +399,7 @@ for every layer. Substitute these placeholders consistently:
 | `{RABBIT_MGMT_PORT}` | LOCAL_PORT + 201 |
 | `{branch}` | slugified git branch |
 | `{channel}` | `{branch}-{ns-kebab}-{cap-kebab}-channel` |
-| `{exchange}` | derived from capability id (e.g. `cap.sup.002.ben-events`) |
+| `{exchange}` | derived from capability id (e.g. `bnk.rlvr.cap.sup.002.ben-events`) |
 
 ### Output directory layout (Mode A)
 
@@ -507,7 +526,7 @@ The stub has **two halves** driven by `process/{cap}/`:
 
 | Half | Driven by | Output |
 |---|---|---|
-| Event publisher | `process/{cap}/bus.yaml` + `process/{cap}/schemas/RVT.*.schema.json` | asyncio task publishing simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
+| Event publisher | `process/{cap}/bus.yaml` + `process/{cap}/schemas/*.schema.json (resource-event files are BNK.RLVR.RVT.*.schema.json)` | asyncio task publishing simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
 | Query API | `process/{cap}/api.yaml` + `process/{cap}/schemas/*.schema.json` + canned fixtures | FastAPI app serving each operation with deterministic canned responses |
 
 Both halves run in the **same Python process** (one FastAPI app +
@@ -727,8 +746,8 @@ Assumptions documented: [list, or "none"]
 | Service implementation | same class implements the Protocol; one impl per Protocol | `CreateBeneficiaryAnchorServiceImpl` if a second concretion is needed, else just the Protocol-named class |
 | Command (request) class | Imperative noun + `Command` | `UpdateAnchorCommand` |
 | Event class | Past tense noun | `AnchorUpdated` |
-| Bus exchange | `{capability_id_lower_dotted}-events` | `cap.sup.002.ben-events` |
-| Bus queue (subscriber side) | `{branch}-{capability_id_lower_dotted}-{event_name_lower}-q` | `feat-task-007-cap.sup.002.ben-rightexercised-processed-q` |
+| Bus exchange | `{capability_id_lower_dotted}-events` | `bnk.rlvr.cap.sup.002.ben-events` |
+| Bus queue (subscriber side) | `{branch}-{capability_id_lower_dotted}-{event_name_lower}-q` | `feat-task-007-bnk.rlvr.cap.sup.002.ben-rightexercised-processed-q` |
 | MongoDB collection | PascalCase, matches DTO class | `BeneficiaryAnchorDto` |
 | PostgreSQL table | snake_case singular | `beneficiary_anchor` |
 

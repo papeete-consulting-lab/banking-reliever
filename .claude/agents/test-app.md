@@ -22,7 +22,7 @@ description: |
 
   <example>
   Context: /code has just finished spawning create-bff and code-web-frontend
-  in parallel for TASK-005 of CAP.CAN.001 (CHANNEL zone) and needs to
+  in parallel for TASK-005 of BNK.RLVR.CAP.CAN.001 (CHANNEL zone) and needs to
   validate the result.
   assistant: "Spawning test-app agent."
   <commentary>

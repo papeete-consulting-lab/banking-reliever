@@ -13,7 +13,7 @@ description: >
   modification of the original artifacts.
 
   This skill targets non-CHANNEL zones only (BUSINESS_SERVICE_PRODUCTION,
-  SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTIQUE, STEERING). For
+  SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTICS, STEERING). For
   CHANNEL-zone tasks (frontend + BFF produced by code-web-frontend +
   create-bff), use /test-app instead.
 

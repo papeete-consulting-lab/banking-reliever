@@ -186,7 +186,7 @@ a normal Pull Request review before landing on `main`.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
-CAP_ID="<CAPABILITY_ID>"                              # e.g. CAP.BSP.001.SCO
+CAP_ID="<CAPABILITY_ID>"                              # e.g. BNK.RLVR.CAP.BSP.001.SCO
 BRANCH_NAME="process/${CAP_ID}"
 WORKTREE_PATH="/tmp/process-worktrees/${CAP_ID}"
 ```
@@ -292,7 +292,7 @@ older than 30 minutes as expired, but explicit cleanup is preferred.
 
 ## Step 1 — Identify the Capability and Inspect the Knowledge Pack
 
-The user gives a capability ID (e.g. `CAP.BSP.001.SCO`) or a name. If
+The user gives a capability ID (e.g. `BNK.RLVR.CAP.BSP.001.SCO`) or a name. If
 ambiguous, run `bcm-pack list --level L2` (and `--level L3` if relevant) and
 ask them to pick. Capability resolution must happen *before* Step 0.1.b
 because the readiness gates need a concrete `$CAP_ID`.
@@ -503,7 +503,11 @@ For every command and event referenced in `commands.yaml` or `bus.yaml`, write
 a JSON Schema:
 
 - `schemas/CMD.<…>.<VERB>.schema.json` — command request payload
-- `schemas/RVT.<…>.<RESOURCE_EVENT>.schema.json` — resource-event payload
+  (command IDs are **process-authored / capability-local** — no source-context prefix)
+- `schemas/BNK.RLVR.RVT.<…>.<RESOURCE_EVENT>.schema.json` — resource-event
+  payload. Resource-event IDs are **bcm assets**: carry the full source-context
+  prefix (`BNK.RLVR.RVT.…`) returned verbatim by `bcm-pack`. The file name
+  mirrors the full asset ID.
 
 Use Draft 2020-12 (`"$schema": "https://json-schema.org/draft/2020-12/schema"`).
 Each schema has a stable `$id` derived from the identifier, `additionalProperties: false`
@@ -511,6 +515,16 @@ on object types, and a `description` referencing the originating CMD or RVT.
 
 Reuse common shapes (e.g. `case_id`, `event_id`, `timestamp`, `model_version`)
 via local `$defs` rather than duplicating them across files.
+
+> **Asset-ID namespacing (CLI v1.0.0+).** Every ID `bcm-pack` returns —
+> `CAP/RVT/EVT/OBJ/SUB/RES/CON` — is **source-context-prefixed** (`BNK.RLVR.…`).
+> Use those IDs **verbatim** in `bus.yaml` (routing keys, `binding_pattern`,
+> `emits`, `fed_by`), `read-models.yaml`, schema file names and `$id`s. The
+> routing-key form `<EVT-id>.<RVT-id>` therefore composes two already-prefixed
+> IDs, e.g.
+> `BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED`.
+> **Process-authored tactical IDs** you invent here — `AGG/CMD/POL/PRJ/QRY` —
+> are capability-local and stay **unprefixed**.
 
 ---
 
@@ -536,7 +550,7 @@ via local `$defs` rather than duplicating them across files.
 6. **Governance** — the ADRs that govern the model (FUNC, URBA, TECH-STRAT)
    with one line each on their role.
 
-Use the existing `process/CAP.BSP.001.SCO/README.md` as the canonical example
+Use the existing `process/BNK.RLVR.CAP.BSP.001.SCO/README.md` as the canonical example
 of tone, depth, and structure.
 
 ---
@@ -582,7 +596,8 @@ Write to `$WORKTREE_PATH/process/<CAPABILITY_ID>/`:
 - `bus.yaml`
 - `api.yaml`
 - `schemas/CMD.*.schema.json` (one per command)
-- `schemas/RVT.*.schema.json` (one per emitted resource event)
+- `schemas/BNK.RLVR.RVT.*.schema.json` (one per emitted resource event)
+- `.bcm-provenance.json` — **knowledge-base provenance stamp** (see Step 6.1)
 
 Always use the `Write` and `Edit` tools — never shell redirects. The
 `process-folder-guard.py` hook allows these calls because the sentinel from
@@ -590,12 +605,48 @@ Step 0.3 is in place AND the worktree path is recognised as a `process/**`
 root.
 
 Pass the **full absolute path** to the tools (e.g.
-`/tmp/process-worktrees/CAP.BSP.001.SCO/process/CAP.BSP.001.SCO/aggregates.yaml`).
+`/tmp/process-worktrees/BNK.RLVR.CAP.BSP.001.SCO/process/BNK.RLVR.CAP.BSP.001.SCO/aggregates.yaml`).
 Never write to the equivalent path under the main checkout.
 
 After every write, show the diff using
 `git -C "$WORKTREE_PATH" diff -- process/$CAP_ID/<file>` before moving on.
 This makes the modelling session reviewable in real time.
+
+### Step 6.1 — Stamp the knowledge-base provenance
+
+The Process Modelling layer is derived from a **specific version** of the
+knowledge base. Capture that version so every downstream stage can detect when
+upstream knowledge has moved since the model was authored (`bcm-pack diff`).
+
+Capture the `knowledge_base` block — it is already embedded at the top of the
+`bcm-pack pack` payload you fetched in Step 0, or fetch it standalone:
+
+```bash
+bcm-pack version --compact > "$WORKTREE_PATH/process/$CAP_ID/.bcm-provenance.json"
+```
+
+Write `.bcm-provenance.json` (via the `Write` tool, inside the worktree) with
+the shape:
+
+```json
+{
+  "capability_id": "BNK.RLVR.CAP.BSP.001.SCO",
+  "generated_by": "/process",
+  "knowledge_base": {
+    "package_version": "1.0.0",
+    "ref": "v1.0.0-1-gb06a4af",
+    "commit": "b06a4af…",
+    "committed_at": "2026-05-21T13:57:08+02:00",
+    "dirty": false
+  }
+}
+```
+
+If `knowledge_base.dirty` is `true`, **stop and warn the user**: the model would
+not be reproducible from a tagged ref. Mirror the `ref` + `committed_at` in the
+README "Upstream knowledge consumed" section so a human reader sees the version
+without opening the JSON. `/task` reads this file and copies `knowledge_base.ref`
+into each TASK's `bcm_ref` frontmatter field.
 
 ---
 

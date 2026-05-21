@@ -11,9 +11,60 @@ vanilla web frontends, contract stubs, and their tests.
 All upstream knowledge — BCM YAML, GOV / URBA / TECH-STRAT / FUNC / TECH-TACT
 ADRs, product / business / tech visions — lives in a separate
 **`banking-knowledge`** repo and is consumed **read-only** through the
-`bcm-pack` CLI. This repo never authors or edits upstream artifacts. There is
-no `bcm/`, `adr/`, `func-adr/`, `tools/`, `build.sh`, or EventCatalog build
-here anymore.
+`bcm-pack` CLI. The runtime/deployment **platform** substrate (PCM model,
+platform events/objects, runtime ADRs) lives in a second separate repo,
+**`banking-platform`**, consumed **read-only** through the `pcm-pack` CLI.
+This repo never authors or edits upstream artifacts. There is no `bcm/`,
+`adr/`, `func-adr/`, `tools/`, `build.sh`, or EventCatalog build here anymore.
+
+### Enriched, source-context-prefixed asset IDs (CLI v1.0.0+)
+
+Every upstream asset ID now carries an **`<ENTERPRISE>.<SCOPE>.`
+source-context prefix** (ADR-PCM-URBA-0014 / banking-knowledge namespacing):
+
+```
+CAP.<ZONE>.<NNN>[.<CODE>]   →   BNK.RLVR.CAP.<ZONE>.<NNN>[.<CODE>]   (knowledge / bcm-pack)
+RVT.<ZONE>.<NNN>.<NAME>     →   BNK.RLVR.RVT.<ZONE>.<NNN>.<NAME>     (resource events)
+EVT.<ZONE>.<NNN>.<NAME>     →   BNK.RLVR.EVT.<ZONE>.<NNN>.<NAME>     (business events)
+OBJ.… / SUB.… / RES.… / CON.…  →  BNK.RLVR.OBJ.… / BNK.RLVR.SUB.… / …
+```
+
+Platform (PCM) assets use the **`BNK.TECH.`** prefix instead of `BNK.RLVR.`.
+
+Rules:
+- **The capability ID is the full prefixed form everywhere in this repo** —
+  folder names (`process/BNK.RLVR.CAP.…/`, `sources/BNK.RLVR.CAP.…/`, …),
+  `capability_id` in TASK frontmatter, branch derivation, and all skill/agent
+  docs. `bcm-pack`/`pcm-pack` v1.0.0 **reject the old short form** (`CAP.…`)
+  with exit code 2 (`Unknown capability`).
+- **bcm-sourced asset IDs** (`CAP/RVT/EVT/OBJ/SUB/RES/CON`) are used **verbatim
+  as returned by `bcm-pack`** — already prefixed. Schemas, `bus.yaml` routing
+  keys, generated event classes, and RabbitMQ topology all carry the prefix.
+- **Process-authored tactical IDs** (`AGG/CMD/POL/PRJ/QRY` — invented by
+  `/process`, not present in BCM) remain **capability-local / unprefixed**.
+
+### Versioned knowledge (CLI v1.0.0+)
+
+Both CLIs surface knowledge-base provenance and a semantic diff:
+
+```
+bcm-pack version [--compact]                       # KB provenance JSON
+bcm-pack diff <from_ref> [--to <ref>] [--capability <CAP_ID>] [--compact]
+bcm-pack pack <CAP_ID> …                            # now embeds a top-level
+                                                    # "knowledge_base" block
+```
+
+`version`/`pack.knowledge_base` fields: `package_version`, `source`, `ref`,
+`branch`, `commit`, `commit_short`, `committed_at`, `dirty`. The `diff`
+envelope reports added/removed/changed counts per asset family (capabilities,
+business/resource events, objects, concepts, resources, subscriptions, ADRs,
+vocab) — scoped to one capability with `--capability`.
+
+**Provenance is recorded and drift is detected** (see invariants): `/process`
+stamps the consumed `knowledge_base` block into the process model; downstream
+artifacts carry the `bcm_ref` forward; `/implementation-pipeline` and `/fix`
+run `bcm-pack diff <recorded_ref> --capability <CAP_ID>` to flag when upstream
+knowledge has moved since an artifact was generated.
 
 ## The implementation pipeline
 
@@ -57,7 +108,7 @@ the next pending stage. Idempotent: re-invoke after each stage completes.
 
 ```yaml
 task_id: TASK-NNN
-capability_id: CAP.<ZONE>.<NNN>[.<SUB>]
+capability_id: BNK.RLVR.CAP.<ZONE>.<NNN>[.<CODE>]   # full source-context-prefixed ID
 epic: <epic-id>
 status: todo | ready | in_progress | in_review | done | blocked | needs_info | stalled
 priority: <int>
@@ -66,9 +117,12 @@ task_type: full-microservice | contract-stub   # optional, defaults to full
 loop_count: 0
 max_loops: 10
 pr_url: <set by /code on PR creation>
+bcm_ref: <git ref the process model was generated from, e.g. v1.0.0>   # set by /task, carried from process provenance
 ```
 
 `/code` is the sole writer of `loop_count`, `max_loops`, `stalled_reason`, `pr_url`.
+`bcm_ref` is carried forward from the process-model provenance (written by
+`/process`) so any stage can `bcm-pack diff` against it to detect upstream drift.
 
 ## Stage 4 routing (zone-, type-, and language-aware)
 
@@ -84,7 +138,7 @@ falls back to the .NET agent with a warning.
 |---|---|---|
 | `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `process/<CAP_ID>/schemas/` (does NOT regenerate them) |
 | `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `process/<CAP_ID>/schemas/` |
-| zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTIQUE`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika |
+| zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTICS`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika |
 | same zones + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ |
 | zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 Minimal API BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS) — language fixed; TECH-TACT tags ignored for CHANNEL |
 
@@ -103,7 +157,7 @@ Post-implementation:
 |---|---|
 | `/implementation-pipeline` | Status across all capabilities; advance to next pending stage |
 | `/process <CAP_ID>` | Stage 0 — interactive DDD modelling; opens PR on `process/<CAP_ID>` branch |
-| `/sketch-miro` | Render every `process/CAP.*/` as a Miro Event Storming board |
+| `/sketch-miro` | Render every `process/BNK.RLVR.CAP.*/` as a Miro Event Storming board |
 | `/c4-export` | Render the BCM tree as Structurizr DSL — per-L2, per-zone, enterprise — under `docs/c4/` |
 | `/roadmap` | Stage 1 — `roadmap.md` for a capability |
 | `/task` | Stage 2 — `TASK-NNN-*.md` for a capability |
@@ -125,7 +179,15 @@ Post-implementation:
 
 - **Upstream is read-only.** Never read `/bcm/`, `/adr/`, `/func-adr/`,
   `/strategic-vision/`, `/product-vision/`, `/tech-vision/`, `/tech-adr/`
-  from disk — they don't live here. Use `bcm-pack pack <CAP_ID> [--deep] [--compact]`.
+  from disk — they don't live here. Use `bcm-pack pack <CAP_ID> [--deep] [--compact]`
+  for knowledge (`BNK.RLVR.…`) and `pcm-pack pack <CAP_ID> …` for the platform
+  substrate (`BNK.TECH.…`). `<CAP_ID>` is always the **full source-context-prefixed
+  ID**; the short `CAP.…` form is rejected (exit 2) by the v1.0.0 CLIs.
+- **Provenance is recorded; drift is detected.** The `knowledge_base` block of
+  `bcm-pack pack`/`version` (git ref + commit + date) is stamped by `/process`
+  into the process model and carried forward as `bcm_ref` on TASK frontmatter.
+  `/implementation-pipeline` and `/fix` run `bcm-pack diff <bcm_ref> --capability
+  <CAP_ID>` to flag upstream changes since an artifact was generated.
 - **`process/<CAP_ID>/` is owned by `/process` alone.** A PreToolUse hook
   (`process-folder-guard.py`) blocks every Write/Edit under `process/**`
   from any other skill or agent. Changes flow through a dedicated
@@ -142,7 +204,8 @@ Post-implementation:
 - **One `/code` agent per task; one active task per capability.**
 - **Loop counters live on the TASK file**, not on the board.
 - **Every artifact traces back** to a TASK → roadmap epic → process model →
-  BCM capability → FUNC ADR → URBA constraints. The chain is unbreakable.
+  BCM capability (`BNK.RLVR.CAP.…`) → FUNC ADR → URBA constraints, pinned to a
+  knowledge-base `bcm_ref`. The chain is unbreakable and version-anchored.
 
 ## Task states
 

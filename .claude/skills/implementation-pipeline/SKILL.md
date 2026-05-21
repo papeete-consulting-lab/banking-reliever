@@ -116,7 +116,7 @@ upstream artifacts — it consumes them.
                                        lineage.json,harness-report.md}
          OpenAPI 3.1 — strict from process/api.yaml + commands + read-models +
                        schemas/CMD.* + bcm carried_objects
-         AsyncAPI 2.6 — strict from process/bus.yaml + schemas/RVT.* +
+         AsyncAPI 2.6 — strict from process/bus.yaml + schemas/BNK.RLVR.RVT.* +
                         bcm emitted/consumed_resource_events
          every operation/channel/message carries x-lineage → process + bcm
          wires /openapi.yaml + /asyncapi.yaml endpoints on Presentation
@@ -179,7 +179,7 @@ those paths are not authoritative locally and are typically absent.
 
 ```bash
 # Pick a target capability (or iterate over `bcm-pack list --level L2`)
-CAP_ID="CAP.BSP.001"
+CAP_ID="BNK.RLVR.CAP.BSP.001"
 
 # Upstream readiness — all required slices must be non-empty for stages 1-2 to run
 bcm-pack pack $CAP_ID --deep --compact > /tmp/probe.json
@@ -201,27 +201,47 @@ ls /tasks/$CAP_ID/TASK-*.md                        # Stage 2
 ls /tasks/BOARD.md                                       # Stage 3 (sort-task / launch-task)
 ls sources/*/{backend,stub,bff,frontend}/ 2>/dev/null  # Stage 4 artifacts
 ls tests/*/TASK-*-*/report.html                         # Stage 5 reports
+
+# Knowledge-base DRIFT — has upstream moved since this capability was modelled?
+# The process model records the ref it was built from in .bcm-provenance.json.
+PINNED_REF=$(jq -r '.knowledge_base.ref // empty' process/$CAP_ID/.bcm-provenance.json 2>/dev/null)
+CURRENT_REF=$(bcm-pack version --compact | jq -r '.ref')
+if [ -n "$PINNED_REF" ] && [ "$PINNED_REF" != "$CURRENT_REF" ]; then
+  bcm-pack diff "$PINNED_REF" --capability "$CAP_ID" --compact | jq '{from:.from.ref,to:.to.ref,empty:.empty,summary:.summary}'
+fi
 ```
 
 Report the status clearly:
 
 ```
-Upstream (bcm-pack) for CAP.BSP.001:
+Upstream (bcm-pack) for BNK.RLVR.CAP.BSP.001:
   ✅ product_vision / business_vision / tech_vision present
   ✅ FUNC ADR present (capability_definition non-empty)
   ✅ Tactical ADR present (tactical_stack non-empty)
   ✅ BCM YAML present (capability_self non-empty, no warnings)
 
 Local pipeline:
-  ✅ Stage 0 — Process: process/CAP.BSP.001/ (aggregates, commands, policies, read-models, bus.yaml, api.yaml, schemas/)
-  ✅ Stage 1 — Roadmap: /roadmap/CAP.BSP.001/roadmap.md
+  ✅ Stage 0 — Process: process/BNK.RLVR.CAP.BSP.001/ (aggregates, commands, policies, read-models, bus.yaml, api.yaml, schemas/)
+  ✅ Stage 1 — Roadmap: /roadmap/BNK.RLVR.CAP.BSP.001/roadmap.md
   ⏳ Stage 2 — Tasks: 3/8 epics covered
   ⬜ Stage 3 — Kanban: BOARD.md not yet generated
   ⬜ Stage 4 — No implementation artifacts
   ⬜ Stage 5 — No test reports
 
+Knowledge drift:
+  ⚠️  Process model pinned to v1.0.0; knowledge base now at v1.1.0 —
+      `bcm-pack diff` reports 1 changed business event, 2 changed ADRs for this
+      capability. Re-run `/process BNK.RLVR.CAP.BSP.001` to refresh the model,
+      then re-derive roadmap/tasks, before resuming Stage 4.
+
 Next action: complete task generation for the remaining 5 epics.
 ```
+
+**Drift gate.** When `bcm-pack diff <pinned_ref> --capability <CAP_ID>` reports a
+non-empty summary, the process model is stale relative to upstream knowledge.
+Flag it loudly and recommend re-running `/process` (then `/roadmap` → `/task`)
+before any further Stage 4 work — implementing against a stale model silently
+breaks the traceability chain. An empty diff means the artifact is current.
 
 If any upstream slice is empty or `pack.warnings` is non-empty, the upstream
 knowledge corpus is incomplete — direct the user to the upstream
@@ -240,18 +260,18 @@ that invokes the `/process` skill:
 
 ```
 Use the process skill to generate the Process Modelling layer for capability
-[CAP.ZONE.NNN — Name].
+[BNK.RLVR.CAP.ZONE.NNN — Name].
 
 Knowledge access (mandatory):
 - Source ALL BCM, ADR, and vision context from the `bcm-pack` CLI:
-    `bcm-pack pack [CAP.ZONE.NNN] --deep --compact`
+    `bcm-pack pack [BNK.RLVR.CAP.ZONE.NNN] --deep --compact`
   Do NOT read /bcm/, /func-adr/, /adr/, /strategic-vision/, /product-vision/,
   /tech-vision/, or /tech-adr/ directly.
 
 The /process skill will:
 - Pose the session sentinel /tmp/.claude-process-skill.active
 - Drive an Event-Storming-style modelling session producing:
-    process/[CAP.ZONE.NNN]/
+    process/[BNK.RLVR.CAP.ZONE.NNN]/
       README.md, aggregates.yaml, commands.yaml, policies.yaml,
       read-models.yaml, bus.yaml, api.yaml, schemas/*.schema.json
 - Remove the sentinel on exit.
@@ -268,11 +288,11 @@ launch one subagent per target capability in the same turn for parallelism.
 For each L2 capability without a `roadmap.md`, spawn one subagent:
 
 ```
-Use the roadmap skill to generate a roadmap for capability [CAP.ZONE.NNN — Name].
+Use the roadmap skill to generate a roadmap for capability [BNK.RLVR.CAP.ZONE.NNN — Name].
 
 Knowledge access (mandatory):
 - Source ALL BCM, ADR, and vision context from the `bcm-pack` CLI:
-    `bcm-pack pack [CAP.ZONE.NNN] --deep --compact`
+    `bcm-pack pack [BNK.RLVR.CAP.ZONE.NNN] --deep --compact`
   Do NOT read /bcm/, /func-adr/, /adr/, /strategic-vision/, /product-vision/,
   /tech-vision/, or /tech-adr/ directly. The pack returns slices for
   capability_self, capability_definition (FUNC ADR), tactical_stack
@@ -291,12 +311,12 @@ Save the result to /roadmap/[capability-id]/roadmap.md
 For each capability with a roadmap but no tasks, spawn one subagent:
 
 ```
-Use the task skill to generate tasks for capability [CAP.ZONE.NNN — Name].
+Use the task skill to generate tasks for capability [BNK.RLVR.CAP.ZONE.NNN — Name].
 Read the roadmap from /roadmap/[capability-id]/roadmap.md (local).
 
 Knowledge access (mandatory):
 - Source ALL BCM and ADR context from the `bcm-pack` CLI:
-    `bcm-pack pack [CAP.ZONE.NNN] --compact`
+    `bcm-pack pack [BNK.RLVR.CAP.ZONE.NNN] --compact`
   (lightweight is enough for task generation — the rationale ADRs are not
   needed). Do NOT read /bcm/, /func-adr/, /adr/, or /tech-adr/ directly.
   Use slices: capability_self, capability_definition,
@@ -362,7 +382,7 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
    | `SUPPORT`                    | A    | `dotnet` / `csharp` / (none)| `implement-capability` (default)              |
    | `REFERENTIAL`                | A    | (same language matrix as above)                                              |||
    | `EXCHANGE_B2B`               | A    | (same language matrix as above)                                              |||
-   | `DATA_ANALYTIQUE`            | A    | (same language matrix as above)                                              |||
+   | `DATA_ANALYTICS`            | A    | (same language matrix as above)                                              |||
    | `STEERING`                   | A    | (same language matrix as above)                                              |||
    | `CHANNEL`                    | B    | n/a — language fixed         | `create-bff` + `code-web-frontend` (parallel) |
 

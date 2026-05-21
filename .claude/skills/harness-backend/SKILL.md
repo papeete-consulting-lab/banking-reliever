@@ -35,7 +35,7 @@ description: >
   ingestion can resolve any spec entry to its definitional origin.
 
   The skill targets **non-CHANNEL zones only** (BUSINESS_SERVICE_PRODUCTION,
-  SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTIQUE, STEERING). For
+  SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTICS, STEERING). For
   CHANNEL-zone tasks (BFF + frontend), the BFF contract is already
   enforced by `create-bff`; a future `harness-bff` skill would extend the
   same lineage pattern there.
@@ -82,14 +82,14 @@ follow:
 
 | Input form           | Example                               | What to extract                                                                                  |
 |----------------------|---------------------------------------|--------------------------------------------------------------------------------------------------|
-| Capability ID        | `/harness-backend CAP.BSP.001.SCO`    | use the ID directly; resolve worktree from current branch (or `--branch`) |
+| Capability ID        | `/harness-backend BNK.RLVR.CAP.BSP.001.SCO`    | use the ID directly; resolve worktree from current branch (or `--branch`) |
 | Task ID              | `/harness-backend TASK-003`           | read TASK frontmatter to get capability_id; resolve worktree from `feat/TASK-003-*` |
 | Branch slug          | `/harness-backend --branch feat/TASK-003-bsp-sco` | derive TASK-003 → capability_id from the TASK file in that worktree |
 | No argument          | `/harness-backend` after `/code`     | read the current working branch / worktree, locate the active TASK |
 
 End Step 0 with these resolved values:
 
-1. **`CAPABILITY_ID`** (e.g. `CAP.BSP.001.SCO`).
+1. **`CAPABILITY_ID`** (e.g. `BNK.RLVR.CAP.BSP.001.SCO`).
 2. **`CAPABILITY_NAME`** (kebab — derived from `bcm-pack pack <CAP_ID>
    --compact | jq -r '.slices.capability_self[0].name'`).
 3. **`WORKTREE_ROOT`** — the directory housing the .NET solution (either
@@ -138,7 +138,7 @@ fi
 ZONE=$(jq -r '.slices.capability_self[0].zoning' /tmp/pack-harness.json)
 case "$ZONE" in
   CHANNEL) echo "❌ harness-backend does not handle CHANNEL — use create-bff instead"; exit 1 ;;
-  BUSINESS_SERVICE_PRODUCTION|SUPPORT|REFERENTIAL|EXCHANGE_B2B|DATA_ANALYTIQUE|STEERING) ;;
+  BUSINESS_SERVICE_PRODUCTION|SUPPORT|REFERENTIAL|EXCHANGE_B2B|DATA_ANALYTICS|STEERING) ;;
   *) echo "❌ unknown zone $ZONE"; exit 1 ;;
 esac
 

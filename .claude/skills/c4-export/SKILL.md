@@ -69,9 +69,9 @@ docs/c4/
 
 | C4 element | What it represents |
 |---|---|
-| Software System | The L2 capability itself — named by its BCM `name` (e.g. `Tier Management`), described by its BCM `description`, with the dotted `capability-id` (e.g. `CAP.BSP.001.TIE`) stored as a property |
+| Software System | The L2 capability itself — named by its BCM `name` (e.g. `Tier Management`), described by its BCM `description`, with the dotted `capability-id` (e.g. `BNK.RLVR.CAP.BSP.001.TIE`) stored as a property |
 | Container | An implementation artifact: backend microservice (Mode A), contract stub (Mode B), BFF, frontend, or a `not-scaffolded` placeholder |
-| Component | A DDD element mined from `process/<CAP>/` — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
+| Component | A DDD element mined from `process/<CAP>/` — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
 
 Upstream capabilities (other L2s that emit business events this capability
 subscribes to) appear as `external-capability` Software Systems named after

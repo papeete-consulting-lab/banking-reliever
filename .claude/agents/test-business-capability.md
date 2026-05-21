@@ -23,7 +23,7 @@ description: |
 
   <example>
   Context: /code has just finished spawning implement-capability for
-  TASK-003 of CAP.BSP.001 (BUSINESS_SERVICE_PRODUCTION zone) and needs to
+  TASK-003 of BNK.RLVR.CAP.BSP.001 (BUSINESS_SERVICE_PRODUCTION zone) and needs to
   validate the result.
   assistant: "Spawning test-business-capability agent."
   <commentary>

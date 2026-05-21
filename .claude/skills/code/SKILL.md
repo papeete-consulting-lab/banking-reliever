@@ -185,7 +185,7 @@ implementation agent. Once the PR is merged, re-run `/code TASK-NNN`.
 
    | `task_type` value | Routing path | Notes |
    |-------------------|--------------|-------|
-   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in `process/<CAP_ID>/api.yaml` with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
+   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `BNK.RLVR.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in `process/<CAP_ID>/api.yaml` with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
    | (absent) or `full-microservice` | Fall through to 6b | standard zone-aware routing |
 
    **6b — Zone (when `task_type` does not force Path C)**
@@ -200,7 +200,7 @@ implementation agent. Once the PR is merged, re-run `/code TASK-NNN`.
    | `SUPPORT`                    | Transverse IT     | Path A — `implement-capability*` (Mode A) |
    | `REFERENTIAL`                | Master data       | Path A — `implement-capability*` (Mode A) |
    | `EXCHANGE_B2B`               | Ecosystem B2B     | Path A — `implement-capability*` (Mode A) |
-   | `DATA_ANALYTIQUE`            | Data / BI / AI    | Path A — `implement-capability*` (Mode A) |
+   | `DATA_ANALYTICS`             | Data / BI / AI    | Path A — `implement-capability*` (Mode A) |
    | `STEERING`                   | Pilotage          | Path A — `implement-capability*` (Mode A) |
    | `CHANNEL`                    | Omnichannel       | **Path B** — `create-bff` + `code-web-frontend` (parallel) — language is fixed (.NET BFF + vanilla JS frontend); skip 6c |
 
@@ -358,7 +358,7 @@ The context to pass includes:
 - An explicit mention that `task_type: contract-stub` is set (so the agent
   knows which mode to take, even before reading the file)
 - The governing FUNC ADR(s)
-- The events to contract (the EVT/RVT pairs named in the task) — drives
+- The events to contract (the BNK.RLVR.EVT/BNK.RLVR.RVT pairs named in the task) — drives
   the publisher half
 - The query operations to stub — every entry in `process/<CAP_ID>/api.yaml`,
   with their response schemas. Drives the HTTP half.
@@ -409,7 +409,7 @@ to resolve.
 
 ---
 
-### Path A — Non-CHANNEL zones (BUSINESS_SERVICE_PRODUCTION, SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTIQUE, STEERING)
+### Path A — Non-CHANNEL zones (BUSINESS_SERVICE_PRODUCTION, SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTICS, STEERING)
 
 > Use this path **only** when `task_type` is absent or `full-microservice`.
 > If `task_type: contract-stub`, use **Path C** above instead, regardless of zone.
@@ -538,7 +538,7 @@ and works on both .NET and Python services. The harness produces, under
   `process/{capability-id}/api.yaml` + `commands.yaml` + `read-models.yaml` +
   `schemas/CMD.*.schema.json` + `bcm-pack.carried_objects` (resource shapes).
 - `asyncapi.yaml` (AsyncAPI 2.6) — derived strictly from
-  `process/{capability-id}/bus.yaml` + `schemas/RVT.*.schema.json` +
+  `process/{capability-id}/bus.yaml` + `schemas/BNK.RLVR.RVT.*.schema.json` +
   `bcm-pack.emitted_resource_events` / `consumed_resource_events`.
 - `lineage.json` — top-level lineage (capability + bcm + process metadata).
 - `harness-report.md` — closure verdict.
@@ -588,7 +588,7 @@ the capability zone:
 
 | Zone | Test skill | Test agent | Targets |
 |------|-----------|-----------|---------|
-| Non-CHANNEL (BUSINESS_SERVICE_PRODUCTION, SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTIQUE, STEERING) | `/test-business-capability` | `test-business-capability` | .NET microservice under `sources/{cap-name}/backend/` |
+| Non-CHANNEL (BUSINESS_SERVICE_PRODUCTION, SUPPORT, REFERENTIAL, EXCHANGE_B2B, DATA_ANALYTICS, STEERING) | `/test-business-capability` | `test-business-capability` | .NET microservice under `sources/{cap-name}/backend/` |
 | CHANNEL | `/test-app` | `test-app` | Frontend under `sources/{CAP_ID}/frontend/` and BFF under `sources/{CAP_ID}/bff/` |
 
 The test skill spawns its agent (senior test engineer) to validate that the

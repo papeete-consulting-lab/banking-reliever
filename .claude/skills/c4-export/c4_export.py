@@ -31,7 +31,7 @@ implementation detail of the bus rail.
 Run from the repo root:
 
     python3 .claude/skills/c4-export/c4_export.py            # everything
-    python3 .claude/skills/c4-export/c4_export.py --cap CAP.BSP.001.SCO
+    python3 .claude/skills/c4-export/c4_export.py --cap BNK.RLVR.CAP.BSP.001.SCO
     python3 .claude/skills/c4-export/c4_export.py --enterprise-only
     python3 .claude/skills/c4-export/c4_export.py --dry-run
 """
@@ -212,7 +212,10 @@ def mine_ddd(cap_id: str) -> DddComponents:
         seen: set[str] = set()
         for line in bus_path.read_text(encoding="utf-8").splitlines():
             m = re.match(
-                r"\s*(?:paired_business_event|business_event):\s*(EVT\.[A-Z0-9._-]+)",
+                # Business-event IDs carry an optional source-context prefix
+                # (e.g. BNK.RLVR.EVT.…) since the CLI v1.0.0 namespacing.
+                r"\s*(?:paired_business_event|business_event):\s*"
+                r"((?:[A-Z]{2,}\.[A-Z]{2,}\.)?EVT\.[A-Z0-9._-]+)",
                 line,
             )
             if m and m.group(1) not in seen:

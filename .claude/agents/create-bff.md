@@ -25,19 +25,19 @@ description: |
   >  also scaffolds the matching frontend in parallel via code-web-frontend."
 
   <example>
-  Context: /code is processing TASK-005 of CAP.CAN.001 (CHANNEL zone) and
+  Context: /code is processing TASK-005 of BNK.RLVR.CAP.CAN.001 (CHANNEL zone) and
   needs to scaffold the BFF in parallel with the frontend.
-  assistant: "Spawning create-bff agent for CAP.CAN.001."
+  assistant: "Spawning create-bff agent for BNK.RLVR.CAP.CAN.001."
   <commentary>
-  The agent reads the FUNC ADR for CAP.CAN.001, derives the L3 endpoints
+  The agent reads the FUNC ADR for BNK.RLVR.CAP.CAN.001, derives the L3 endpoints
   (TAB, ACH, NOT…), the upstream events to consume from BSP/REF, the events
   the BFF itself publishes, allocates a fresh BFF_PORT + RabbitMQ ports,
-  and emits a runnable .NET 10 ASP.NET Core BFF under sources/CAP.CAN.001/bff/.
+  and emits a runnable .NET 10 ASP.NET Core BFF under sources/BNK.RLVR.CAP.CAN.001/bff/.
   </commentary>
   </example>
 
   <example>
-  Context: User types "scaffold the BFF for CAP.CAN.002" outside any
+  Context: User types "scaffold the BFF for BNK.RLVR.CAP.CAN.002" outside any
   /launch-task flow.
   assistant: "I cannot spawn create-bff outside an isolated worktree —
   redirecting to /launch-task."
@@ -80,7 +80,7 @@ explicit design choices.
 
 Your output goes under `sources/{CAP_ID}/bff/` relative to the current
 working directory, where `{CAP_ID}` is the dotted capability identifier
-(e.g. `CAP.CAN.001`). This mirrors the sibling layout used by the
+(e.g. `BNK.RLVR.CAP.CAN.001`). This mirrors the sibling layout used by the
 `code-web-frontend` agent (`sources/{CAP_ID}/frontend/`) and the
 `implement-capability` agents (`sources/{CAP_ID}/backend/`,
 `sources/{CAP_ID}/stub/`) — every artifact for a capability lives under
@@ -209,7 +209,7 @@ Before scaffolding, output a single block to the caller:
 ```
 🛠 BFF plan for [CAP.ID — L2 Name]
 - Namespace:         [chosen, e.g. Reliever.Canal.Can001Bff]
-- Output dir:        sources/{CAP_ID}/bff/   (e.g. sources/CAP.CAN.001/bff/)
+- Output dir:        sources/{CAP_ID}/bff/   (e.g. sources/BNK.RLVR.CAP.CAN.001/bff/)
 - L3 endpoints:      [list, one group per L3]
 - Events consumed:   [list of {EventName} ← from {SourceCapId}]
 - Events published:  [list of {EventName} on {capability-id}.exchange]
@@ -279,7 +279,7 @@ never collide.
 
 ### Pattern 3 — Determine output directory + .env.local
 
-Output path: `sources/{CAP_ID}/bff/` (e.g. `sources/CAP.CAN.001/bff/`),
+Output path: `sources/{CAP_ID}/bff/` (e.g. `sources/BNK.RLVR.CAP.CAN.001/bff/`),
 where `{CAP_ID}` is the dotted capability identifier. If
 `sources/{CAP_ID}/` does not exist in the project root (no sibling
 `frontend/` / `backend/` / `stub/` yet), create it. The `code-web-frontend`
@@ -308,7 +308,7 @@ for every artefact. Substitute these placeholders consistently:
 |-------------|--------------|---------|
 | `{CapId}` | L2 ID without dots, PascalCase | `Can001` |
 | `{capability-id}` | L2 ID without dots, lowercase | `can001` |
-| `{CapabilityIdDot}` | Full dot notation | `CAP.CAN.001` |
+| `{CapabilityIdDot}` | Full dot notation | `BNK.RLVR.CAP.CAN.001` |
 | `{ZoneAbbrev}` | Zone prefix, PascalCase | `Can` |
 | `{zone-abbrev}` | Zone prefix, lowercase | `can` |
 | `{Namespace}` | `Reliever.{ZoneFullName}.{CapId}Bff` | `Reliever.Canal.Can001Bff` |
@@ -354,7 +354,7 @@ consumed event, etc.
 | Queue name | `{branch}.{capability-id}.{emitting-cap-id}.{business-event-name}.queue` | `feat-task-005.can001.bsp001-sco.scorerecalcule.queue` |
 | Endpoint path | `/{zone-abbrev}/{capability-id}/{l3-id}/{resource}` | `/can/can001/tab/snapshot` |
 | OTel service name | `{branch}-{capability-id}-bff` | `feat-task-005-can001-bff` |
-| OTel `capability_id` tag | `{CapabilityIdDot}` | `CAP.CAN.001` |
+| OTel `capability_id` tag | `{CapabilityIdDot}` | `BNK.RLVR.CAP.CAN.001` |
 | OTel `environment` tag | `{branch}` | `feat-task-005` |
 
 The `{branch}` prefix on exchanges and queues is what guarantees that
@@ -404,7 +404,7 @@ caching — ETag is handled at the BFF level only.
 
 All OTel signals (metrics, logs, traces) produced by the BFF must carry:
 
-- `capability_id` = `{CapabilityIdDot}` (e.g., `CAP.CAN.001`)
+- `capability_id` = `{CapabilityIdDot}` (e.g., `BNK.RLVR.CAP.CAN.001`)
 - `zone` = `{zone-abbrev}` (e.g., `can`)
 - `deployable` = `reliever-{zone-abbrev}` (e.g., `reliever-can`)
 - `environment` = `{branch}` (read from `ASPNETCORE_ENVIRONMENT` or the

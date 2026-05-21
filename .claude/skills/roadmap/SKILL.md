@@ -139,7 +139,7 @@ should land in the roadmap's **Open Questions** section.
 
 ```bash
 # One JSON object → parse it once, then drive the roadmap from the parsed slices.
-bcm-pack pack CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
+bcm-pack pack BNK.RLVR.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
 jq '.slices.capability_self[0]'         /tmp/pack.json
 jq '.slices.capability_definition[0]'   /tmp/pack.json
 jq '.slices.emitted_business_events'    /tmp/pack.json
@@ -154,7 +154,7 @@ files — surface the error to the user and ask them to confirm the ID against `
 ## Before You Begin
 
 1. **Identify which capability to roadmap.** The user should specify the capability ID (e.g., 
-   `CAP.BSP.001.PAL`) or a name. If ambiguous, run `bcm-pack list --level L2` (and 
+   `BNK.RLVR.CAP.BSP.001.PAL`) or a name. If ambiguous, run `bcm-pack list --level L2` (and 
    `--level L3` if relevant), present the matches, and ask the user to select.
 
 2. **Fetch the capability pack** with `bcm-pack pack <ID> --deep --compact`. This single call 
@@ -345,7 +345,7 @@ preferred.
 | Epic | Depends On | Type |
 |------|-----------|------|
 | Epic 2 | Epic 1 | Sequential |
-| Epic 3 | CAP.REF.001 | Cross-capability |
+| Epic 3 | BNK.RLVR.CAP.REF.001 | Cross-capability |
 ...
 
 ## Risks

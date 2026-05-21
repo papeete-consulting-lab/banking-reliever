@@ -191,9 +191,26 @@ fix on. Never guess.
    bcm-pack pack <capability_id> --compact > /tmp/pack-fix.json
    ```
 
+   `<capability_id>` is the full source-context-prefixed ID (e.g.
+   `BNK.RLVR.CAP.BSP.001.SCO`); the v1.0.0 CLI rejects the short form (exit 2).
    Read `slices.capability_self[0].zoning` for routing. Never read `/bcm/`,
    `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`, or
    `/tech-vision/` directly.
+
+   **Check for knowledge drift first.** A failure can stem from upstream
+   knowledge having moved since the artifact was built. Compare the TASK's
+   `bcm_ref` against the current knowledge base:
+
+   ```bash
+   bcm-pack diff "$bcm_ref" --capability <capability_id> --compact \
+     | jq '{empty, summary}'
+   ```
+
+   If the diff is **non-empty**, the root cause may be upstream, not in the code:
+   the process model is stale. Surface this in the remediation context and
+   recommend re-running `/process` (→ `/roadmap` → `/task`) rather than patching
+   the implementation against an outdated contract. If the diff is empty, proceed
+   with the code-level remediation below.
 
 5. Determine the **routing path** using the exact same matrix as `/code`:
 

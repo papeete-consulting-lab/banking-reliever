@@ -200,11 +200,11 @@ Display the decision table in the conversation:
 
 | # | Task | Capability | Score | Selection Reason |
 |---|------|-----------|-------|---------------------|
-| 1 | TASK-001 | CAP.CAN.001 | 53 | Critical path, unblocks 5 tasks |
-| 2 | TASK-007 | CAP.BSP.001 | 12 | Independent capability |
+| 1 | TASK-001 | BNK.RLVR.CAP.CAN.001 | 53 | Critical path, unblocks 5 tasks |
+| 2 | TASK-007 | BNK.RLVR.CAP.BSP.001 | 12 | Independent capability |
 
 Excluded tasks:
-- TASK-003: capability CAP.CAN.001 already active via TASK-001
+- TASK-003: capability BNK.RLVR.CAP.CAN.001 already active via TASK-001
 - TASK-009: 🟠 unresolved open questions — check the `## Open Questions` section of the task file
 
 Creating isolated environments and launching agents...
@@ -418,10 +418,10 @@ If the intent is to launch a task, present the 3 best `ready` candidates from th
 Tasks available to launch:
 
   [1] TASK-001 — Freeze consumed events contract (high, score 53)
-      Capability: CAP.CAN.001.TAB | Unblocks: TASK-002, 003, 004, 005, 006
+      Capability: BNK.RLVR.CAP.CAN.001.TAB | Unblocks: TASK-002, 003, 004, 005, 006
 
   [2] TASK-007 — [title] (medium, score 12)
-      Capability: CAP.BSP.001 | Unblocks: TASK-008
+      Capability: BNK.RLVR.CAP.BSP.001 | Unblocks: TASK-008
 
 Recommendation: TASK-001 — it is on the critical path and unblocks 5 tasks.
 

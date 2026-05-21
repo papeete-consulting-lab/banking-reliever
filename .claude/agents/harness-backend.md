@@ -24,7 +24,7 @@ description: |
 
   1. **Process Modelling** — `process/{capability-id}/` (read-only):
        `commands.yaml`, `read-models.yaml`, `bus.yaml`, `api.yaml`,
-       `schemas/CMD.*.schema.json`, `schemas/RVT.*.schema.json`.
+       `schemas/CMD.*.schema.json`, `schemas/BNK.RLVR.RVT.*.schema.json`.
   2. **BCM corpus** — exposed by `bcm-pack pack <CAP_ID> --deep --compact`:
        `emitted_business_events`, `emitted_resource_events`,
        `consumed_business_events`, `consumed_resource_events`,
@@ -41,7 +41,7 @@ description: |
       `commands.yaml` + `read-models.yaml` + `schemas/CMD.*.schema.json` +
       BCM `carried_objects` (resource shape).
     - `asyncapi.yaml` (AsyncAPI 2.6) — derived from `bus.yaml` +
-      `schemas/RVT.*.schema.json` + BCM `emitted_resource_events` (publish
+      `schemas/BNK.RLVR.RVT.*.schema.json` + BCM `emitted_resource_events` (publish
       side) and `consumed_resource_events` (subscribe side).
 
   Every operation, message, and channel in those specs carries an `x-lineage`
@@ -87,12 +87,12 @@ description: |
 
   <example>
   Context: /code has just finished spawning implement-capability for TASK-003
-  of CAP.BSP.001.SCO (BUSINESS_SERVICE_PRODUCTION zone) and the microservice
+  of BNK.RLVR.CAP.BSP.001.SCO (BUSINESS_SERVICE_PRODUCTION zone) and the microservice
   is up. /code now spawns harness-backend.
-  assistant: "Spawning harness-backend agent for CAP.BSP.001.SCO."
+  assistant: "Spawning harness-backend agent for BNK.RLVR.CAP.BSP.001.SCO."
   <commentary>
-  The agent reads process/CAP.BSP.001.SCO/ (commands.yaml, read-models.yaml,
-  bus.yaml, api.yaml, schemas/) and bcm-pack pack CAP.BSP.001.SCO, scaffolds
+  The agent reads process/BNK.RLVR.CAP.BSP.001.SCO/ (commands.yaml, read-models.yaml,
+  bus.yaml, api.yaml, schemas/) and bcm-pack pack BNK.RLVR.CAP.BSP.001.SCO, scaffolds
   sources/score-of-beneficiary/backend/src/.../Contracts.Harness/, generates
   contracts/specs/openapi.yaml and contracts/specs/asyncapi.yaml with full
   x-lineage extensions, wires /openapi.yaml + /asyncapi.yaml endpoints into
@@ -103,14 +103,14 @@ description: |
 
   <example>
   Context: /code has just finished spawning implement-capability-python for
-  TASK-001 of CAP.SUP.002.BEN (SUPPORT zone). The TECH-TACT ADR tagged the
+  TASK-001 of BNK.RLVR.CAP.SUP.002.BEN (SUPPORT zone). The TECH-TACT ADR tagged the
   capability as `python` / `fastapi`, so the on-disk layout is a Python
   package (pyproject.toml + src/{ns}_{cap}/) — not a .NET solution. /code
   now spawns harness-backend with LANG=python.
-  assistant: "Spawning harness-backend agent for CAP.SUP.002.BEN (Python stack)."
+  assistant: "Spawning harness-backend agent for BNK.RLVR.CAP.SUP.002.BEN (Python stack)."
   <commentary>
   The agent confirms LANG=python on entry (§0.1 — pyproject.toml present,
-  no .sln), reads process/CAP.SUP.002.BEN/ + bcm-pack, scaffolds
+  no .sln), reads process/BNK.RLVR.CAP.SUP.002.BEN/ + bcm-pack, scaffolds
   sources/beneficiary-identity-anchor/backend/src/reliever_beneficiary_identity_anchor_contracts_harness/,
   appends the package to [tool.hatch.build.targets.wheel].packages in
   pyproject.toml, adds the harness CLI as a [project.scripts] entry, edits
@@ -123,13 +123,13 @@ description: |
   </example>
 
   <example>
-  Context: User typed "regenerate the contracts for CAP.BSP.001.SCO" after
+  Context: User typed "regenerate the contracts for BNK.RLVR.CAP.BSP.001.SCO" after
   /process refreshed the model. The /harness-backend skill resolves the
   capability and spawns this agent.
   assistant: "Spawning harness-backend agent — re-deriving openapi.yaml and
   asyncapi.yaml from the refreshed process model."
   <commentary>
-  The agent re-reads process/CAP.BSP.001.SCO/ and bcm-pack, regenerates the
+  The agent re-reads process/BNK.RLVR.CAP.BSP.001.SCO/ and bcm-pack, regenerates the
   two specs, diffs them against the previous committed versions, asserts
   that no operation / channel was removed without a deprecated marker, and
   reports the delta. The stack (dotnet | python) is auto-detected from the
@@ -244,32 +244,33 @@ Both specs carry the same top-level `x-lineage` block. Build it once from
 ```yaml
 x-lineage:
   capability:
-    id: CAP.BSP.001.SCO
+    id: BNK.RLVR.CAP.BSP.001.SCO
     name: Behavioural Scoring
     level: L3
     zone: BUSINESS_SERVICE_PRODUCTION
-    parent: CAP.BSP.001
+    parent: BNK.RLVR.CAP.BSP.001
   bcm:
     source: bcm-pack
     repo: git@github.com:Banking-Reliever/banking-knowledge.git
-    ref: <git-sha-or-tag from `bcm-pack pack ... --json` output>
-    pack_date: <ISO-8601 UTC>
+    ref: <knowledge_base.ref from the `bcm-pack pack` payload (top-level "knowledge_base" block)>
+    commit: <knowledge_base.commit>
+    pack_date: <knowledge_base.committed_at — ISO-8601>
     func_adrs:        [ADR-BCM-FUNC-0005]
     governing_urba:   [ADR-BCM-URBA-0007, ADR-BCM-URBA-0008, ADR-BCM-URBA-0009]
     tech_strat_adrs:  [ADR-TECH-STRAT-001]
     tactical_stack:   [<from .slices.tactical_stack[*].id>]
-    business_objects: [OBJ.BSP.001.EVALUATION]
-    resources:        [RES.BSP.001.ENTRY_SCORE, RES.BSP.001.CURRENT_SCORE]
-    business_events:  [EVT.BSP.001.SCORE_RECOMPUTED, EVT.BSP.001.SCORE_THRESHOLD_REACHED]
+    business_objects: [BNK.RLVR.OBJ.BSP.001.EVALUATION]
+    resources:        [BNK.RLVR.RES.BSP.001.ENTRY_SCORE, BNK.RLVR.RES.BSP.001.CURRENT_SCORE]
+    business_events:  [BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED, BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED]
     resource_events:
-      emitted:  [RVT.BSP.001.ENTRY_SCORE_COMPUTED, RVT.BSP.001.CURRENT_SCORE_RECOMPUTED, RVT.BSP.001.SCORE_THRESHOLD_REACHED]
-      consumed: [RVT.BSP.004.PAYMENT_GRANTED, RVT.BSP.004.PAYMENT_BLOCKED, RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED, RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED]
+      emitted:  [BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED, BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED, BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED]
+      consumed: [BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED, BNK.RLVR.RVT.BSP.004.PAYMENT_BLOCKED, BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED, BNK.RLVR.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED]
     business_subscriptions:
-      [SUB.BUSINESS.BSP.001.001, SUB.BUSINESS.BSP.001.002, SUB.BUSINESS.BSP.001.003, SUB.BUSINESS.BSP.001.004]
+      [BNK.RLVR.SUB.BUSINESS.BSP.001.001, BNK.RLVR.SUB.BUSINESS.BSP.001.002, BNK.RLVR.SUB.BUSINESS.BSP.001.003, BNK.RLVR.SUB.BUSINESS.BSP.001.004]
     resource_subscriptions:
-      [SUB.RESOURCE.BSP.001.001, SUB.RESOURCE.BSP.001.002, SUB.RESOURCE.BSP.001.003, SUB.RESOURCE.BSP.001.004]
+      [BNK.RLVR.SUB.RESOURCE.BSP.001.001, BNK.RLVR.SUB.RESOURCE.BSP.001.002, BNK.RLVR.SUB.RESOURCE.BSP.001.003, BNK.RLVR.SUB.RESOURCE.BSP.001.004]
   process:
-    folder: process/CAP.BSP.001.SCO/
+    folder: process/BNK.RLVR.CAP.BSP.001.SCO/
     version: <from process/{cap}/commands.yaml#meta.version>
     aggregates: [AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY]
     commands:   [CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE, CMD.BSP.001.SCO.RECOMPUTE_SCORE]
@@ -280,19 +281,24 @@ x-lineage:
     by: harness-backend
     at: <ISO-8601 UTC of generation>
     inputs:
-      - process/CAP.BSP.001.SCO/commands.yaml#meta
-      - process/CAP.BSP.001.SCO/bus.yaml#meta
-      - process/CAP.BSP.001.SCO/api.yaml#meta
-      - process/CAP.BSP.001.SCO/read-models.yaml#meta
-      - bcm-pack pack CAP.BSP.001.SCO --deep
+      - process/BNK.RLVR.CAP.BSP.001.SCO/commands.yaml#meta
+      - process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml#meta
+      - process/BNK.RLVR.CAP.BSP.001.SCO/api.yaml#meta
+      - process/BNK.RLVR.CAP.BSP.001.SCO/read-models.yaml#meta
+      - bcm-pack pack BNK.RLVR.CAP.BSP.001.SCO --deep
 ```
 
 Conventions:
-- **Identifiers are upper-snake** (`CAP.<L1>.<L2>.<L3>`, `CMD.<…>`, `RVT.<…>`).
-- **`ref`** of `bcm-pack` must be captured from the live invocation — do not
-  assume `main`. Run `bcm-pack pack <CAP_ID> --deep --compact --json-meta` (if
-  available) or fall back to `git -C ~/.cache/bcm-pack/banking-knowledge
-  rev-parse HEAD` after the pack call.
+- **Identifiers are upper-snake and source-context-prefixed** for bcm assets
+  (`BNK.RLVR.CAP.<L1>.<L2>.<L3>`, `BNK.RLVR.RVT.<…>`, `BNK.RLVR.OBJ.<…>`,
+  `BNK.RLVR.RES.<…>`), used verbatim from `bcm-pack`. Process-authored tactical
+  IDs (`CMD.<…>`, `AGG.<…>`, `POL.<…>`, `PRJ.<…>`, `QRY.<…>`) stay unprefixed.
+- **`ref`/`commit`/`pack_date`** of `bcm-pack` are read directly from the
+  top-level **`knowledge_base`** block embedded in every `bcm-pack pack` payload
+  (CLI v1.0.0+: `package_version`, `ref`, `commit`, `commit_short`,
+  `committed_at`, `dirty`). No `--json-meta` flag is needed. If
+  `knowledge_base.dirty` is `true`, emit a `⚠ dirty knowledge base` warning in
+  the harness report — the spec would not be reproducible from a tagged ref.
 - **`process.version`** is read from `process/{cap}/commands.yaml#meta.version`
   (canonical; `aggregates.yaml`/`bus.yaml` carry the same value by convention).
 
@@ -307,7 +313,7 @@ Source files (read-only):
 - `process/{cap}/schemas/CMD.*.schema.json` — embedded under `components.schemas`
 - `bcm-pack` `carried_objects` — drives the resource (response) schema
   for query endpoints; the OpenAPI response schema for `GET /cases/{case_id}/score`
-  must structurally match `RES.BSP.001.CURRENT_SCORE` (BCM-defined fields)
+  must structurally match `BNK.RLVR.RES.BSP.001.CURRENT_SCORE` (BCM-defined fields)
 - `bcm-pack` `capability_definition` — `info.description` body (paragraph
   pulled from the FUNC ADR rationale) and `info.x-policy-summary`
 
@@ -346,20 +352,20 @@ paths:
       x-lineage:
         kind: command
         process:
-          source: process/CAP.BSP.001.SCO/commands.yaml
+          source: process/BNK.RLVR.CAP.BSP.001.SCO/commands.yaml
           fragment: "$[?(@.id=='CMD.BSP.001.SCO.RECOMPUTE_SCORE')]"
           command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
           accepted_by_aggregate: AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY
           invariants_enforced: [INV.SCO.001, INV.SCO.002, INV.SCO.003]
           emits_resource_events:
-            - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-            - RVT.BSP.001.SCORE_THRESHOLD_REACHED
-          paired_business_event: EVT.BSP.001.SCORE_RECOMPUTED
+            - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+            - BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+          paired_business_event: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
         bcm:
-          business_object: OBJ.BSP.001.EVALUATION
+          business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
           paired_business_events:
-            - EVT.BSP.001.SCORE_RECOMPUTED
-            - EVT.BSP.001.SCORE_THRESHOLD_REACHED
+            - BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
+            - BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED
           func_adrs: [ADR-BCM-FUNC-0005]
       requestBody:
         required: true
@@ -388,15 +394,15 @@ paths:
       x-lineage:
         kind: query
         process:
-          source: process/CAP.BSP.001.SCO/read-models.yaml
+          source: process/BNK.RLVR.CAP.BSP.001.SCO/read-models.yaml
           query: QRY.BSP.001.SCO.GET_CURRENT_SCORE
           served_by: PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW
           fed_by:
-            - RVT.BSP.001.ENTRY_SCORE_COMPUTED
-            - RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+            - BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+            - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
         bcm:
-          resource: RES.BSP.001.CURRENT_SCORE
-          business_object: OBJ.BSP.001.EVALUATION
+          resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
+          business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
       parameters:
         - { name: case_id, in: path, required: true, schema: { type: string } }
         - { in: header, name: If-None-Match, schema: { type: string }, required: false }
@@ -407,7 +413,7 @@ paths:
             Cache-Control: { schema: { type: string }, example: "max-age=5" }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/RES.BSP.001.CURRENT_SCORE" }
+              schema: { $ref: "#/components/schemas/BNK.RLVR.RES.BSP.001.CURRENT_SCORE" }
         "304": { description: Not Modified }
         "404": { description: No evaluation for case_id }
 
@@ -417,19 +423,19 @@ components:
     # keyed by its identifier. The $id of the source schema is preserved so external
     # consumers can resolve it.
     CMD.BSP.001.SCO.RECOMPUTE_SCORE:
-      $ref: "process/CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json"
+      $ref: "process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json"
       x-lineage:
         kind: command-payload
         command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
-        process_source: process/CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json
+        process_source: process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json
 
     # Resource projection schemas — derived from bcm-pack carried_objects + the read-model fields.
-    RES.BSP.001.CURRENT_SCORE:
+    BNK.RLVR.RES.BSP.001.CURRENT_SCORE:
       type: object
       x-lineage:
         kind: resource
-        resource: RES.BSP.001.CURRENT_SCORE
-        business_object: OBJ.BSP.001.EVALUATION
+        resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
+        business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
         bcm_source: bcm-pack:carried_objects
         process_projection: PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW
       properties:
@@ -463,7 +469,7 @@ where the harness inlines the schemas. Mark that file
 Source files (read-only):
 - `process/{cap}/bus.yaml` — drives `servers`, `channels`, `operations`,
   `subscribe` / `publish` topology
-- `process/{cap}/schemas/RVT.*.schema.json` — drives `components.messages.payload`
+- `process/{cap}/schemas/BNK.RLVR.RVT.*.schema.json` — drives `components.messages.payload`
 - `bcm-pack` `emitted_resource_events` — sanity check on publish side
 - `bcm-pack` `consumed_resource_events` — sanity check on subscribe side
 - `bcm-pack` `business_subscription` chain — for downstream consumer hints
@@ -492,7 +498,7 @@ servers:
 
 channels:
   # ── Publish side — owned exchange (Rule 5 of ADR-TECH-STRAT-001) ──
-  bsp.001.sco-events/EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
+  bsp.001.sco-events/BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
     description: Threshold-agnostic recomputation outcome on the owned exchange.
     bindings:
       amqp:
@@ -507,23 +513,23 @@ channels:
       x-lineage:
         kind: emitted-resource-event
         process:
-          source: process/CAP.BSP.001.SCO/bus.yaml
-          routing_key: EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          source: process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml
+          routing_key: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
           payload_form: domain-event-ddd
           owned_by: AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY
           issued_after: CMD.BSP.001.SCO.RECOMPUTE_SCORE
         bcm:
-          resource_event: RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-          resource: RES.BSP.001.CURRENT_SCORE
-          business_event: EVT.BSP.001.SCORE_RECOMPUTED
-          business_object: OBJ.BSP.001.EVALUATION
+          resource_event: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
+          business_event: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
+          business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
           tech_strat_rule: "ADR-TECH-STRAT-001 Rules 2 + 4"
         x-known-consumers:
-          - capability: CAP.BSP.001.ARB
-            binding: EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-          - capability: CAP.CHN.001.DSH
-            binding: EVT.BSP.001.SCORE_RECOMPUTED.#
-      message: { $ref: "#/components/messages/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" }
+          - capability: BNK.RLVR.CAP.BSP.001.ARB
+            binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          - capability: BNK.RLVR.CAP.CHN.001.DSH
+            binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.#
+      message: { $ref: "#/components/messages/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" }
 
   # ── Subscribe side — bound queues on upstream exchanges ──
   bsp.001.sco.q.transaction-authorized:
@@ -543,29 +549,29 @@ channels:
       x-lineage:
         kind: consumed-resource-event
         process:
-          source: process/CAP.BSP.001.SCO/bus.yaml
-          binding_pattern: EVT.BSP.004.TRANSACTION_AUTHORIZED.RVT.BSP.004.PAYMENT_GRANTED
+          source: process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml
+          binding_pattern: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED.RVT.BSP.004.PAYMENT_GRANTED
           consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
           issues_command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
         bcm:
-          source_capability: CAP.BSP.004.AUT
-          resource_event: RVT.BSP.004.PAYMENT_GRANTED
-          business_event: EVT.BSP.004.TRANSACTION_AUTHORIZED
-          business_subscription: SUB.BUSINESS.BSP.001.001
-          resource_subscription: SUB.RESOURCE.BSP.001.001
-      message: { $ref: "#/components/messages/RVT.BSP.004.PAYMENT_GRANTED" }
+          source_capability: BNK.RLVR.CAP.BSP.004.AUT
+          resource_event: BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
+          business_event: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED
+          business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.001
+          resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.001
+      message: { $ref: "#/components/messages/BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED" }
 
 components:
   messages:
-    RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
-      name: RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+    BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
+      name: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
       title: Current score recomputed
       contentType: application/json
-      payload: { $ref: "process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json" }
+      payload: { $ref: "process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json" }
       x-lineage:
         kind: resource-event-payload
-        resource_event: RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-        process_source: process/CAP.BSP.001.SCO/schemas/RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json
+        resource_event: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+        process_source: process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json
         bcm_source: bcm-pack:emitted_resource_events
 ```
 
@@ -594,7 +600,7 @@ sources/{capability-name}/backend/
         ├── {Namespace}.{CapabilityName}.Contracts.Harness.csproj
         ├── Program.cs                       # CLI: harness gen | harness validate
         ├── Lineage/LineageBuilder.cs        # builds top-level + per-op x-lineage
-        ├── Lineage/BcmPackClient.cs         # shells out to `bcm-pack pack ... --json`
+        ├── Lineage/BcmPackClient.cs         # shells out to `bcm-pack pack ... --compact`
         ├── Generators/OpenApiGenerator.cs   # process/api.yaml + commands.yaml + schemas → openapi.yaml
         ├── Generators/AsyncApiGenerator.cs  # process/bus.yaml + schemas → asyncapi.yaml
         ├── Validation/ProcessClosure.cs     # every CMD/RVT in process/ is in the spec
@@ -639,7 +645,7 @@ sources/{capability-name}/backend/
         ├── lineage/
         │   ├── __init__.py
         │   ├── builder.py                  # builds top-level + per-op x-lineage
-        │   └── bcm_client.py               # subprocess wrapper around `bcm-pack pack … --json`
+        │   └── bcm_client.py               # subprocess wrapper around `bcm-pack pack … --compact`
         ├── generators/
         │   ├── __init__.py
         │   ├── openapi.py                  # process/api.yaml + commands.yaml + schemas → openapi.yaml
@@ -857,7 +863,7 @@ verdict is written to `contracts/specs/harness-report.md`.
 - Every `EVT.*` listed in routing keys appears in
   `bcm-pack.emitted_business_events` (publish) or
   `bcm-pack.consumed_business_events` (subscribe).
-- Every `SUB.BUSINESS.*` / `SUB.RESOURCE.*` referenced in bus subscriptions
+- Every `BNK.RLVR.SUB.BUSINESS.*` / `BNK.RLVR.SUB.RESOURCE.*` referenced in bus subscriptions
   appears in the BCM business-subscription / resource-subscription chain.
 
 ### 6.3 Runtime alignment

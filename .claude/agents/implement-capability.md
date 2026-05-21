@@ -188,6 +188,33 @@ Run **once** at the top of step 1:
 bcm-pack pack {capability_id} --compact > /tmp/pack-impl.json
 ```
 
+`{capability_id}` is the **full source-context-prefixed ID** (e.g.
+`BNK.RLVR.CAP.BSP.001.SCO`); the v1.0.0 CLI rejects the short `CAP.…` form with
+exit code 2.
+
+> **Asset-ID namespacing (CLI v1.0.0+).** Every ID returned by `bcm-pack` —
+> `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
+> Use them **verbatim** for wire contracts: event class names map to the full ID,
+> RabbitMQ routing keys are the prefixed `<EVT-id>.<RVT-id>` from
+> `process/{cap}/bus.yaml`, and the topic-exchange / queue names derive from the
+> **full lower-dotted capability ID** (e.g. `bnk.rlvr.cap.bsp.001.sco-events`).
+> Tactical IDs you invent locally (`CMD/AGG/POL/PRJ/QRY`) stay unprefixed.
+
+> **Platform substrate (optional, Mode A).** When the TECH-TACT / TECH-STRAT
+> slices reference a runtime/deployment **platform** capability (a `BNK.TECH.CAP.…`
+> ID — e.g. the cluster, deployment, or observability substrate), fetch its
+> contract from the platform CLI rather than guessing:
+> ```bash
+> pcm-pack pack {platform_capability_id} --compact > /tmp/pack-platform.json
+> ```
+> `pcm-pack` reads the `banking-platform` repo (prefix `BNK.TECH.`). Use it to
+> honour platform-mandated deployment topology, health/observability endpoints,
+> and platform event contracts the service must emit/consume. Skip it when no
+> `BNK.TECH.` dependency is referenced. (Install caveat: `bcm-pack` and
+> `pcm-pack` share a `tools.pack` package; if both are installed in one
+> environment, invoke `pcm-pack` with `--repo-root <banking-platform>` or set
+> `BANKING_PLATFORM_ROOT` to disambiguate.)
+
 Lightweight mode is sufficient for Mode A (you do not need the rationale ADRs behind the
 vision narratives — the FUNC + tactical + URBA + tech-strategic ADRs that you actually
 need are already structured slices). Selective slice usage:
@@ -390,7 +417,7 @@ The stub has **two halves** driven by `process/{cap}/`:
 
 | Half | Driven by | Output |
 |---|---|---|
-| Event publisher | `process/{cap}/bus.yaml` + `process/{cap}/schemas/RVT.*.schema.json` | `BackgroundService` that publishes simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
+| Event publisher | `process/{cap}/bus.yaml` + `process/{cap}/schemas/*.schema.json` (resource-event files are `BNK.RLVR.RVT.*.schema.json`) | `BackgroundService` that publishes simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
 | Query API | `process/{cap}/api.yaml` + `process/{cap}/schemas/*.schema.json` (response schemas) + canned fixtures | ASP.NET Core Minimal-API serving each operation with deterministic canned responses |
 
 Both halves run in the **same .NET host** (one process, one solution).
@@ -462,8 +489,11 @@ Read `process/{capability-id}/bus.yaml` and enumerate every emitted
 `RVT.*` entry. For each, read the paired schema:
 
 ```
-process/{capability-id}/schemas/RVT.{capability-id}.{event}.schema.json
+process/{capability-id}/schemas/BNK.RLVR.RVT.{zone}.{nnn}.{event}.schema.json
 ```
+
+(resource-event schema file names carry the full source-context-prefixed asset
+ID; glob `schemas/*.schema.json` and read each `$id` rather than guessing the name.)
 
 Required for the publisher:
 - the `$id` URL (used as the message envelope's `$schemaRef`)

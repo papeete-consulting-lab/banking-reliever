@@ -28,15 +28,15 @@ description: |
   >  in parallel via create-bff."
 
   <example>
-  Context: /code is processing TASK-003 of CAP.CAN.001.TAB (CHANNEL zone)
+  Context: /code is processing TASK-003 of BNK.RLVR.CAP.CAN.001.TAB (CHANNEL zone)
   and needs to generate the web view in parallel with the BFF scaffolding.
-  assistant: "Spawning code-web-frontend agent for CAP.CAN.001.TAB."
+  assistant: "Spawning code-web-frontend agent for BNK.RLVR.CAP.CAN.001.TAB."
   <commentary>
   The agent reads the TASK, the plan, the FUNC ADR, the product vision,
   detects the BFF/microservice contract from sources/, decides on
   views/sections/stubs, applies the dignity rule (progression before
   restrictions), and emits a runnable vanilla web frontend under
-  sources/CAP.CAN.001.TAB/frontend/.
+  sources/BNK.RLVR.CAP.CAN.001.TAB/frontend/.
   </commentary>
   </example>
 
@@ -74,7 +74,7 @@ through which beneficiaries interact with the IS.
 
 You scaffold production-ready web views that can be opened directly in a
 browser or served by any static HTTP server. The reference graphical
-pattern is the **`frontend-baseline/CAP.CAN.001.TAB/`** folder (when
+pattern is the **`frontend-baseline/BNK.RLVR.CAP.CAN.001.TAB/`** folder (when
 present in the repo) — its file structure, CSS conventions, and JS
 pattern are canonical. When in doubt about a detail (naming, DOM
 pattern, style), consult that folder.

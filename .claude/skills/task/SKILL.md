@@ -115,6 +115,19 @@ re-run `/task`.
    bcm-pack pack <CAPABILITY_ID> --compact > /tmp/pack-task.json
    ```
 
+   `<CAPABILITY_ID>` is the **full source-context-prefixed ID** (e.g.
+   `BNK.RLVR.CAP.BSP.001.SCO`); the v1.0.0 CLI rejects the short `CAP.…` form
+   with exit code 2.
+
+   **Carry the knowledge-base ref into every TASK.** Read
+   `process/<CAPABILITY_ID>/.bcm-provenance.json` (written by `/process`) and copy
+   its `knowledge_base.ref` into each TASK's `bcm_ref` frontmatter field. This
+   pins every task to the exact knowledge version it was derived from, so
+   `/implementation-pipeline` and `/fix` can later `bcm-pack diff <bcm_ref>
+   --capability <CAP_ID>` to detect upstream drift. If the file is absent (older
+   process model), set `bcm_ref:` to the current `bcm-pack version --compact`
+   `ref` and note it as an assumption.
+
    Lightweight mode is enough for task generation — you do not need the rationale ADRs 
    behind the vision narratives. Read these slices selectively:
 
@@ -217,13 +230,14 @@ A good task:
 ```markdown
 ---
 task_id: TASK-[NNN]
-capability_id: CAP.[ZONE].[NNN].[SUB]
+capability_id: BNK.RLVR.CAP.[ZONE].[NNN].[CODE]   # full source-context-prefixed ID
 capability_name: [Name]
 epic: [Epic N — Epic Name]
 status: todo
 priority: high | medium | low
 depends_on: [TASK-NNN, TASK-NNN]  # empty list if none
 task_type: full-microservice      # OR: contract-stub (TASK-001 only — see hard rule above)
+bcm_ref: [v1.0.0]                 # knowledge-base ref the model was built from — see below
 ---
 
 # TASK-[NNN] — [Short descriptive title]
@@ -263,7 +277,7 @@ capability must be able to do when this task is done]
 
 ## Dependencies
 - [TASK-NNN]: [Why this must be done first]
-- [CAP.ZONE.NNN]: [External capability dependency]
+- [BNK.RLVR.CAP.ZONE.NNN]: [External capability dependency]
 
 ## Open Questions
 - [ ] [Any unresolved question that must be answered before starting]
@@ -282,19 +296,20 @@ shape the DoD accordingly.
 ```markdown
 ---
 task_id: TASK-001
-capability_id: CAP.[ZONE].[NNN].[SUB]
+capability_id: BNK.RLVR.CAP.[ZONE].[NNN].[CODE]   # full source-context-prefixed ID
 capability_name: [Name]
 epic: Epic 0 — Contract and Development Stub
 status: todo
 priority: high
 depends_on: []
 task_type: contract-stub
+bcm_ref: [v1.0.0]                 # from process/<CAP_ID>/.bcm-provenance.json
 ---
 
 # TASK-001 — Contract and development stub for [Capability Name]
 
 ## Context
-`CAP.[ZONE].[NNN].[SUB]` exposes [N] resource events on the operational
+`BNK.RLVR.CAP.[ZONE].[NNN].[CODE]` exposes [N] resource events on the operational
 bus and [M] HTTP operations on its query surface. Per `ADR-BCM-URBA-0009`
 this capability owns the contract of both. As long as the real
 implementation is not in place, this stub publishes the contracted events
@@ -308,7 +323,7 @@ routing key `{BusinessEventName}.{ResourceEventName}`, payload form
 follows `ADR-TECH-STRAT-003`.
 
 ## Capability Reference
-- Capability: [Name] (CAP.[ZONE].[NNN].[SUB])
+- Capability: [Name] (BNK.RLVR.CAP.[ZONE].[NNN].[CODE])
 - Zone: [TOGAF zone]
 - Governing FUNC ADR(s): [ADR-BCM-FUNC-NNNN]
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (bus), ADR-TECH-STRAT-003 (API), ADR-TECH-STRAT-004 (referential / PII when applicable)
