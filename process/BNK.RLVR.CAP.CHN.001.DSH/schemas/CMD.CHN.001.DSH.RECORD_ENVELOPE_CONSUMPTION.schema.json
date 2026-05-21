@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.example.com/process/CAP.CHN.001.DSH/CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION/0.1.0/schema.json",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.CHN.001.DSH/CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION/0.1.0/schema.json",
   "x-process-version": "0.2.0",
   "x-process-role": "command-payload",
-  "x-process-capability": "CAP.CHN.001.DSH",
+  "x-process-capability": "BNK.RLVR.CAP.CHN.001.DSH",
   "x-process-command": "CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION",
   "x-process-aggregate": "AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD",
   "x-process-correlation-key": "case_id",
   "x-process-idempotency-key": "trigger.event_id",
   "title": "CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION — Record an envelope consumption on the dashboard",
-  "description": "Payload of the RECORD_ENVELOPE_CONSUMPTION command. Issued by POL.CHN.001.DSH.ON_ENVELOPE_CONSUMPTION_RECORDED in response to RVT.BSP.004.CONSUMPTION_RECORDED. Handled by AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD. Internal command — no HTTP surface, no autonomous bus event. Updates the matching open_envelopes entry with the post-consumption snapshot AND inserts a new entry in recent_transactions, applying the bounded-retention policy (50 entries / 30 days, INV.DSH.005). Idempotent on trigger.event_id over a 30-day window.",
+  "description": "Payload of the RECORD_ENVELOPE_CONSUMPTION command. Issued by POL.CHN.001.DSH.ON_ENVELOPE_CONSUMPTION_RECORDED in response to BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED. Handled by AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD. Internal command — no HTTP surface, no autonomous bus event. Updates the matching open_envelopes entry with the post-consumption snapshot AND inserts a new entry in recent_transactions, applying the bounded-retention policy (50 entries / 30 days, INV.DSH.005). Idempotent on trigger.event_id over a 30-day window.",
   "type": "object",
   "additionalProperties": false,
   "required": ["case_id", "trigger"],
@@ -32,7 +32,7 @@
         "event_id": {
           "type": "string",
           "minLength": 1,
-          "description": "IDEMPOTENCY KEY. Identifier of the upstream RVT.BSP.004.CONSUMPTION_RECORDED."
+          "description": "IDEMPOTENCY KEY. Identifier of the upstream BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED."
         },
         "envelope_id": {
           "type": "string",
@@ -77,7 +77,7 @@
         "recorded_at": {
           "type": "string",
           "format": "date-time",
-          "description": "Upstream timestamp at which CAP.BSP.004.ENV recorded the consumption. Used for ordering in the recent_transactions feed."
+          "description": "Upstream timestamp at which BNK.RLVR.CAP.BSP.004.ENV recorded the consumption. Used for ordering in the recent_transactions feed."
         }
       }
     }

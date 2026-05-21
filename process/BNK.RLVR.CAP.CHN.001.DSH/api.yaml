@@ -1,9 +1,9 @@
 meta:
-  capability: CAP.CHN.001.DSH
+  capability: BNK.RLVR.CAP.CHN.001.DSH
   layer: process-modelling
   version: 0.2.0
   derivation: >-
-    This file is the synthesised HTTP/RPC surface of CAP.CHN.001.DSH. It is
+    This file is the synthesised HTTP/RPC surface of BNK.RLVR.CAP.CHN.001.DSH. It is
     DERIVED from commands.yaml + read-models.yaml — the api_binding fields
     declared there. Keep in sync; the create-bff agent consumes this view.
     The dashboard BFF is the public face of the capability for the mobile
@@ -13,7 +13,7 @@ meta:
 
 api:
   base_path: /capabilities/chn/001/dsh
-  authentication: bearer-token (sourced from CAP.SUP.001 — out of scope here)
+  authentication: bearer-token (sourced from BNK.RLVR.CAP.SUP.001 — out of scope here)
   authorization_note: >-
     Per ADR-TECH-STRAT-003 bi-layer security, the BFF enforces the channel-
     side check (the bearer token's beneficiary subject MUST match the
@@ -28,7 +28,7 @@ api:
       issues: CMD.CHN.001.DSH.RECORD_DASHBOARD_VIEW
       request_schema: schemas/CMD.CHN.001.DSH.RECORD_DASHBOARD_VIEW.schema.json
       responses:
-        201: { description: "View recorded; RVT.CHN.001.DASHBOARD_VIEWED emitted on the bus" }
+        201: { description: "View recorded; BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED emitted on the bus" }
         200: { description: "VIEW_DEBOUNCED — idempotent no-op (within the 30s debounce window)" }
         400: { description: "Missing or invalid client_request_id / case_id" }
 

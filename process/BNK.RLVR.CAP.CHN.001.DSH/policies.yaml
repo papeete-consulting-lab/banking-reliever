@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.CHN.001.DSH
+  capability: BNK.RLVR.CAP.CHN.001.DSH
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -20,14 +20,14 @@ policies:
   - id: POL.CHN.001.DSH.ON_SCORE_RECOMPUTED
     name: Synchronise dashboard on every score recomputation
     intent: >-
-      Whenever CAP.BSP.001.SCO emits RVT.CURRENT_SCORE_RECOMPUTED for a case,
+      Whenever BNK.RLVR.CAP.BSP.001.SCO emits BNK.RLVR.RVT.CURRENT_SCORE_RECOMPUTED for a case,
       the dashboard BFF translates it into a SYNCHRONIZE_SCORE command so
       the gamified progress bar reflects the new value within one polling
       cycle on the mobile frontend.
     listens_to:
-      - resource_event: RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-        business_subscription: SUB.BUSINESS.CHN.001.001
-        resource_subscription: SUB.RESOURCE.CHN.001.001
+      - resource_event: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.CHN.001.001
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.CHN.001.001
         trigger_kind: SCORE_RECOMPUTED
     issues: CMD.CHN.001.DSH.SYNCHRONIZE_SCORE
     mapping_rule: >-
@@ -52,14 +52,14 @@ policies:
   - id: POL.CHN.001.DSH.ON_TIER_UPGRADE_RECORDED
     name: Synchronise dashboard on every tier upgrade
     intent: >-
-      Whenever CAP.BSP.001.TIE emits RVT.TIER_UPGRADE_RECORDED for a case,
+      Whenever BNK.RLVR.CAP.BSP.001.TIE emits BNK.RLVR.RVT.TIER_UPGRADE_RECORDED for a case,
       the BFF translates it into a SYNCHRONIZE_TIER command. The frontend
       detects the change between two consecutive GET /dashboard polls and
       plays the rewarding tier-upgrade animation client-side.
     listens_to:
-      - resource_event: RVT.BSP.001.TIER_UPGRADE_RECORDED
-        business_subscription: SUB.BUSINESS.CHN.001.002
-        resource_subscription: SUB.RESOURCE.CHN.001.002
+      - resource_event: BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.CHN.001.002
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.CHN.001.002
         trigger_kind: TIER_UPGRADED
     issues: CMD.CHN.001.DSH.SYNCHRONIZE_TIER
     mapping_rule: >-
@@ -79,7 +79,7 @@ policies:
     delivery: at-least-once
     open_question: >-
       FUNC-0009 declares only an UPGRADE subscription. Tier downgrades
-      (RVT.BSP.001.TIER_DOWNGRADE_RECORDED, emitted by AGG.TIER_OF_CASE)
+      (BNK.RLVR.RVT.BSP.001.TIER_DOWNGRADE_RECORDED, emitted by AGG.TIER_OF_CASE)
       are NOT subscribed-to and therefore never reach the dashboard.
       The progress bar may visually drift from reality after a downgrade.
       Decision: leave as-is (FUNC-0009 is explicit about the gamification
@@ -89,14 +89,14 @@ policies:
   - id: POL.CHN.001.DSH.ON_ENVELOPE_CONSUMPTION_RECORDED
     name: Record envelope consumption on the dashboard
     intent: >-
-      Whenever CAP.BSP.004.ENV emits RVT.CONSUMPTION_RECORDED for a case,
+      Whenever BNK.RLVR.CAP.BSP.004.ENV emits BNK.RLVR.RVT.CONSUMPTION_RECORDED for a case,
       the BFF translates it into a RECORD_ENVELOPE_CONSUMPTION command so
       the available balance, the envelope status, and the recent-
       transactions feed are kept fresh between two polling cycles.
     listens_to:
-      - resource_event: RVT.BSP.004.CONSUMPTION_RECORDED
-        business_subscription: SUB.BUSINESS.CHN.001.003
-        resource_subscription: SUB.RESOURCE.CHN.001.003
+      - resource_event: BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED
+        business_subscription: BNK.RLVR.SUB.BUSINESS.CHN.001.003
+        resource_subscription: BNK.RLVR.SUB.RESOURCE.CHN.001.003
         trigger_kind: ENVELOPE_CONSUMED
     issues: CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION
     mapping_rule: >-
@@ -119,8 +119,8 @@ policies:
         rationale: Idempotent replay.
     delivery: at-least-once
     open_question: >-
-      The exact field set carried by RVT.BSP.004.CONSUMPTION_RECORDED is
-      defined upstream by CAP.BSP.004.ENV. Several fields above (envelope
+      The exact field set carried by BNK.RLVR.RVT.BSP.004.CONSUMPTION_RECORDED is
+      defined upstream by BNK.RLVR.CAP.BSP.004.ENV. Several fields above (envelope
       snapshot, merchant_label) are inferred from the dashboard's
       requirements; alignment with the BSP.004 contract MUST be verified
-      when CAP.BSP.004.ENV's process model lands. Track in README.
+      when BNK.RLVR.CAP.BSP.004.ENV's process model lands. Track in README.

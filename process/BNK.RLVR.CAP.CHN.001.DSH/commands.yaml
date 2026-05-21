@@ -1,5 +1,5 @@
 meta:
-  capability: CAP.CHN.001.DSH
+  capability: BNK.RLVR.CAP.CHN.001.DSH
   layer: process-modelling
   version: 0.2.0
   governing_adrs:
@@ -23,7 +23,7 @@ commands:
     intent: >-
       The mobile frontend signals that the beneficiary has explicitly opened
       or refreshed the dashboard tab. The BFF debounces these calls (30s per
-      case_id) and emits RVT.CHN.001.DASHBOARD_VIEWED when the call falls
+      case_id) and emits BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED when the call falls
       outside the debounce window — this is the single domain event of the
       capability and feeds engagement analytics downstream.
     accepted_by: AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD
@@ -39,9 +39,9 @@ commands:
       - INV.DSH.001  # PII exclusion in emitted RVT payload
       - INV.DSH.004  # 30-second debounce
     emits:
-      - RVT.CHN.001.DASHBOARD_VIEWED
+      - BNK.RLVR.RVT.CHN.001.DASHBOARD_VIEWED
       # business-event family pivot (no autonomous bus message — Rule 2 of ADR-TECH-STRAT-001):
-      # EVT.CHN.001.DASHBOARD_VIEWED
+      # BNK.RLVR.EVT.CHN.001.DASHBOARD_VIEWED
     errors:
       - code: VIEW_DEBOUNCED
         when: >-
@@ -62,7 +62,7 @@ commands:
   - id: CMD.CHN.001.DSH.SYNCHRONIZE_SCORE
     name: Synchronise the dashboard score snapshot
     intent: >-
-      Apply the latest behavioural score recomputation from CAP.BSP.001.SCO
+      Apply the latest behavioural score recomputation from BNK.RLVR.CAP.BSP.001.SCO
       to the beneficiary dashboard. Updates current_score and
       score_recomputed_at on the aggregate. Internal — never exposed via
       HTTP, never emits a domain event (the dashboard is a read-side view,
@@ -95,7 +95,7 @@ commands:
   - id: CMD.CHN.001.DSH.SYNCHRONIZE_TIER
     name: Synchronise the dashboard tier snapshot
     intent: >-
-      Apply the latest tier upgrade from CAP.BSP.001.TIE to the beneficiary
+      Apply the latest tier upgrade from BNK.RLVR.CAP.BSP.001.TIE to the beneficiary
       dashboard. Updates current_tier_code and tier_upgraded_at on the
       aggregate. Internal — never exposed via HTTP, never emits a domain
       event. The mobile UI uses this to trigger the rewarding tier-upgrade
@@ -129,7 +129,7 @@ commands:
   - id: CMD.CHN.001.DSH.RECORD_ENVELOPE_CONSUMPTION
     name: Record an envelope consumption on the dashboard
     intent: >-
-      Apply an envelope consumption event from CAP.BSP.004.ENV to the
+      Apply an envelope consumption event from BNK.RLVR.CAP.BSP.004.ENV to the
       beneficiary dashboard. Updates the matching open_envelopes entry
       (available_amount, consumed_amount, last_updated_at) and inserts a
       new entry at the head of recent_transactions, applying the bounded-

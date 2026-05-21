@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reliever.example.com/process/CAP.CHN.001.DSH/CMD.CHN.001.DSH.SYNCHRONIZE_TIER/0.1.0/schema.json",
+  "$id": "https://reliever.example.com/process/BNK.RLVR.CAP.CHN.001.DSH/CMD.CHN.001.DSH.SYNCHRONIZE_TIER/0.1.0/schema.json",
   "x-process-version": "0.2.0",
   "x-process-role": "command-payload",
-  "x-process-capability": "CAP.CHN.001.DSH",
+  "x-process-capability": "BNK.RLVR.CAP.CHN.001.DSH",
   "x-process-command": "CMD.CHN.001.DSH.SYNCHRONIZE_TIER",
   "x-process-aggregate": "AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD",
   "x-process-correlation-key": "case_id",
   "x-process-idempotency-key": "trigger.event_id",
   "title": "CMD.CHN.001.DSH.SYNCHRONIZE_TIER — Apply a tier upgrade to the dashboard",
-  "description": "Payload of the SYNCHRONIZE_TIER command. Issued by POL.CHN.001.DSH.ON_TIER_UPGRADE_RECORDED in response to RVT.BSP.001.TIER_UPGRADE_RECORDED. Handled by AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD. Internal command — no HTTP surface, no autonomous bus event. Idempotent on trigger.event_id (30 days). Stale events are acked-and-dropped (INV.DSH.003). NOTE: only tier UPGRADES are subscribed-to in FUNC-0009; downgrades are NOT propagated to the dashboard — see open question in README.",
+  "description": "Payload of the SYNCHRONIZE_TIER command. Issued by POL.CHN.001.DSH.ON_TIER_UPGRADE_RECORDED in response to BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED. Handled by AGG.CHN.001.DSH.BENEFICIARY_DASHBOARD. Internal command — no HTTP surface, no autonomous bus event. Idempotent on trigger.event_id (30 days). Stale events are acked-and-dropped (INV.DSH.003). NOTE: only tier UPGRADES are subscribed-to in FUNC-0009; downgrades are NOT propagated to the dashboard — see open question in README.",
   "type": "object",
   "additionalProperties": false,
   "required": ["case_id", "trigger"],
@@ -27,7 +27,7 @@
         "event_id": {
           "type": "string",
           "minLength": 1,
-          "description": "IDEMPOTENCY KEY. Identifier of the upstream RVT.BSP.001.TIER_UPGRADE_RECORDED that triggered this command."
+          "description": "IDEMPOTENCY KEY. Identifier of the upstream BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED that triggered this command."
         },
         "previous_tier_code": {
           "type": "string",
@@ -36,7 +36,7 @@
         "current_tier_code": {
           "type": "string",
           "minLength": 1,
-          "description": "Tier code after the upgrade. The canonical definition of valid tier codes is held by CAP.REF.001.TIE; the dashboard accepts any non-empty string and renders the localised label client-side."
+          "description": "Tier code after the upgrade. The canonical definition of valid tier codes is held by BNK.RLVR.CAP.REF.001.TIE; the dashboard accepts any non-empty string and renders the localised label client-side."
         },
         "upgraded_at": {
           "type": "string",
