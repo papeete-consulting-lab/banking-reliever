@@ -127,7 +127,26 @@ jobs:
         id: discover
         shell: bash
         run: |
-          mapfile -t SOLUTIONS < <(find sources -type f \( -name "*.sln" -o -name "*.slnx" \) 2>/dev/null | sort)
+          # A solution is skipped when any ancestor directory (up to sources/)
+          # carries a `.ci-skip-build` marker. Used to quarantine artifacts that
+          # are mid-migration / pending regeneration (their content is knowingly
+          # inconsistent with upstream contracts). The marker file documents why.
+          mapfile -t ALL < <(find sources -type f \( -name "*.sln" -o -name "*.slnx" \) 2>/dev/null | sort)
+          SOLUTIONS=()
+          for SLN in "${ALL[@]:-}"; do
+            [ -z "$SLN" ] && continue
+            d=$(dirname "$SLN"); skip=""
+            while [ "$d" != "." ] && [ "$d" != "/" ]; do
+              if [ -f "$d/.ci-skip-build" ]; then skip="$d/.ci-skip-build"; break; fi
+              [ "$d" = "sources" ] && break
+              d=$(dirname "$d")
+            done
+            if [ -n "$skip" ]; then
+              echo "⏭  Quarantined (skip via $skip): $SLN"
+            else
+              SOLUTIONS+=("$SLN")
+            fi
+          done
           if [ ${#SOLUTIONS[@]} -eq 0 ]; then
             echo "No .NET solutions found under sources/. Nothing to build or test."
             echo "found=false" >> "$GITHUB_OUTPUT"
