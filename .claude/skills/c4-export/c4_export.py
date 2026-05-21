@@ -24,9 +24,15 @@ Outputs:
 
 All cross-capability flows are drawn from BUSINESS event subscriptions
 only — `consumed_business_events` / `emitted_business_events` slices and
-`paired_business_event:` entries of `process/<CAP>/bus.yaml`. The
-resource-event layer (RVT.*) is intentionally hidden as it is an
+`paired_business_event:` entries of the capability's bus model (logical
+artifact `process/<CAP>/bus.yaml`, now consumed via `bcm-pack process`).
+The resource-event layer (RVT.*) is intentionally hidden as it is an
 implementation detail of the bus rail.
+
+The DDD process model (aggregates, read-models, policies, bus topology) is
+authored by the `/process` skill in the **banking-knowledge** repo and
+consumed here **read-only** via `bcm-pack process <CAP_ID>` — exactly like
+the BCM corpus via `bcm-pack pack`. It does not live in this repo.
 
 Run from the repo root:
 
@@ -50,7 +56,6 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DOCS_C4 = REPO_ROOT / "docs" / "c4"
 SOURCES_DIR = REPO_ROOT / "sources"
-PROCESS_DIR = REPO_ROOT / "process"
 
 BANKING_KNOWLEDGE_BLOB = (
     "https://github.com/Banking-Reliever/banking-knowledge/blob/main"
@@ -116,6 +121,63 @@ def pack_capability(cap_id: str) -> dict:
     return json.loads(raw)
 
 
+# Cache of fetched process-model envelopes so we hit the CLI once per cap.
+_PROCESS_CACHE: dict[str, dict | None] = {}
+
+
+def fetch_process_model(cap_id: str) -> dict | None:
+    """Fetch one capability's DDD process model via `bcm-pack process
+    <cap_id> --compact` and return the parsed JSON envelope.
+
+    The process model lives in the banking-knowledge repo and is served
+    read-only by the CLI — exactly like the BCM corpus via `bcm-pack pack`.
+    Returns None (treated everywhere as "no process model") when:
+      - bcm-pack is not installed / not on PATH,
+      - the CLI exits non-zero (e.g. exit 3 = no model for this id),
+      - the payload is not valid JSON.
+    """
+    if cap_id in _PROCESS_CACHE:
+        return _PROCESS_CACHE[cap_id]
+    try:
+        proc = subprocess.run(
+            ["bcm-pack", "process", cap_id, "--compact"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        print("!! bcm-pack not found on PATH — treating as no process model",
+              file=sys.stderr)
+        _PROCESS_CACHE[cap_id] = None
+        return None
+    if proc.returncode != 0:
+        _PROCESS_CACHE[cap_id] = None
+        return None
+    lines = proc.stdout.splitlines()
+    payload = "\n".join(line for line in lines if not line.startswith("[bcm-pack]"))
+    try:
+        env = json.loads(payload)
+    except json.JSONDecodeError:
+        print(f"!! bcm-pack process {cap_id} returned non-JSON output",
+              file=sys.stderr)
+        _PROCESS_CACHE[cap_id] = None
+        return None
+    _PROCESS_CACHE[cap_id] = env
+    return env
+
+
+def process_model_text(env: dict | None, stem: str) -> str:
+    """Return the raw YAML text of one process-model file from the envelope.
+
+    `_scan_yaml_ids` text-scans, so we hand it `.model.<stem>.raw`, which is
+    present whether or not `.parsed` is null (commands.yaml / read-models.yaml
+    frequently fail strict YAML on `{path: /x/{id}}` flow mappings)."""
+    if not env:
+        return ""
+    entry = (env.get("model") or {}).get(stem) or {}
+    return entry.get("raw") or ""
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Implementation overlay (filesystem-driven)
 # ─────────────────────────────────────────────────────────────────────
@@ -127,7 +189,7 @@ class ImplStatus:
     has_stub: bool = False       # sources/<CAP>/stub/
     has_frontend: bool = False   # sources/<CAP>/frontend/
     has_bff: bool = False        # sources/<CAP>/bff/
-    has_process: bool = False    # process/<CAP>/
+    has_process: bool = False    # bcm-pack process <CAP> resolves (exit 0)
 
     @property
     def label(self) -> str:
@@ -153,13 +215,14 @@ def detect_impl(cap_id: str, zone: str) -> ImplStatus:
     if (cap_dir / "bff").is_dir():
         s.has_bff = True
 
-    if (PROCESS_DIR / cap_id).is_dir():
-        s.has_process = True
+    # has_process is True iff `bcm-pack process <cap_id>` resolves (exit 0).
+    s.has_process = fetch_process_model(cap_id) is not None
     return s
 
 
 # ─────────────────────────────────────────────────────────────────────
-# DDD components, mined from process/<CAP>/ when present
+# DDD components, mined from the `bcm-pack process` model (logical
+# process/<CAP>/ artifacts) when present
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -179,15 +242,19 @@ class DddComponents:
 _YAML_ID_RE = re.compile(r"^\s*-\s*id:\s*([A-Z][A-Z0-9._-]+)\s*$")
 
 
-def _scan_yaml_ids(path: Path, prefixes: tuple[str, ...]) -> list[str]:
+def _scan_yaml_ids(text: str, prefixes: tuple[str, ...]) -> list[str]:
     """Lightweight YAML scan — collect every `- id: X` entry whose value
     starts with one of `prefixes`. Avoids a pyyaml dependency AND filters
     out nested invariant / open-question IDs (which sit under each
-    aggregate entry but use a different prefix)."""
-    if not path.is_file():
+    aggregate entry but use a different prefix).
+
+    Operates on raw YAML TEXT (the `.model.<stem>.raw` string from the
+    `bcm-pack process` envelope) so it works whether or not `.parsed` is
+    null for that file."""
+    if not text:
         return []
     out = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         m = _YAML_ID_RE.match(line)
         if m and m.group(1).startswith(prefixes):
             out.append(m.group(1))
@@ -195,22 +262,26 @@ def _scan_yaml_ids(path: Path, prefixes: tuple[str, ...]) -> list[str]:
 
 
 def mine_ddd(cap_id: str) -> DddComponents:
-    cap_dir = PROCESS_DIR / cap_id
-    if not cap_dir.is_dir():
+    env = fetch_process_model(cap_id)
+    if env is None:
         return DddComponents()
     out = DddComponents()
-    out.aggregates = _scan_yaml_ids(cap_dir / "aggregates.yaml", ("AGG.",))
-    out.read_models = _scan_yaml_ids(
-        cap_dir / "read-models.yaml", ("PRJ.", "QRY.")
+    out.aggregates = _scan_yaml_ids(
+        process_model_text(env, "aggregates"), ("AGG.",)
     )
-    out.policies = _scan_yaml_ids(cap_dir / "policies.yaml", ("POL.",))
-    bus_path = cap_dir / "bus.yaml"
-    if bus_path.is_file():
+    out.read_models = _scan_yaml_ids(
+        process_model_text(env, "read-models"), ("PRJ.", "QRY.")
+    )
+    out.policies = _scan_yaml_ids(
+        process_model_text(env, "policies"), ("POL.",)
+    )
+    bus_text = process_model_text(env, "bus")
+    if bus_text:
         # One publisher concept per published business event. Pull from
         # `paired_business_event:` (under each routing key) or a top-level
         # `business_event:` form — never from resource events (RVT.*).
         seen: set[str] = set()
-        for line in bus_path.read_text(encoding="utf-8").splitlines():
+        for line in bus_text.splitlines():
             m = re.match(
                 # Business-event IDs carry an optional source-context prefix
                 # (e.g. BNK.RLVR.EVT.…) since the CLI v1.0.0 namespacing.

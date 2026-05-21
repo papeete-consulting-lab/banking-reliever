@@ -32,14 +32,15 @@ WORKDIR /app
 # Copy the installed packages from the builder.
 COPY --from=builder /install /usr/local
 
-# Copy migrations + process-layer schemas. The container must be able to
-# load the canonical JSON Schemas — they are mounted from /process inside
-# the container.
+# The JSON Schemas the service validates against are VENDORED inside the
+# package (src/reliever_beneficiary_anchor/infrastructure/schema_validation/
+# schemas/) and ship in the installed wheel — the settings default resolves
+# them package-locally, so no /process mount or env override is needed.
+# (The process model itself lives upstream in banking-knowledge — `bcm-pack
+# process`.) Override RELIEVER_PROCESS_SCHEMAS_DIR only to point at a
+# different snapshot.
 COPY migrations ./migrations
 
-# The schemas are mounted from the repo at runtime (read-only) so they
-# always reflect the merged process/ contract. Default container path:
-ENV RELIEVER_PROCESS_SCHEMAS_DIR=/process/BNK.RLVR.CAP.SUP.002.BEN/schemas
 ENV RELIEVER_MIGRATIONS_DIR=/app/migrations
 
 EXPOSE 8000

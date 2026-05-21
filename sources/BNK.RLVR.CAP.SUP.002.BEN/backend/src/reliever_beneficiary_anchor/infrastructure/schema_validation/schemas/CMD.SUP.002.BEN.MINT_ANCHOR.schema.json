@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reliever.banking/process/BNK.RLVR.CAP.SUP.002.BEN/schemas/CMD.SUP.002.BEN.MINT_ANCHOR.schema.json",
+  "title": "MintAnchorCommand",
+  "description": "Payload for CMD.SUP.002.BEN.MINT_ANCHOR — request the minting of a new beneficiary identity anchor. The aggregate generates the UUIDv7 internal_id; the caller supplies a UUIDv7 client_request_id for idempotency.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["client_request_id", "last_name", "first_name", "date_of_birth"],
+  "properties": {
+    "client_request_id": { "$ref": "#/$defs/Uuidv7" },
+    "last_name":       { "type": "string", "minLength": 1, "maxLength": 200 },
+    "first_name":      { "type": "string", "minLength": 1, "maxLength": 200 },
+    "date_of_birth":   { "type": "string", "format": "date" },
+    "contact_details": { "$ref": "#/$defs/ContactDetails" }
+  },
+  "$defs": {
+    "Uuidv7": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "UUIDv7 (RFC 9562 §5.7) — version nibble = 7, variant nibble = 8/9/a/b."
+    },
+    "ContactDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "email":         { "type": "string", "format": "email" },
+        "phone":         { "type": "string", "minLength": 3, "maxLength": 32 },
+        "postal_address": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "line1":       { "type": "string", "maxLength": 200 },
+            "line2":       { "type": "string", "maxLength": 200 },
+            "postal_code": { "type": "string", "maxLength": 20 },
+            "city":        { "type": "string", "maxLength": 100 },
+            "country":     { "type": "string", "minLength": 2, "maxLength": 3, "description": "ISO 3166-1 alpha-2 or alpha-3" }
+          }
+        }
+      }
+    }
+  }
+}

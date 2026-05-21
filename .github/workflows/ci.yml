@@ -14,63 +14,12 @@ permissions:
   pull-requests: read
 
 jobs:
-  forbidden-paths:
-    name: Forbidden Paths (PR governance gate)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Reject changes to process/ from non-process branches
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          HEAD_REF="${{ github.event.pull_request.head.ref }}"
-          git fetch --no-tags --depth=1 origin "$BASE_SHA" 2>/dev/null || true
-
-          # process/{capability-id}/ is the DDD tactical model. It is owned
-          # exclusively by the /process skill, which works on a dedicated
-          # branch named `process/<CAP_ID>` and publishes via its own PR.
-          # No other branch (in particular feat/TASK-NNN-* PRs from
-          # /launch-task, /code, /fix) may modify process/.
-          # See CLAUDE.md and README.md for the full invariant.
-          PROTECTED_REGEX='^process/'
-
-          # Allow modifications under process/ only from a dedicated
-          # process/<CAP_ID> branch. <CAP_ID> is the full source-context-prefixed
-          # form (process/BNK.RLVR.CAP.…) since bcm-pack v1.0.0, with a
-          # back-compatible fallback to the legacy short form (process/CAP.…).
-          if [[ "$HEAD_REF" =~ ^process/([A-Z][A-Z0-9]*\.[A-Z][A-Z0-9]*\.)?CAP\..+ ]]; then
-            echo "✓ Head branch '$HEAD_REF' is a /process branch — process/ modifications allowed."
-            exit 0
-          fi
-
-          mapfile -t CHANGED < <(git diff --name-only --diff-filter=ACMRTD "$BASE_SHA"..."$HEAD_SHA")
-          OFFENDERS=()
-          for f in "${CHANGED[@]:-}"; do
-            [ -z "$f" ] && continue
-            if [[ "$f" =~ $PROTECTED_REGEX ]]; then
-              OFFENDERS+=("$f")
-            fi
-          done
-
-          if [ ${#OFFENDERS[@]} -gt 0 ]; then
-            echo "❌ This PR (head branch '$HEAD_REF') modifies files under process/."
-            echo "   process/ is owned exclusively by the /process skill and may only"
-            echo "   be modified through a dedicated 'process/<CAP_ID>' PR."
-            echo
-            echo "Offending files:"
-            printf '  - %s\n' "${OFFENDERS[@]}"
-            echo
-            echo "To change the process model, run /process <CAP_ID> locally — it"
-            echo "will create the right branch and worktree and open the right PR."
-            exit 1
-          fi
-          echo "✓ No process/ modifications on this branch."
+  # NOTE: the former `forbidden-paths` job (which rejected PRs touching
+  # `process/` from non-`process/*` branches) was removed when the DDD
+  # Process Modelling layer migrated to the banking-knowledge repo. There is
+  # no `process/` folder here any more; the process model is consumed
+  # read-only via `bcm-pack process <CAP_ID>`, and its write-protection now
+  # lives in banking-knowledge.
 
   language-check:
     name: Code Language Matches BCM
@@ -82,12 +31,14 @@ jobs:
         with:
           python-version: '3.x'
 
-      # The BCM no longer lives in this repo — it is hosted in the private
-      # `banking-knowledge` repo and consumed via the `bcm-pack` CLI. To
-      # check that code under sources/ uses the same natural language as
-      # the BCM, install bcm-pack from that repo. Requires a token with
-      # read access to Banking-Reliever/banking-knowledge in the
-      # `BANKING_KNOWLEDGE_TOKEN` repo secret.
+      # The BCM and the process model no longer live in this repo — both are
+      # hosted in the private `banking-knowledge` repo and consumed via the
+      # `bcm-pack` CLI. check_language.py discovers capabilities via
+      # `bcm-pack process --list` and fetches prose via `bcm-pack pack`, so
+      # the installed CLI must include the `process` subcommand (post-v1.0.0
+      # — we pin `main`). Requires a token with read access to
+      # Banking-Reliever/banking-knowledge in the `BANKING_KNOWLEDGE_TOKEN`
+      # repo secret.
       #
       # If the secret is not set (or installation fails for any other
       # reason), the install step succeeds silently and the script will
@@ -106,8 +57,9 @@ jobs:
             exit 0
           fi
           pip install --upgrade pip
-          pip install "git+https://${BANKING_KNOWLEDGE_TOKEN}@github.com/Banking-Reliever/banking-knowledge.git@v0.1.0"
+          pip install "git+https://${BANKING_KNOWLEDGE_TOKEN}@github.com/Banking-Reliever/banking-knowledge.git@main"
           bcm-pack --help >/dev/null
+          bcm-pack process --list >/dev/null   # fail fast if the CLI predates the `process` subcommand
 
       - name: Verify natural language consistency (BCM ↔ code)
         run: python3 .github/scripts/check_language.py

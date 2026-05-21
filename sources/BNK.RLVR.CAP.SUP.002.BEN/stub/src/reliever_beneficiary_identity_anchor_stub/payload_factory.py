@@ -137,8 +137,8 @@ def build_event(
 ) -> dict[str, Any]:
     """Construct a single ``BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED`` payload.
 
-    The payload validates against
-    ``process/BNK.RLVR.CAP.SUP.002.BEN/schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json``
+    The payload validates against the vendored snapshot
+    ``schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json``
     including the conditional ``if/then`` branches.
 
     Args:

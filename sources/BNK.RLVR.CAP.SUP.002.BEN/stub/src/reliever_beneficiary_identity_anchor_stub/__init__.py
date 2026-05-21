@@ -6,8 +6,9 @@ Mode B (contract + stub) per implement-capability-python.
 - Query half: serves GET /anchors/{internal_id} and
   GET /anchors/{internal_id}/history from canned fixtures.
 
-Both halves validate every outgoing payload against the JSON Schemas owned by
-/process — see ``process/BNK.RLVR.CAP.SUP.002.BEN/schemas/``.
+Both halves validate every outgoing payload against the package-local
+*vendored* JSON Schema snapshot (``reliever_beneficiary_identity_anchor_stub/
+schemas/``); refresh via ``bcm-pack process BNK.RLVR.CAP.SUP.002.BEN``.
 """
 
 __version__ = "0.1.0"

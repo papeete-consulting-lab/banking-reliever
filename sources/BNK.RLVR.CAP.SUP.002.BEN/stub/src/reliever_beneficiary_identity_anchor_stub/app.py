@@ -65,7 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 1. Load + schema-validate the canned fixtures (fail fast on drift).
     fixture_store = FixtureStore.load(settings.fixtures_dir)
     # Note: api.yaml's BeneficiaryAnchor response shape is not authored as
-    # a standalone JSON Schema in process/ (only the RVT schema is). The
+    # a standalone JSON Schema upstream (only the RVT schema is, and it is
+    # vendored under schemas/). The
     # RVT and BeneficiaryAnchor share their PII fields, so we sanity-check
     # each fixture by trying to convert it to a no-envelope projection of
     # the RVT shape — coverage of the conditional PSEUDONYMISED branch is

@@ -59,62 +59,55 @@ write access to the next agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Hard rule — `process/{capability-id}/` is read-only
+## Process model — consumed read-only via `bcm-pack process`
 
-The `process/{capability-id}/` folder (aggregates, commands, policies, read-models,
-bus topology, JSON Schemas) is the **contract** that the implementation must
-satisfy. This skill, and every agent it spawns (`implement-capability`,
-`create-bff`, `code-web-frontend`), reads from it but **never writes to it**.
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via
+> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> It does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`.
 
-A PreToolUse hook (`process-folder-guard.py`) enforces this in **both** the main
-checkout and any `/tmp/kanban-worktrees/TASK-NNN-*/` worktree spawned by
-`/launch-task`: Write/Edit/MultiEdit/NotebookEdit under `process/**` outside the
-`/process` skill is rejected. As a result, **PR branches opened by `/code` (and
-the CI/CD pipelines that run on them) must not contain any diff under
-`process/{capability-id}/`**. If a remediation iteration suggests changing a
-command shape, an aggregate invariant, or a routing key, stop the loop and tell
-the user to run `/process <CAPABILITY_ID>` to update the model — then re-run
-`/code TASK-NNN`.
+The process model is the **contract** that the implementation must satisfy.
+This skill, and every agent it spawns (`implement-capability`,
+`implement-capability-python`, `create-bff`, `code-web-frontend`), consumes it
+via `bcm-pack process <CAP_ID>` but never reshapes it. If a remediation
+iteration suggests changing a command shape, an aggregate invariant, or a
+routing key, stop the loop and tell the user to run `/process <CAPABILITY_ID>`
+in the banking-knowledge repo to update the model — then re-run `/code TASK-NNN`.
 
 When forwarding context to `implement-capability`, `create-bff`, or
-`code-web-frontend`, instruct each agent to **read** the relevant
-`process/{capability-id}/*.yaml` files (and the `schemas/*.schema.json` files)
-as the source of truth on aggregates, commands, events, and routing keys —
-never to invent or reshape them.
+`code-web-frontend`, instruct each agent to **fetch** the process model via
+`bcm-pack process <CAPABILITY_ID>` (the `.model.<stem>` slices and the
+`.schemas[...]` JSON Schemas) as the source of truth on aggregates, commands,
+events, and routing keys — never to invent or reshape them.
 
 ---
 
-## Readiness gate — process model must be merged on `main`
+## Readiness gate — the process model must resolve via `bcm-pack process`
 
-Before reading the task, before spawning any agent, verify that the
-capability's process model is on `main` and that no `process/<CAP_ID>` PR
-is still open:
+Before reading the task, before spawning any agent, verify the capability's
+process model resolves. A model is ready iff `bcm-pack process <CAP_ID>`
+returns exit 0 (bcm-pack resolves the published `main` of banking-knowledge by
+default):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task>"
 
-# 1. Folder must exist on main.
-git -C "$PROJECT_ROOT" ls-tree --name-only main -- "process/$CAP_ID" \
-    > /tmp/process-main-check.txt
-if [ ! -s /tmp/process-main-check.txt ]; then
-  echo "GATE-FAIL: process/$CAP_ID/ is not on main."
-  echo "Cannot run /code for this task — run /process $CAP_ID and merge the PR first."
-  exit 1
-fi
-
-# 2. No open PR for the process branch.
-OPEN_COUNT=$(gh pr list --head "process/$CAP_ID" --state open --json number --jq 'length' 2>/dev/null || echo 0)
-if [ "$OPEN_COUNT" != "0" ]; then
-  PR_URL=$(gh pr list --head "process/$CAP_ID" --state open --json url --jq '.[0].url')
-  echo "GATE-FAIL: open process PR ($PR_URL) is pending review for $CAP_ID."
-  echo "Cannot run /code until the process PR is merged into main."
+# The process model lives in banking-knowledge now; it is ready iff bcm-pack
+# can resolve it (bcm-pack resolves the published main by default).
+if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "GATE-FAIL: no process model for $CAP_ID."
+  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  cat /tmp/process-model.err
   exit 1
 fi
 ```
 
-If either check fails, **stop and surface the failure** — do not spawn any
-implementation agent. Once the PR is merged, re-run `/code TASK-NNN`.
+If the gate fails, **stop and surface the failure** — do not spawn any
+implementation agent. Once `/process <CAP_ID>` is run in the banking-knowledge
+repo and its PR merged, re-run `/code TASK-NNN`.
 
 ---
 
@@ -158,12 +151,14 @@ implementation agent. Once the PR is merged, re-run `/code TASK-NNN`.
    spawned agent via the prompt — that agent re-fetches them with `--deep` if it needs the
    narratives.
 
-   Local artifacts (always read directly):
-   - the roadmap file at `/roadmap/{capability-id}/roadmap.md`
-   - the Process Modelling layer at `process/{capability-id}/` (read-only) —
-     `aggregates.yaml`, `commands.yaml`, `policies.yaml`, `read-models.yaml`,
-     `bus.yaml`, `api.yaml`, `schemas/*.schema.json`. The implementation agents
-     consume these files; they are forbidden from modifying them.
+   Supporting artifacts:
+   - the roadmap file at `/roadmap/{capability-id}/roadmap.md` (local, read directly)
+   - the Process Modelling layer via `bcm-pack process <CAPABILITY_ID> --compact`
+     (read-only) — the `.model.aggregates`, `.model.commands`, `.model.policies`,
+     `.model["read-models"]`, `.model.bus`, `.model.api` slices (use `.parsed`,
+     fallback `.raw` when null) and the `.schemas[...]` JSON Schemas. The
+     implementation agents consume these via `bcm-pack process`; they do not
+     author or modify them.
 
 5. **Read loop counters** from the task file frontmatter:
    - `loop_count`: number of remediation iterations already used (default `0` if absent)
@@ -185,7 +180,7 @@ implementation agent. Once the PR is merged, re-run `/code TASK-NNN`.
 
    | `task_type` value | Routing path | Notes |
    |-------------------|--------------|-------|
-   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `BNK.RLVR.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in `process/<CAP_ID>/api.yaml` with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
+   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `BNK.RLVR.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in the model's `api` surface (`bcm-pack process <CAP_ID>` → `.model.api`) with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
    | (absent) or `full-microservice` | Fall through to 6b | standard zone-aware routing |
 
    **6b — Zone (when `task_type` does not force Path C)**
@@ -360,8 +355,9 @@ The context to pass includes:
 - The governing FUNC ADR(s)
 - The events to contract (the BNK.RLVR.EVT/BNK.RLVR.RVT pairs named in the task) — drives
   the publisher half
-- The query operations to stub — every entry in `process/<CAP_ID>/api.yaml`,
-  with their response schemas. Drives the HTTP half.
+- The query operations to stub — every entry in the process model's api slice
+  (`bcm-pack process <CAP_ID>` → `.model.api`), with their response schemas.
+  Drives the HTTP half.
 - The carried business objects / resources (event payloads + canned
   fixture shapes)
 - `ADR-TECH-STRAT-001` content (or pointer + summary) — the agent needs the
@@ -389,15 +385,15 @@ Say:
 
 The agent produces:
 - A single minimal .NET host under `sources/{capability-name}/stub/`,
-  combining a `BackgroundService` event publisher (when
-  `process/<CAP_ID>/bus.yaml` is non-empty) and an ASP.NET Core
-  Minimal-API query server (when `process/<CAP_ID>/api.yaml` is non-empty)
+  combining a `BackgroundService` event publisher (when the process model's
+  `.model.bus` slice is non-empty) and an ASP.NET Core Minimal-API query
+  server (when its `.model.api` slice is non-empty)
 - Canned fixtures under `sources/{capability-name}/stub/fixtures/`
   (≥3 per query operation, deterministic IDs)
 - The wire-format JSON Schemas it consumes are NOT regenerated — the
-  agent reads them directly from `process/{capability-id}/schemas/`
-  (already authored by `/process`). No schema files are written outside
-  `process/`.
+  agent reads them from the `bcm-pack process <CAP_ID>` envelope's
+  `.schemas[...]` (already authored by `/process` in banking-knowledge). No
+  schema files are authored by the stub.
 - No full microservice scaffold (Domain / Application / Infrastructure /
   Presentation / Contracts projects), no MongoDB, no domain model
 
@@ -529,10 +525,11 @@ that to the user as the gap to resolve.
 After the language-matching agent (`implement-capability` or
 `implement-capability-python`) succeeds for a non-CHANNEL task, invoke
 the `/harness-backend` skill to add the contract harness to the
-freshly-scaffolded microservice. The harness derives its specs from
-`process/{capability-id}/` and `bcm-pack` — it is language-agnostic
-and works on both .NET and Python services. The harness produces, under
-`sources/{capability-name}/backend/contracts/specs/`:
+freshly-scaffolded microservice. The harness derives its specs from the process
+model (consumed via `bcm-pack process <CAP_ID>`; the `process/{capability-id}/…`
+names below are stable logical provenance references) and `bcm-pack` — it is
+language-agnostic and works on both .NET and Python services. The harness
+produces, under `sources/{capability-name}/backend/contracts/specs/`:
 
 - `openapi.yaml` (OpenAPI 3.1) — derived strictly from
   `process/{capability-id}/api.yaml` + `commands.yaml` + `read-models.yaml` +

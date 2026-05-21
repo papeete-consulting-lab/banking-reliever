@@ -15,7 +15,7 @@
     <PackageReference Include="MassTransit" Version="8.3.4" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.4" />
 
-    <!-- JSON Schema validation against upstream process/CAP.BSP.*/schemas/ -->
+    <!-- JSON Schema validation against vendored upstream RVT schemas (process-schemas/) -->
     <PackageReference Include="JsonSchema.Net" Version="7.2.3" />
 
     <!-- JWT decoding (no signature verification in TASK-002 — see README A2) -->
@@ -35,16 +35,24 @@
     capabilities. They are copied into the build output so the BFF can
     validate inbound payloads against the producer-published shape on
     startup (fail-fast).
+
+    These are VENDORED snapshots under process-schemas/: the process model now
+    lives in the banking-knowledge repo (consumed via `bcm-pack process`), not
+    in a local process/ folder, so the BFF carries its own copy of the upstream
+    contracts it validates against. Refresh via
+    `bcm-pack process <CAP_ID>` → `.schemas["RVT.*.schema.json"]`.
+  -->
+  <!--
+    The Web SDK already includes these *.json files as Content by default
+    (EnableDefaultContentItems). Use Update (not Include) to set
+    CopyToOutputDirectory on them without duplicating the item (NETSDK1022).
   -->
   <ItemGroup>
-    <Content Include="..\..\..\..\..\process\BNK.RLVR.CAP.BSP.001.SCO\schemas\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"
-             Link="process-schemas\bsp.001.sco\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"
+    <Content Update="process-schemas\bsp.001.sco\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"
              CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\..\..\..\process\BNK.RLVR.CAP.BSP.001.TIE\schemas\BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json"
-             Link="process-schemas\bsp.001.tie\BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json"
+    <Content Update="process-schemas\bsp.001.tie\BNK.RLVR.RVT.BSP.001.TIER_UPGRADE_RECORDED.schema.json"
              CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\..\..\..\process\CAP.BSP.004.ENV\schemas\RVT.BSP.004.CONSUMPTION_RECORDED.schema.json"
-             Link="process-schemas\bsp.004.env\RVT.BSP.004.CONSUMPTION_RECORDED.schema.json"
+    <Content Update="process-schemas\bsp.004.env\RVT.BSP.004.CONSUMPTION_RECORDED.schema.json"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

@@ -12,9 +12,10 @@ description: >
   .NET stacks, or a `{namespace}_{capability_module}_contracts_harness/`
   Python package on Python stacks), generate `openapi.yaml` (OpenAPI 3.1)
   and `asyncapi.yaml` (AsyncAPI 2.6) under `contracts/specs/`, and validate
-  strict alignment between the specs, the Process Modelling layer
-  (`process/{capability-id}/`: `commands.yaml`, `read-models.yaml`,
-  `bus.yaml`, `api.yaml`, `schemas/*.schema.json`), and the BCM corpus
+  strict alignment between the specs, the Process Modelling layer consumed via
+  `bcm-pack process <CAP_ID>` (logically `process/{capability-id}/`:
+  `commands.yaml`, `read-models.yaml`, `bus.yaml`, `api.yaml`,
+  `schemas/*.schema.json`), and the BCM corpus
   consumed via `bcm-pack pack <CAP_ID> --deep` (resources, resource events,
   business events, business / resource subscriptions, carried objects, FUNC
   / URBA / TECH-STRAT ADRs).
@@ -43,8 +44,8 @@ description: >
   Supports `--branch <slug>` or `--env <slug>` to operate in a specific
   worktree. Supports `--gen` (default — regenerate specs and validate) and
   `--validate` (no regeneration; only assert that the committed specs are
-  in sync with `/process/{cap}/`, bcm-pack, and the running controller /
-  consumer surface).
+  in sync with the process model (via `bcm-pack process`), bcm-pack, and the
+  running controller / consumer surface).
 
   Trigger this skill whenever the user says: "harness-backend", "harness for
   CAP.*", "regenerate the contracts for X", "regenerate openapi for X",
@@ -66,11 +67,14 @@ You are the entry-point that ensures a backend microservice produced by the
 resolve the context, detect the target stack, and dispatch the
 `harness-backend` agent.
 
-> **Hard rule — `process/{capability-id}/` is read-only.** This skill, and
-> the agent it spawns, **read** `process/{capability-id}/` but **never
-> write** to it. The PreToolUse hook `process-folder-guard.py` enforces
-> this. If the model is wrong, stop and tell the user to run `/process
-> <CAPABILITY_ID>` to amend it, then re-run this skill.
+> **Process model — consumed read-only via `bcm-pack process`.** The DDD
+> process model (aggregates, commands, policies, read-models, bus topology,
+> JSON Schemas) is authored by the `/process` skill in the **banking-knowledge**
+> repo and consumed here **read-only** via `bcm-pack process <CAP_ID>` — exactly
+> like the BCM corpus via `bcm-pack pack`. It does not live in this repo, so
+> there is nothing to guard locally and nothing to write under `process/`. If
+> the model is wrong, stop and tell the user to run `/process <CAPABILITY_ID>`
+> in the banking-knowledge repo and merge its PR, then re-run this skill.
 
 ---
 
@@ -103,9 +107,21 @@ End Step 0 with these resolved values:
 ## Step 1 — Verify Prerequisites (mandatory)
 
 ```bash
-# 1. /process layer must exist for this capability
-ls process/${CAPABILITY_ID}/{commands.yaml,bus.yaml,api.yaml,read-models.yaml}
-ls process/${CAPABILITY_ID}/schemas/
+# 1. The process model must resolve for this capability (authored upstream in
+#    banking-knowledge, consumed read-only via `bcm-pack process`).
+if ! bcm-pack process "${CAPABILITY_ID}" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "❌ No process model for ${CAPABILITY_ID} — run /process ${CAPABILITY_ID} in banking-knowledge and merge its PR."
+  cat /tmp/process-model.err
+  exit 1
+fi
+# Required model slices (use .parsed, fallback .raw — commands/read-models are often parsed:null)
+jq '{
+  commands:     (.model.commands     != null),
+  bus:          (.model.bus           != null),
+  api:          (.model.api           != null),
+  read_models:  (.model["read-models"] != null),
+  schemas:      (.schemas | length)
+}' /tmp/process-model.json
 
 # 2. The microservice must already be scaffolded by implement-capability* —
 #    detect the stack from on-disk layout
@@ -156,7 +172,7 @@ If any prerequisite fails, stop and explain the gap clearly:
 
 | Failure                                              | Resolution                                                        |
 |------------------------------------------------------|-------------------------------------------------------------------|
-| `process/{cap}/` missing                             | run `/process <CAPABILITY_ID>` first                              |
+| `bcm-pack process <CAP>` does not resolve            | run `/process <CAPABILITY_ID>` in banking-knowledge and merge its PR first |
 | Neither `.sln` nor `pyproject.toml` under `BACKEND_DIR` | run `/code TASK-NNN` first (Path A scaffolds the microservice) |
 | Zone is CHANNEL                                      | this skill is non-CHANNEL only — no action                        |
 | `pack.warnings` non-empty / required slice empty     | fix the upstream BCM in `banking-knowledge` (out of scope here)   |
@@ -166,8 +182,8 @@ If any prerequisite fails, stop and explain the gap clearly:
 ## Step 2 — Diff the Process Model Against the Last Harness Run (idempotency)
 
 If `${BACKEND_DIR}/contracts/specs/openapi.yaml` already exists, compare its
-top-level `x-lineage.process.version` with the current
-`process/{cap}/commands.yaml#meta.version`:
+top-level `x-lineage.process.version` with the current process-model version
+from the `bcm-pack process <CAP_ID>` envelope (`.meta.version`):
 
 - **Same version + `--validate` mode** → run the harness validator only,
   expect drift = 0.
@@ -201,9 +217,12 @@ Agent({
    Backend dir:     ${BACKEND_DIR}
 
    Inputs you must read (read-only):
-     - process/${CAPABILITY_ID}/{README.md,aggregates.yaml,commands.yaml,
-                                  policies.yaml,read-models.yaml,bus.yaml,
-                                  api.yaml,schemas/*.schema.json}
+     - the process model via `bcm-pack process ${CAPABILITY_ID} --compact`:
+         .readme, .model.aggregates, .model.commands, .model.policies,
+         .model["read-models"], .model.bus, .model.api (use .parsed, fallback
+         .raw when null), and .schemas["*.schema.json"]. (Logically the
+         process/${CAPABILITY_ID}/{README.md,*.yaml,schemas/*.schema.json}
+         files, authored upstream in banking-knowledge.)
      - bcm-pack pack ${CAPABILITY_ID} --deep --compact
 
    Existing service under ${BACKEND_DIR}:
@@ -249,8 +268,9 @@ Agent({
          * Edit Dockerfile to `COPY contracts/ ./contracts/`.
 
    Hard rules:
-     - process/${CAPABILITY_ID}/ is READ-ONLY. The PreToolUse hook
-       process-folder-guard.py blocks Write/Edit on process/**.
+     - The process model is READ-ONLY and is fetched via `bcm-pack process
+       ${CAPABILITY_ID}` — authored upstream in banking-knowledge, never on
+       disk here. There is nothing to write under process/.
      - Lineage closure (process AND bcm) is non-negotiable: every operation
        in openapi.yaml AND every channel/message in asyncapi.yaml carries
        an x-lineage block resolving to a process source + a bcm-pack source.
@@ -272,8 +292,9 @@ Agent({
        implement-capability-python depending on stack).
      - If the on-disk stack contradicts the LANG hint above, abort and
        report — likely a /code routing bug.
-     - If process_folder_guard rejects a write, you targeted process/ by
-       mistake. Stop and report.
+     - You never write to the process model — it is served read-only by
+       `bcm-pack process` from banking-knowledge. If you find yourself trying
+       to write a process artifact, stop and report.
 
    Final output:
      - contracts/specs/{openapi.yaml,asyncapi.yaml,lineage.json,harness-report.md}
@@ -310,7 +331,7 @@ back, and offer the right remediation:
 
 | Gap reported                                       | Remediation                                                                                       |
 |----------------------------------------------------|---------------------------------------------------------------------------------------------------|
-| Dangling `x-lineage.process.*` reference           | re-run `/process <CAPABILITY_ID>` to amend the model                                              |
+| Dangling `x-lineage.process.*` reference           | re-run `/process <CAPABILITY_ID>` in banking-knowledge to amend the model, then merge its PR      |
 | Dangling `x-lineage.bcm.*` reference               | fix BCM upstream in `banking-knowledge`                                                           |
 | Missing HTTP route for an OpenAPI path             | re-run `/code TASK-NNN` — implement-capability(-python) missed a controller / FastAPI route       |
 | Missing consumer for an AsyncAPI subscribe         | re-run `/code TASK-NNN` — bus subscription not wired (MassTransit on .NET / aio-pika on Python)   |

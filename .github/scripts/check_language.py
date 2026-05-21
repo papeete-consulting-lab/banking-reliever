@@ -2,12 +2,12 @@
 """Verify that the natural language used under sources/ and src/ matches the BCM.
 
 The BCM is the source of truth for the project's ubiquitous language. Since
-the BCM no longer lives in this repo (it is hosted in the external
-`banking-knowledge` repo and consumed via the `bcm-pack` CLI), this script:
+neither the BCM nor the process-modelling layer lives in this repo any more
+(both are hosted in the external `banking-knowledge` repo and consumed via the
+`bcm-pack` CLI), this script:
 
-  1. Discovers the capabilities modeled in this repo by listing
-     `process/CAP.*/` folders (these are the capabilities whose process model
-     has been authored locally and merged on `main`).
+  1. Discovers the capabilities to check via `bcm-pack process --list` — the
+     capability ids that have a process model published upstream.
   2. For each capability, calls `bcm-pack pack <CAP_ID> --compact` to fetch
      the upstream prose (capability descriptions, FUNC ADR decision /
      context / consequences, business-object definitions, vision narratives).
@@ -20,8 +20,8 @@ Detection is stop-word based: tiny, no extra deps beyond `bcm-pack` itself
 and the standard library.
 
 Exit codes:
-  0 — BCM and code agree, OR there is nothing to check yet (no
-      `process/CAP.*/` folders, no source code, or `bcm-pack` unavailable).
+  0 — BCM and code agree, OR there is nothing to check yet (no process model
+      published upstream, no source code, or `bcm-pack` unavailable).
   1 — BCM and code disagree.
   2 — `bcm-pack` is installed but every invocation failed (hard error).
 """
@@ -36,7 +36,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-PROCESS_DIR = ROOT / "process"
 SOURCE_DIRS = [ROOT / "sources", ROOT / "src"]
 SOURCE_EXTS = {
     ".cs", ".fs", ".vb",
@@ -95,16 +94,33 @@ STOPWORDS: dict[str, set[str]] = {
 }
 
 WORD_RE = re.compile(r"[A-Za-zÀ-ÿ]+")
-CAP_DIR_RE = re.compile(r"^CAP\.[A-Z0-9.]+$")
+CAP_ID_RE = re.compile(r"^[A-Z0-9.]*CAP\.[A-Z0-9.]+$")
 
 
 def discover_capabilities() -> list[str]:
-    """List CAP_IDs that have a local process model."""
-    if not PROCESS_DIR.exists():
+    """List CAP_IDs that have a process model published upstream.
+
+    Source of truth is `bcm-pack process --list` (the process layer lives in
+    banking-knowledge now, not in this repo). Stdout is one capability id per
+    line; the provenance header is written to stderr, so stdout stays clean.
+    """
+    try:
+        result = subprocess.run(
+            ["bcm-pack", "process", "--list"],
+            capture_output=True, text=True, timeout=60, check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        print(
+            f"  ⚠ bcm-pack process --list: exit {result.returncode}\n"
+            f"    stderr: {result.stderr.strip()[:300]}",
+            file=sys.stderr,
+        )
         return []
     return sorted(
-        d.name for d in PROCESS_DIR.iterdir()
-        if d.is_dir() and CAP_DIR_RE.match(d.name)
+        line.strip() for line in result.stdout.splitlines()
+        if CAP_ID_RE.match(line.strip())
     )
 
 
@@ -213,10 +229,10 @@ def main() -> int:
 
     capabilities = discover_capabilities()
     if not capabilities:
-        print("ℹ No process/CAP.*/ folders found — no capability modeled yet, skipping.")
+        print("ℹ `bcm-pack process --list` returned no models — no capability modeled yet, skipping.")
         return 0
 
-    print(f"Discovered {len(capabilities)} capabilities under process/:")
+    print(f"Discovered {len(capabilities)} capabilities with an upstream process model:")
     for cap in capabilities:
         print(f"  - {cap}")
 

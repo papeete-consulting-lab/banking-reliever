@@ -1,6 +1,9 @@
-"""Load canonical JSON Schemas from the read-only process/ folder.
+"""Load JSON Schemas from the package-local *vendored* snapshot.
 
-The schemas are the source of truth — this service is a *consumer* of them.
+The schemas are vendored as a static snapshot under
+``reliever_beneficiary_anchor/infrastructure/schema_validation/schemas/``
+(this service owns the contract snapshot it validates against). Refresh via
+``bcm-pack process BNK.RLVR.CAP.SUP.002.BEN`` (``.schemas["<FILE>.schema.json"]``).
 Fail-fast at startup if any schema is missing or malformed.
 """
 
@@ -17,7 +20,7 @@ from jsonschema import Draft202012Validator
 from ...application.ports import SchemaValidator
 
 
-# Resolved at startup from settings.PROCESS_SCHEMAS_DIR.
+# Resolved at startup from settings.process_schemas_dir (vendored snapshot dir).
 MINT_ANCHOR_SCHEMA_FILE = "CMD.SUP.002.BEN.MINT_ANCHOR.schema.json"
 UPDATE_ANCHOR_SCHEMA_FILE = "CMD.SUP.002.BEN.UPDATE_ANCHOR.schema.json"
 RVT_BENEFICIARY_ANCHOR_UPDATED_SCHEMA_FILE = "BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json"
@@ -40,8 +43,10 @@ def load_schema(schemas_dir: Path, filename: str) -> dict[str, Any]:
     path = schemas_dir / filename
     if not path.is_file():
         raise FileNotFoundError(
-            f"Required process-layer schema not found: {path}. "
-            "This service is a read-only consumer of process/BNK.RLVR.CAP.SUP.002.BEN/schemas/."
+            f"Required vendored schema not found: {path}. "
+            "This service validates against its package-local vendored snapshot "
+            "(infrastructure/schema_validation/schemas/); refresh via "
+            "`bcm-pack process BNK.RLVR.CAP.SUP.002.BEN`."
         )
     with path.open() as f:
         return json.load(f)

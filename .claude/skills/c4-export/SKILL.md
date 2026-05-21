@@ -7,8 +7,9 @@ description: >
   zone (docs/c4/enterprise/zone-<zone>.dsl — one per zone, every L2 in that
   zone as a container, cross-cap event flows), and per-L2 capability
   (docs/c4/<CAP_L2>/workspace.dsl — implementation artifacts as containers,
-  DDD elements from process/<CAP>/ as components, ADR refs as properties
-  pointing at github.com/Banking-Reliever/banking-knowledge). Every DSL file
+  DDD elements from the process model (consumed via `bcm-pack process <CAP>`)
+  as components, ADR refs as properties pointing at
+  github.com/Banking-Reliever/banking-knowledge). Every DSL file
   carries tags reflecting the on-disk implementation status (mode-a / stub /
   bff / frontend / not-scaffolded), with corresponding colors in the styles
   block so the rendered views show "where we stand". Reads upstream knowledge
@@ -35,13 +36,14 @@ landscape. The DSL is intentionally rendered offline — view the result with
 pipeline (no zone routing, no agent dispatch, no test loop). It composes:
 
 - the **business-capability model** (upstream, in `banking-knowledge`, consumed
-  via `bcm-pack`),
-- the **process model** (`process/<CAP>/aggregates.yaml`, `commands.yaml`,
-  `policies.yaml`, `read-models.yaml`, `bus.yaml`),
+  via `bcm-pack pack`),
+- the **process model** (aggregates, commands, policies, read-models, bus —
+  authored upstream in `banking-knowledge` and consumed read-only via
+  `bcm-pack process <CAP>`),
 - the **on-disk implementation overlay** (`sources/<CAP>/{backend,stub,bff,frontend}`),
 
-into Structurizr DSL files under `docs/c4/`. Output is never written under
-`process/**` — the `process-folder-guard.py` hook protects that lane.
+into Structurizr DSL files under `docs/c4/`. The process model does not live in
+this repo — there is no local `process/` lane to read from or write to.
 
 ## Layout produced
 
@@ -71,7 +73,7 @@ docs/c4/
 |---|---|
 | Software System | The L2 capability itself — named by its BCM `name` (e.g. `Tier Management`), described by its BCM `description`, with the dotted `capability-id` (e.g. `BNK.RLVR.CAP.BSP.001.TIE`) stored as a property |
 | Container | An implementation artifact: backend microservice (Mode A), contract stub (Mode B), BFF, frontend, or a `not-scaffolded` placeholder |
-| Component | A DDD element mined from `process/<CAP>/` — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
+| Component | A DDD element mined from the process model (via `bcm-pack process <CAP>`) — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
 
 Upstream capabilities (other L2s that emit business events this capability
 subscribes to) appear as `external-capability` Software Systems named after
@@ -180,8 +182,8 @@ The script:
    the full slice set.
 4. Inspects `sources/<CAP>/{backend,stub,bff,frontend}` to set the
    implementation overlay tag.
-5. Optionally reads `process/<CAP>/` (aggregates / read-models / policies /
-   bus) to add DDD components.
+5. Optionally fetches the process model via `bcm-pack process <CAP>`
+   (aggregates / read-models / policies / bus) to add DDD components.
 6. Builds GitHub URLs for every referenced ADR from the `files` slice
    (`banking-knowledge` repo, `main` branch).
 7. Emits the per-L2, per-zone, and enterprise DSL files under `docs/c4/`.
@@ -210,8 +212,9 @@ After the script returns:
 
 This skill MUST NOT:
 
-- Write under `process/**` — the `process-folder-guard.py` hook would block it
-  anyway. Process artifacts are owned by `/process`.
+- Treat the process model as a local writable lane. It is authored by `/process`
+  in `banking-knowledge` and consumed read-only via `bcm-pack process` — there
+  is no `process/` folder in this repo to read from or write to.
 - Open `/bcm/`, `/adr/`, `/func-adr/`, `/tech-adr/`, `/product-vision/`,
   `/business-vision/`, `/tech-vision/` directly. All upstream knowledge flows
   through `bcm-pack`.

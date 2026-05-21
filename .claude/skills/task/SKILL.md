@@ -51,52 +51,48 @@ access to the next agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Hard rule — `process/{capability-id}/` is read-only
+## Process model — consumed read-only via `bcm-pack process`
 
-This skill reads `process/{capability-id}/` (aggregates, commands, policies,
-read-models, bus topology, JSON Schemas) as a primary input — tasks routinely
-reference `AGG.*`, `CMD.*`, `POL.*`, `PRJ.*`, `QRY.*` identifiers from there.
-This skill **never writes** to that folder. A PreToolUse hook
-(`process-folder-guard.py`) enforces this — every Write/Edit under
-`process/**` outside the `/process` skill is rejected.
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via
+> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> It does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`.
 
-If the model evolves (new aggregate, renamed command, new policy), stop and run
-`/process <CAPABILITY_ID>` first to refresh the model, then re-run `/task`.
+This skill consumes the model as a primary input — tasks routinely reference
+`AGG.*`, `CMD.*`, `POL.*`, `PRJ.*`, `QRY.*` identifiers from it. Fetch it once
+via `bcm-pack process <CAPABILITY_ID>` and read the returned slices.
+
+If the model evolves (new aggregate, renamed command, new policy), run
+`/process <CAPABILITY_ID>` in the banking-knowledge repo and merge its PR to
+refresh the model, then re-run `/task`.
 
 ---
 
-## Readiness gate — process model must be merged on `main`
+## Readiness gate — the process model must resolve via `bcm-pack process`
 
-Before reading anything from `process/<CAP_ID>/`, verify the model has landed
-on `main`. A model that exists only on a `process/<CAP_ID>` branch (PR still
-open, not yet reviewed) is NOT ready to drive task generation.
+Before reading anything from the process model, verify it resolves. A model is
+ready iff `bcm-pack process <CAP_ID>` returns exit 0 (bcm-pack resolves the
+published `main` of banking-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# 1. Folder must exist on main.
-git -C "$PROJECT_ROOT" ls-tree --name-only main -- "process/$CAP_ID" \
-    > /tmp/process-main-check.txt
-if [ ! -s /tmp/process-main-check.txt ]; then
-  echo "GATE-FAIL: process/$CAP_ID/ is not on main."
-  echo "Run /process $CAP_ID, then merge the resulting PR before retrying /task."
-  exit 1
-fi
-
-# 2. No open PR for the process branch.
-OPEN_COUNT=$(gh pr list --head "process/$CAP_ID" --state open --json number --jq 'length' 2>/dev/null || echo 0)
-if [ "$OPEN_COUNT" != "0" ]; then
-  PR_URL=$(gh pr list --head "process/$CAP_ID" --state open --json url --jq '.[0].url')
-  echo "GATE-FAIL: an open process PR ($PR_URL) is still pending review."
-  echo "Wait for it to be merged into main before running /task."
+# The process model lives in banking-knowledge now; it is ready iff bcm-pack
+# can resolve it (bcm-pack resolves the published main by default).
+if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "GATE-FAIL: no process model for $CAP_ID."
+  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  cat /tmp/process-model.err
   exit 1
 fi
 ```
 
-If either check fails, **stop and surface the failure to the user with the
-redirect message** — do not proceed to generate tasks. Once the PR is merged,
-re-run `/task`.
+If the gate fails, **stop and surface the failure to the user with the redirect
+message** — do not proceed to generate tasks. Once `/process <CAP_ID>` is run in
+the banking-knowledge repo and its PR merged, re-run `/task`.
 
 ---
 
@@ -119,14 +115,14 @@ re-run `/task`.
    `BNK.RLVR.CAP.BSP.001.SCO`); the v1.0.0 CLI rejects the short `CAP.…` form
    with exit code 2.
 
-   **Carry the knowledge-base ref into every TASK.** Read
-   `process/<CAPABILITY_ID>/.bcm-provenance.json` (written by `/process`) and copy
-   its `knowledge_base.ref` into each TASK's `bcm_ref` frontmatter field. This
-   pins every task to the exact knowledge version it was derived from, so
-   `/implementation-pipeline` and `/fix` can later `bcm-pack diff <bcm_ref>
-   --capability <CAP_ID>` to detect upstream drift. If the file is absent (older
-   process model), set `bcm_ref:` to the current `bcm-pack version --compact`
-   `ref` and note it as an assumption.
+   **Carry the knowledge-base ref into every TASK.** Read the
+   `bcm-pack process <CAPABILITY_ID> --compact` envelope's `.knowledge_base.ref`
+   (the model's git provenance) and copy it into each TASK's `bcm_ref`
+   frontmatter field. This pins every task to the exact knowledge version it was
+   derived from, so `/implementation-pipeline` and `/fix` can later
+   `bcm-pack diff <bcm_ref> --capability <CAP_ID>` to detect upstream drift. If
+   `.knowledge_base.ref` is absent, fall back to the current `bcm-pack version
+   --compact` `ref` and note it as an assumption.
 
    Lightweight mode is enough for task generation — you do not need the rationale ADRs 
    behind the vision narratives. Read these slices selectively:
@@ -141,15 +137,17 @@ re-run `/task`.
    | `carried_concepts`          | terminology grounding — feeds Open Questions if fuzzy |
    | `governing_urba`            | URBA ADR constraints (event meta-model, naming…)      |
 
-   Then read the **local** artifacts:
-   - `/roadmap/{capability-id}/roadmap.md` — the source of epics and exit conditions
-   - `process/{capability-id}/` — the Process Modelling layer (read-only).
-     Tasks must reference the `AGG.*` / `CMD.*` / `POL.*` / `PRJ.*` / `QRY.*`
-     identifiers from `aggregates.yaml`, `commands.yaml`, `policies.yaml`,
-     and `read-models.yaml`, and the routing keys / subscriptions from
-     `bus.yaml`. If the folder is absent, stop and run `/process
-     <CAPABILITY_ID>` first.
-   - Existing tasks in `/tasks/{capability-id}/` — to avoid duplication
+   Then read the local roadmap and the process model:
+   - `/roadmap/{capability-id}/roadmap.md` — the source of epics and exit conditions (local)
+   - the Process Modelling layer via `bcm-pack process <CAPABILITY_ID> --compact`
+     (read-only). Tasks must reference the `AGG.*` / `CMD.*` / `POL.*` / `PRJ.*`
+     / `QRY.*` identifiers from `.model.aggregates`, `.model.commands`,
+     `.model.policies`, and `.model["read-models"]`, and the routing keys /
+     subscriptions from `.model.bus` (use `.parsed`, falling back to `.raw` when
+     null — `commands`/`read-models` are frequently `parsed:null`). If
+     `bcm-pack process` does not resolve, stop and run `/process
+     <CAPABILITY_ID>` in the banking-knowledge repo and merge its PR first.
+   - Existing tasks in `/tasks/{capability-id}/` — to avoid duplication (local)
 
    Check `pack.warnings` — non-empty entries should land in the `Open Questions` of the 
    first task that touches the affected area.
@@ -178,6 +176,12 @@ Rationale:
   parallel and replace the stub piece by piece. The stub is
   decommissioned (or kept inert via `STUB_ACTIVE=false`) once the real
   implementation reaches feature parity for the surface in question.
+
+> Throughout this section, `process/<CAP_ID>/bus.yaml`, `.../api.yaml` and
+> `.../schemas/` name the **logical** model artifacts — they are fetched via
+> `bcm-pack process <CAP_ID>` (`.model.bus`/`.model.api`, using `.parsed` or the
+> `.raw` fallback, and `.schemas[...]`), not read from a local `process/` folder
+> (there is none in this repo).
 
 Properties of TASK-001:
 
@@ -288,10 +292,11 @@ capability must be able to do when this task is done]
 ### TASK-001 stub template
 
 This template is what TASK-001 should look like for every capability.
-Adapt the surface lists (`RVT.*` events, HTTP operations) to what
-`process/<CAP_ID>/bus.yaml` and `process/<CAP_ID>/api.yaml` actually
-declare. The stub may need to serve only events, only queries, or both —
-shape the DoD accordingly.
+Adapt the surface lists (`RVT.*` events, HTTP operations) to what the process
+model's `bus` and `api` slices actually declare (the logical `process/<CAP_ID>/`
+artifact names below are stable provenance references, read via `bcm-pack
+process <CAP_ID>` — `.model.bus` and `.model.api`). The stub may need to serve
+only events, only queries, or both — shape the DoD accordingly.
 
 ```markdown
 ---
@@ -303,7 +308,7 @@ status: todo
 priority: high
 depends_on: []
 task_type: contract-stub
-bcm_ref: [v1.0.0]                 # from process/<CAP_ID>/.bcm-provenance.json
+bcm_ref: [v1.0.0]                 # from `bcm-pack process <CAP_ID> --compact` .knowledge_base.ref
 ---
 
 # TASK-001 — Contract and development stub for [Capability Name]
@@ -405,23 +410,23 @@ For each epic:
 ## Step 2 — Generate the mandatory TASK-001 stub
 
 Always emit TASK-001 first, using the **TASK-001 stub template** above.
-Populate it from `process/<CAP_ID>/`:
+Populate it from the `bcm-pack process <CAP_ID> --compact` envelope:
 
-- Enumerate every `RVT.*` declared in `process/<CAP_ID>/bus.yaml` (publish
-  side) — list them under "Events to Stub" with the routing key the bus
-  topology mandates.
-- Enumerate every operation declared in `process/<CAP_ID>/api.yaml` —
-  list them under "Query Operations to Stub" with their canned-response
-  shape.
-- Reference the JSON Schemas under `process/<CAP_ID>/schemas/` (read-only
-  — the stub validates against them, never authors them).
+- Enumerate every `RVT.*` declared in the bus slice (`.model.bus.parsed`,
+  fallback `.raw`) — list them under "Events to Stub" with the routing key the
+  bus topology mandates.
+- Enumerate every operation declared in the api slice (`.model.api.parsed`,
+  fallback `.raw`) — list them under "Query Operations to Stub" with their
+  canned-response shape.
+- Reference the JSON Schemas from `.schemas["<F>.schema.json"]` (read-only —
+  the stub validates against them, never authors them).
 
 The TASK-001 file lives in `tasks/<CAP_ID>/TASK-001-contract-and-stub-*.md`
 (slug describes the capability surface, e.g.
 `TASK-001-contract-and-stub-beneficiary-referential.md`).
 
-If `process/<CAP_ID>/` is missing or stale, **stop** and tell the user to
-run `/process <CAP_ID>` first.
+If `bcm-pack process <CAP_ID>` does not resolve, **stop** and tell the user to
+run `/process <CAP_ID>` in the banking-knowledge repo and merge its PR first.
 
 ---
 
@@ -455,7 +460,9 @@ Do NOT write any other file under `/tasks/`. That folder holds only the
 kanban: `BOARD.md` at its root (auto-generated by `/sort-task`) plus the
 `<CAP_ID>/TASK-*.md` cards. Per-capability indices, summaries, roadmap
 files, and contract folders all live elsewhere — see the layout rules in
-the `/roadmap` (→ `/roadmap/`) and `/process` (→ `process/`) skills.
+the `/roadmap` (→ `/roadmap/`) skill. The process model is not a local lane
+here; it is authored by `/process` in the banking-knowledge repo and consumed
+read-only via `bcm-pack process`.
 
 After writing all tasks, tell the user:
 > "Tasks for [capability] are committed to `/tasks/[capability-id]/`.

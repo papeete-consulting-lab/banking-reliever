@@ -27,7 +27,8 @@ BUSINESS_EVENT = "BNK.RLVR.EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED"
 RESOURCE_EVENT = "BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED"
 ROUTING_KEY = f"{BUSINESS_EVENT}.{RESOURCE_EVENT}"
 
-# Schemas (lookup by basename; resolution path = process/BNK.RLVR.CAP.SUP.002.BEN/schemas/)
+# Schemas (lookup by basename; resolved against the vendored snapshot dir
+# infrastructure/schema_validation/schemas/ — see presentation.settings)
 SCHEMA_CMD_MINT_ANCHOR = "CMD.SUP.002.BEN.MINT_ANCHOR.schema.json"
 SCHEMA_RVT_BENEFICIARY_ANCHOR_UPDATED = "BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json"
 

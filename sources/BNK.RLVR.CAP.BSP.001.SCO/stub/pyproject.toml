@@ -30,6 +30,11 @@ bsp-sco-stub = "bsp_sco_stub.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Ship the vendored JSON Schema snapshot (bsp_sco_stub/schemas/*.schema.json)
+# inside the wheel so the loader resolves it package-locally at runtime.
+[tool.setuptools.package-data]
+bsp_sco_stub = ["schemas/*.schema.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

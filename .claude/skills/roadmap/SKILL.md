@@ -23,56 +23,45 @@ language. The "how" emerges in the task phase.
 
 ---
 
-## Hard rule — `process/{capability-id}/` is read-only
+## Process model — consumed read-only via `bcm-pack process`
 
-The `process/{capability-id}/` folder is the output of the `/process` skill (the
-DDD tactical Process Modelling layer: aggregates, commands, policies, read-models,
-bus topology, JSON Schemas). This skill **reads** that folder as a primary input
-to ground epics in real aggregates and commands, but **never writes** to it. A
-PreToolUse hook (`process-folder-guard.py`) enforces this — every Write/Edit
-attempt under `process/**` outside the `/process` skill is rejected.
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via
+> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> It does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`.
 
-If the `process/{capability-id}/` folder is missing or stale relative to the FUNC
-ADR returned by `bcm-pack`, **stop and tell the user to run `/process
-<CAPABILITY_ID>` first**. Do not attempt to derive aggregates or commands inside
-the roadmap; that is a category violation.
+This skill consumes the model as a primary input to ground epics in real
+aggregates and commands. Fetch it once via `bcm-pack process <CAP_ID>` and read
+the slices it returns; do not attempt to derive aggregates or commands inside the
+roadmap, that is a category violation owned by `/process`.
 
 ---
 
-## Readiness gate — process model must be merged on `main`
+## Readiness gate — the process model must resolve via `bcm-pack process`
 
-Before reading anything from `process/<CAP_ID>/`, verify that the model has
-actually landed on `main`. A model that exists only on a `process/<CAP_ID>`
-branch (PR still open, not yet reviewed) is NOT ready to consume — planning
-on top of an unreviewed model produces churn when the PR review reshapes the
-aggregates or commands.
+Before reading anything from the process model, verify it resolves. A model is
+ready iff `bcm-pack process <CAP_ID>` returns exit 0 (bcm-pack resolves the
+published `main` of banking-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# 1. Folder must exist on main.
-git -C "$PROJECT_ROOT" ls-tree --name-only main -- "process/$CAP_ID" \
-    > /tmp/process-main-check.txt
-if [ ! -s /tmp/process-main-check.txt ]; then
-  echo "GATE-FAIL: process/$CAP_ID/ is not on main."
-  echo "Run /process $CAP_ID, then merge the resulting PR before retrying /roadmap."
-  exit 1
-fi
-
-# 2. No open PR for the process branch.
-OPEN_COUNT=$(gh pr list --head "process/$CAP_ID" --state open --json number --jq 'length' 2>/dev/null || echo 0)
-if [ "$OPEN_COUNT" != "0" ]; then
-  PR_URL=$(gh pr list --head "process/$CAP_ID" --state open --json url --jq '.[0].url')
-  echo "GATE-FAIL: an open process PR ($PR_URL) is still pending review."
-  echo "Wait for it to be merged into main before running /roadmap."
+# The process model lives in banking-knowledge now; it is ready iff bcm-pack
+# can resolve it (bcm-pack resolves the published main by default).
+if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "GATE-FAIL: no process model for $CAP_ID."
+  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  cat /tmp/process-model.err
   exit 1
 fi
 ```
 
-If either check fails, **stop and surface the failure to the user with the
-redirect message above** — do not proceed to draft the roadmap. Once the PR is
-merged and `process/<CAP_ID>/` appears on `main`, re-run `/roadmap`.
+If the gate fails, **stop and surface the failure to the user with the redirect
+message above** — do not proceed to draft the roadmap. Once `/process <CAP_ID>`
+is run in the banking-knowledge repo and its PR merged, re-run `/roadmap`.
 
 ---
 
@@ -161,24 +150,24 @@ files — surface the error to the user and ask them to confirm the ID against `
    replaces all of the previous local file reads (capability YAML, FUNC ADR, strategic 
    vision, product vision, etc.). Do not read those files from disk.
 
-3. **Read the Process Modelling layer (read-only).** Verify that
-   `process/{capability-id}/` exists and contains at least `README.md`,
-   `aggregates.yaml`, `commands.yaml`, `policies.yaml`, `read-models.yaml`, and
-   `bus.yaml`. These are produced by the `/process` skill and are the canonical
-   source of:
-   - the **aggregates** (consistency boundaries) the roadmap must deliver,
-   - the **commands** the capability accepts,
-   - the **policies** wiring consumed events to commands,
-   - the **read-models** and queries the capability exposes,
-   - the **bus topology** (exchanges, routing keys, subscriptions).
+3. **Read the Process Modelling layer (read-only).** Fetch it once with
+   `bcm-pack process <CAPABILITY_ID> --compact` and read the slices from the
+   returned envelope (use `.model.<stem>.parsed`, falling back to `.raw` when
+   `parsed` is null). These are produced by the `/process` skill in
+   banking-knowledge and are the canonical source of:
+   - the **aggregates** (consistency boundaries) the roadmap must deliver — `.model.aggregates`,
+   - the **commands** the capability accepts — `.model.commands` (often `parsed:null`; use `.raw`),
+   - the **policies** wiring consumed events to commands — `.model.policies`,
+   - the **read-models** and queries the capability exposes — `.model["read-models"]` (often `parsed:null`; use `.raw`),
+   - the **bus topology** (exchanges, routing keys, subscriptions) — `.model.bus`.
 
-   If the folder is absent, **stop** and ask the user to run `/process
-   <CAPABILITY_ID>` first. Do **not** attempt to invent aggregates / commands
-   from the FUNC ADR — that is `/process`'s responsibility, and a hook will
-   block any attempt to write under `process/` from this skill.
+   If `bcm-pack process` does not resolve (gate fail above), **stop** and ask the
+   user to run `/process <CAPABILITY_ID>` in the banking-knowledge repo and merge
+   its PR. Do **not** attempt to invent aggregates / commands from the FUNC ADR —
+   that is `/process`'s responsibility.
 
-   If the folder exists but lacks an entry referenced in `pack.emitted_*` /
-   `pack.consumed_*`, surface the gap and ask the user to refresh `/process`.
+   If the model lacks an entry referenced in `pack.emitted_*` / `pack.consumed_*`,
+   surface the gap and ask the user to refresh `/process` upstream.
 
 4. **Check if a roadmap already exists** locally at `/roadmap/{capability-id}/roadmap.md`. This *is* a
    local file — the roadmap output lives in the working repo, not in `banking-knowledge`. If it 

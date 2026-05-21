@@ -67,59 +67,52 @@ explicit `rm -f` on exit is preferred.
 
 ---
 
-## Hard rule — `process/{capability-id}/` is read-only
+## Process model — consumed read-only via `bcm-pack process`
 
-A fix never touches `process/{capability-id}/`. The folder is the contract;
-the fix lives in the implementation that must satisfy it. The
-`process-folder-guard.py` PreToolUse hook blocks every Write/Edit attempt
-under `process/**` (in the main repo and in `/tmp/kanban-worktrees/...`).
+> The DDD process model (aggregates, commands, policies, read-models, bus
+> topology, JSON Schemas) is authored by the `/process` skill in the
+> **banking-knowledge** repo and consumed here **read-only** via
+> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> It does not live in this repo, so there is nothing to guard locally and
+> nothing to write under `process/`.
+
+A fix never reshapes the process model — it is the contract; the fix lives in
+the implementation that must satisfy it. The model is fetched via
+`bcm-pack process <CAP_ID>`.
 
 If the failure analysis reveals that the contract itself is wrong (an
 aggregate invariant is too strict, a command schema misses a field, a routing
 key is mis-paired), **stop the fix loop**. Tell the user to:
 
-1. run `/process <CAPABILITY_ID>` to amend the model in a separate session,
-2. commit and merge that change,
+1. run `/process <CAPABILITY_ID>` in the banking-knowledge repo to amend the model,
+2. merge that change upstream,
 3. re-run `/fix` against the failing PR with the refreshed model in place.
-
-The fix branch must never contain a diff under `process/{capability-id}/`,
-and consequently the PR / CI-CD pipeline produced by `/fix` must not modify
-that folder.
 
 ---
 
-## Readiness gate — process model must be merged on `main`
+## Readiness gate — the process model must resolve via `bcm-pack process`
 
 Before re-spawning any implementation agent, verify the capability's process
-model is on `main` and that no `process/<CAP_ID>` PR is open. A fix must
-never run against an unreviewed model — that would risk re-implementing on
-top of a contract about to be reshaped by review.
+model resolves. A fix must never run against an unresolvable model. A model is
+ready iff `bcm-pack process <CAP_ID>` returns exit 0 (bcm-pack resolves the
+published `main` of banking-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-failing-task>"
 
-# 1. Folder must exist on main.
-git -C "$PROJECT_ROOT" ls-tree --name-only main -- "process/$CAP_ID" \
-    > /tmp/process-main-check.txt
-if [ ! -s /tmp/process-main-check.txt ]; then
-  echo "GATE-FAIL: process/$CAP_ID/ is not on main."
-  echo "Cannot fix this PR until /process $CAP_ID has been run and the model PR merged."
-  exit 1
-fi
-
-# 2. No open PR for the process branch.
-OPEN_COUNT=$(gh pr list --head "process/$CAP_ID" --state open --json number --jq 'length' 2>/dev/null || echo 0)
-if [ "$OPEN_COUNT" != "0" ]; then
-  PR_URL=$(gh pr list --head "process/$CAP_ID" --state open --json url --jq '.[0].url')
-  echo "GATE-FAIL: open process PR ($PR_URL) is pending review for $CAP_ID."
-  echo "Cannot run /fix until the process PR is merged into main."
+# The process model lives in banking-knowledge now; it is ready iff bcm-pack
+# can resolve it (bcm-pack resolves the published main by default).
+if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+  echo "GATE-FAIL: no process model for $CAP_ID."
+  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  cat /tmp/process-model.err
   exit 1
 fi
 ```
 
-If either check fails, **stop and surface the failure** — the fix cannot
-land on a moving contract.
+If the gate fails, **stop and surface the failure** — the fix cannot land
+without a resolvable contract.
 
 ---
 
@@ -365,9 +358,9 @@ way `/code` Step 2.5 does:
 | ❌ Missing controller / consumer                    | feed the gap into the failure list and loop back to Step 3.2 — same remediation cycle as a test failure. |
 
 Stalls from process / bcm closure failures are deliberate: an upstream fix
-cannot be done by `/fix` itself without violating the read-only contract on
-`process/{cap}/` (and the `process-folder-guard.py` PreToolUse hook would
-block it anyway).
+cannot be done by `/fix` itself — the process model is authored upstream in
+banking-knowledge and consumed here read-only via `bcm-pack process`, so it
+cannot be amended from this repo at all.
 
 ---
 

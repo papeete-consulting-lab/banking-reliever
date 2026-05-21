@@ -56,18 +56,20 @@ def _env_float(name: str, default: float) -> float:
 
 
 def _default_schemas_dir() -> Path:
-    """Locate process/BNK.RLVR.CAP.BSP.001.SCO/schemas/ relative to this file.
+    """Locate the package-local *vendored* schema snapshot.
 
-    The stub lives at sources/BNK.RLVR.CAP.BSP.001.SCO/stub/src/bsp_sco_stub/, so
-    the canonical schemas folder is four levels up + process/<cap>/schemas/.
+    The RVT.*/CMD.* JSON Schemas are vendored as a static snapshot under
+    ``bsp_sco_stub/schemas/`` (a stub owns the contract snapshot it validates
+    against). They live next to this module, so resolution is simply
+    ``Path(__file__).parent / "schemas"`` — no repo-root / process/ lookup.
+    Refresh the snapshot via ``bcm-pack process BNK.RLVR.CAP.BSP.001.SCO``
+    (``.schemas["<FILE>.schema.json"]``).
     Overridable via env STUB_SCHEMAS_DIR for CI / docker scenarios.
     """
     raw = os.environ.get("STUB_SCHEMAS_DIR")
     if raw:
         return Path(raw).resolve()
-    here = Path(__file__).resolve()
-    repo_root = here.parents[4]  # …/banking/
-    return (repo_root / "process" / "BNK.RLVR.CAP.BSP.001.SCO" / "schemas").resolve()
+    return (Path(__file__).resolve().parent / "schemas").resolve()
 
 
 @dataclass(frozen=True)

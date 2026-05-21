@@ -33,7 +33,7 @@ UUIDV7_RE = re.compile(
 
 
 def test_schema_file_exists() -> None:
-    """The /process schema must be reachable from the stub."""
+    """The vendored RVT schema snapshot must be reachable from the stub."""
     assert SCHEMA_PATH.is_file(), f"Schema not found at {SCHEMA_PATH}"
 
 
