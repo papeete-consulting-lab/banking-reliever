@@ -57,6 +57,14 @@ jobs:
             exit 0
           fi
           pip install --upgrade pip
+          # reliever-knowledge pulls a transitive git dependency (gov-pack, the
+          # `gov` CLI) whose source is declared as an ssh:// URL. SSH auth uses
+          # keys, not the HTTPS token — so without this rewrite the runner gets
+          # "Permission denied (publickey)" no matter how broad the token's
+          # access. Rewrite every github.com SSH form to HTTPS-with-token so the
+          # token covers the transitive clones too.
+          git config --global url."https://x-access-token:${RELIEVER_KNOWLEDGE_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://x-access-token:${RELIEVER_KNOWLEDGE_TOKEN}@github.com/".insteadOf "git@github.com:"
           pip install "git+https://${RELIEVER_KNOWLEDGE_TOKEN}@github.com/Banking-PapeeteConsulting/reliever-knowledge.git@main"
           rlv-knowledge --help >/dev/null
           rlv-knowledge process --list >/dev/null   # fail fast if the CLI predates the `process` subcommand
