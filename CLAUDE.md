@@ -34,7 +34,10 @@ upstream artifacts. There is no `bcm/`, `adr/`, `func-adr/`, `process/`,
 ### Enriched, source-context-prefixed asset IDs (CLI v2.0.0+)
 
 Every upstream asset ID now carries an **`<ENTERPRISE>.<SCOPE>.`
-source-context prefix** (ADR-PCM-URBA-0014 / reliever-knowledge namespacing):
+source-context prefix** (governed by `ADR-PCM-URBA-0014` — now owned by the
+`banking-governance` repo as an org-wide governance ADR; it keeps its legacy
+`PCM` name until the upstream cleanup renames it. Tech-repo ADRs likewise still
+adhere to the `PCM` naming):
 
 ```
 CAP.<ZONE>.<NNN>[.<CODE>]   →   BNK.RLVR.CAP.<ZONE>.<NNN>[.<CODE>]   (knowledge / rlv-knowledge)

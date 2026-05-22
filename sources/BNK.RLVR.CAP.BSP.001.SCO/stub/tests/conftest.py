@@ -20,7 +20,7 @@ if str(SRC) not in sys.path:
 
 # Schemas are a package-local vendored snapshot under
 # src/bsp_sco_stub/schemas/ (refreshable via
-# `bcm-pack process BNK.RLVR.CAP.BSP.001.SCO`).
+# `rlv-knowledge process BNK.RLVR.CAP.BSP.001.SCO`).
 SCHEMAS_DIR = SRC / "bsp_sco_stub" / "schemas"
 
 

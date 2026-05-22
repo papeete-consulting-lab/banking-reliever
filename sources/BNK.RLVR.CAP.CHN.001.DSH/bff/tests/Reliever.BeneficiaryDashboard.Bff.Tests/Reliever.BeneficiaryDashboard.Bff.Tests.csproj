@@ -29,7 +29,7 @@
     process-schemas/<source-cap>/RVT.*.schema.json relative to AppContext.BaseDirectory.
     Re-copy them into the test bin so UpstreamSchemaValidatorTests can load them.
     Source = the BFF project's vendored snapshots (single source of truth); the
-    process model itself lives upstream in banking-knowledge (`bcm-pack process`).
+    process model itself lives upstream in reliever-knowledge (`rlv-knowledge process`).
   -->
   <ItemGroup>
     <Content Include="..\..\src\Reliever.BeneficiaryDashboard.Bff\process-schemas\bsp.001.sco\BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json"

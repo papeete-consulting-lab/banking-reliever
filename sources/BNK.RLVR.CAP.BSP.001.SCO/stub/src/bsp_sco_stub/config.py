@@ -62,7 +62,7 @@ def _default_schemas_dir() -> Path:
     ``bsp_sco_stub/schemas/`` (a stub owns the contract snapshot it validates
     against). They live next to this module, so resolution is simply
     ``Path(__file__).parent / "schemas"`` — no repo-root / process/ lookup.
-    Refresh the snapshot via ``bcm-pack process BNK.RLVR.CAP.BSP.001.SCO``
+    Refresh the snapshot via ``rlv-knowledge process BNK.RLVR.CAP.BSP.001.SCO``
     (``.schemas["<FILE>.schema.json"]``).
     Overridable via env STUB_SCHEMAS_DIR for CI / docker scenarios.
     """

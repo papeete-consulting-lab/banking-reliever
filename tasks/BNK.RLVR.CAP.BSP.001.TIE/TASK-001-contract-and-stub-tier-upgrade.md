@@ -10,7 +10,7 @@ priority: high
 depends_on: []
 loop_count: 0
 max_loops: 10
-pr_url: https://github.com/Banking-Reliever/banking/pull/1
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/1
 ---
 
 > **Started on:** 2026-04-28

@@ -10,7 +10,7 @@ depends_on: []
 task_type: contract-stub
 loop_count: 0
 max_loops: 10
-pr_url: https://github.com/Banking-Reliever/banking/pull/9
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/9
 ---
 
 > **Started on:** 2026-05-15

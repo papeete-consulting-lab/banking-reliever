@@ -164,4 +164,4 @@ shorter retention or periodic purge of `MINTED` / `UPDATED` rows) is a
 **deferred governance** question for a future FUNC ADR + delta `/process`
 pass; do NOT modify retention semantics from inside this task. If the
 question is reactivated during implementation, surface it on the PR and
-route it back through banking-knowledge.
+route it back through reliever-knowledge.

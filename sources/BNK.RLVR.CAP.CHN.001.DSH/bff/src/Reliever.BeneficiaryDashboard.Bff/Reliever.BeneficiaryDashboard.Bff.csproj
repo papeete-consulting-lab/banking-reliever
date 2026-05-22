@@ -37,10 +37,10 @@
     startup (fail-fast).
 
     These are VENDORED snapshots under process-schemas/: the process model now
-    lives in the banking-knowledge repo (consumed via `bcm-pack process`), not
+    lives in the reliever-knowledge repo (consumed via `rlv-knowledge process`), not
     in a local process/ folder, so the BFF carries its own copy of the upstream
     contracts it validates against. Refresh via
-    `bcm-pack process <CAP_ID>` → `.schemas["RVT.*.schema.json"]`.
+    `rlv-knowledge process <CAP_ID>` → `.schemas["RVT.*.schema.json"]`.
   -->
   <!--
     The Web SDK already includes these *.json files as Content by default

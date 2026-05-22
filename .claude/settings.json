@@ -19,7 +19,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type PreToolUse --summarize"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type PreToolUse --summarize"
           }
         ]
       }
@@ -34,7 +34,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type PostToolUse --summarize"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type PostToolUse --summarize"
           }
         ]
       }
@@ -48,7 +48,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type Notification --summarize"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type Notification --summarize"
           }
         ]
       }
@@ -62,7 +62,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type Stop --add-chat"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type Stop --add-chat"
           }
         ]
       }
@@ -76,7 +76,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type SubagentStop"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type SubagentStop"
           }
         ]
       }
@@ -90,7 +90,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type PreCompact"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type PreCompact"
           }
         ]
       }
@@ -104,7 +104,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type UserPromptSubmit --summarize"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type UserPromptSubmit --summarize"
           }
         ]
       }
@@ -118,7 +118,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type SessionStart"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type SessionStart"
           }
         ]
       }
@@ -132,7 +132,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type SessionEnd"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type SessionEnd"
           }
         ]
       }
@@ -147,7 +147,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type PermissionRequest --summarize"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type PermissionRequest --summarize"
           }
         ]
       }
@@ -162,7 +162,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type PostToolUseFailure --summarize"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type PostToolUseFailure --summarize"
           }
         ]
       }
@@ -177,7 +177,7 @@
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-is --event-type SubagentStart"
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app banking-reliever --event-type SubagentStart"
           }
         ]
       }

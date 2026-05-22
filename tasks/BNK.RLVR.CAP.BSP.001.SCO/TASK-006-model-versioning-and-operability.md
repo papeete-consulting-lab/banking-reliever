@@ -129,7 +129,7 @@ None — same surface as TASK-003 / TASK-005.
       the live specs from the running service
 - [ ] No write to `process/BNK.RLVR.CAP.BSP.001.SCO/` from any of the five
       axes (the contract harness is the only step that reads
-      `process/.../schemas/` programmatically — through `bcm-pack` and
+      `process/.../schemas/` programmatically — through `rlv-knowledge` and
       `/harness-backend`, never via direct authoring)
 
 ## Acceptance Criteria (Business)

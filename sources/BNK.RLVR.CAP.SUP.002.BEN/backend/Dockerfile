@@ -36,7 +36,7 @@ COPY --from=builder /install /usr/local
 # package (src/reliever_beneficiary_anchor/infrastructure/schema_validation/
 # schemas/) and ship in the installed wheel — the settings default resolves
 # them package-locally, so no /process mount or env override is needed.
-# (The process model itself lives upstream in banking-knowledge — `bcm-pack
+# (The process model itself lives upstream in reliever-knowledge — `rlv-knowledge
 # process`.) Override RELIEVER_PROCESS_SCHEMAS_DIR only to point at a
 # different snapshot.
 COPY migrations ./migrations

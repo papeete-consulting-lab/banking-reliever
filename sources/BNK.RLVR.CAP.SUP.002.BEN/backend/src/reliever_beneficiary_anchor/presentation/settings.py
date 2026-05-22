@@ -16,7 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 #   parents[0]=presentation parents[1]=reliever_beneficiary_anchor parents[2]=src
 # JSON Schemas are a package-local *vendored* snapshot of the upstream contract
 # (this service owns the snapshot it validates against). Refresh via
-# `bcm-pack process BNK.RLVR.CAP.SUP.002.BEN` (`.schemas["<FILE>.schema.json"]`).
+# `rlv-knowledge process BNK.RLVR.CAP.SUP.002.BEN` (`.schemas["<FILE>.schema.json"]`).
 _PKG_ROOT = Path(__file__).resolve().parents[1]  # reliever_beneficiary_anchor/
 _DEFAULT_SCHEMAS_DIR = (
     _PKG_ROOT / "infrastructure" / "schema_validation" / "schemas"

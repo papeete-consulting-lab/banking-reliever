@@ -12,7 +12,7 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]  # tests → backend
 @pytest.fixture(scope="session")
 def schemas_dir() -> Path:
     # Package-local vendored snapshot — same dir the service loads at runtime
-    # (refresh via `bcm-pack process BNK.RLVR.CAP.SUP.002.BEN`).
+    # (refresh via `rlv-knowledge process BNK.RLVR.CAP.SUP.002.BEN`).
     return (
         _BACKEND_ROOT
         / "src"
