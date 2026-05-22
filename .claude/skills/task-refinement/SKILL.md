@@ -92,11 +92,11 @@ deliberate.
    - The roadmap: `/roadmap/{capability-id}/roadmap.md` — the epic this task belongs to and its exit condition
    - Sibling tasks in `/tasks/{capability-id}/` — to spot collateral amendments (Rule 2)
 
-   Knowledge corpus — fetch via the `bcm-pack` CLI **only**, never read `/bcm/`, `/func-adr/`, 
+   Knowledge corpus — fetch via the `rlv-knowledge` CLI **only**, never read `/bcm/`, `/func-adr/`, 
    `/adr/`, `/strategic-vision/`, or `/product-vision/` directly:
 
    ```bash
-   bcm-pack pack <CAPABILITY_ID> --deep --compact > /tmp/pack-refine.json
+   rlv-knowledge pack <CAPABILITY_ID> --deep --compact > /tmp/pack-refine.json
    ```
 
    Use `--deep` here so the product/business/tech vision narratives are present — you may 

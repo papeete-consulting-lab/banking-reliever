@@ -63,7 +63,7 @@ business events produced by frontend interactions.
 
 > **Read-only contract — the process model.**
 > The process model is authored by the `/process` skill in the
-> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
+> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
 > process <CAP_ID>` — it does not live in this repo, so there is nothing to
 > guard locally and nothing to write under `process/`. Fetch it once and
 > read `.model.bus` to ground your subscriptions (queue names, binding
@@ -72,7 +72,7 @@ business events produced by frontend interactions.
 > non-null, fall back to `.raw`). The CMD JSON Schemas under `.schemas[...]`
 > are the wire contract for any business event the BFF publishes back. If
 > the contract is incoherent with what the task demands, abort and tell the
-> caller to run `/process <CAPABILITY_ID>` in the banking-knowledge repo and
+> caller to run `/process <CAPABILITY_ID>` in the reliever-knowledge repo and
 > merge its PR to fix the model. Your PR must not contain any diff under
 > `process/`.
 
@@ -150,14 +150,14 @@ Only if both checks pass, proceed to step 1.
 ### 1. Read the context
 
 The caller hands you a CHANNEL-zone L2 capability (or an explicit TASK).
-**All BCM/ADR knowledge is sourced from the `bcm-pack` CLI** — never read
+**All BCM/ADR knowledge is sourced from the `rlv-knowledge` CLI** — never read
 `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`, `/tech-vision/`,
 `/strategic-vision/`, or `/product-vision/` directly.
 
 Run **once** at the top of step 1:
 
 ```bash
-bcm-pack pack {capability_id} --compact > /tmp/pack-bff.json
+rlv-knowledge pack {capability_id} --compact > /tmp/pack-bff.json
 ```
 
 Lightweight mode is sufficient (the BFF does not need narrative visions —
@@ -181,8 +181,8 @@ and stop — do not invent topology that has no functional grounding (see
 "Push back" below).
 
 If a consumed event lists no `emitting_capability`, do **not** read other
-FUNC ADRs from disk to find the producer — instead query `bcm-pack` for
-each candidate capability (or use `bcm-pack list` then filter), and 
+FUNC ADRs from disk to find the producer — instead query `rlv-knowledge` for
+each candidate capability (or use `rlv-knowledge list` then filter), and 
 document the assumption.
 
 ### 2. Make decisions explicitly
@@ -424,8 +424,8 @@ The BFF must propagate the W3C `traceparent` header:
 ## Facilitation Notes
 
 - If the FUNC ADR lists events consumed but does not specify the emitting
-  L2, run `bcm-pack pack <CANDIDATE_ID>` for each plausible producer (or
-  start from `bcm-pack list --level L2` and filter) until you find the L2
+  L2, run `rlv-knowledge pack <CANDIDATE_ID>` for each plausible producer (or
+  start from `rlv-knowledge list --level L2` and filter) until you find the L2
   whose `emitted_business_events` includes that event name — do not invent,
   and never read `/func-adr/` from disk to discover producers.
 - If a tactical ADR for an L3 specifies a payload shape (e.g.

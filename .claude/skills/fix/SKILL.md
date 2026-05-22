@@ -67,45 +67,45 @@ explicit `rm -f` on exit is preferred.
 
 ---
 
-## Process model — consumed read-only via `bcm-pack process`
+## Process model — consumed read-only via `rlv-knowledge process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **banking-knowledge** repo and consumed here **read-only** via
-> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> **reliever-knowledge** repo and consumed here **read-only** via
+> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 A fix never reshapes the process model — it is the contract; the fix lives in
 the implementation that must satisfy it. The model is fetched via
-`bcm-pack process <CAP_ID>`.
+`rlv-knowledge process <CAP_ID>`.
 
 If the failure analysis reveals that the contract itself is wrong (an
 aggregate invariant is too strict, a command schema misses a field, a routing
 key is mis-paired), **stop the fix loop**. Tell the user to:
 
-1. run `/process <CAPABILITY_ID>` in the banking-knowledge repo to amend the model,
+1. run `/process <CAPABILITY_ID>` in the reliever-knowledge repo to amend the model,
 2. merge that change upstream,
 3. re-run `/fix` against the failing PR with the refreshed model in place.
 
 ---
 
-## Readiness gate — the process model must resolve via `bcm-pack process`
+## Readiness gate — the process model must resolve via `rlv-knowledge process`
 
 Before re-spawning any implementation agent, verify the capability's process
 model resolves. A fix must never run against an unresolvable model. A model is
-ready iff `bcm-pack process <CAP_ID>` returns exit 0 (bcm-pack resolves the
-published `main` of banking-knowledge by default).
+ready iff `rlv-knowledge process <CAP_ID>` returns exit 0 (rlv-knowledge resolves the
+published `main` of reliever-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-failing-task>"
 
-# The process model lives in banking-knowledge now; it is ready iff bcm-pack
-# can resolve it (bcm-pack resolves the published main by default).
-if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
+# can resolve it (rlv-knowledge resolves the published main by default).
+if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -181,11 +181,11 @@ fix on. Never guess.
 4. Fetch the capability pack — same pattern as `/code`:
 
    ```bash
-   bcm-pack pack <capability_id> --compact > /tmp/pack-fix.json
+   rlv-knowledge pack <capability_id> --compact > /tmp/pack-fix.json
    ```
 
    `<capability_id>` is the full source-context-prefixed ID (e.g.
-   `BNK.RLVR.CAP.BSP.001.SCO`); the v1.0.0 CLI rejects the short form (exit 2).
+   `BNK.RLVR.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short form (exit 2).
    Read `slices.capability_self[0].zoning` for routing. Never read `/bcm/`,
    `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`, or
    `/tech-vision/` directly.
@@ -195,7 +195,7 @@ fix on. Never guess.
    `bcm_ref` against the current knowledge base:
 
    ```bash
-   bcm-pack diff "$bcm_ref" --capability <capability_id> --compact \
+   rlv-knowledge diff "$bcm_ref" --capability <capability_id> --compact \
      | jq '{empty, summary}'
    ```
 
@@ -345,7 +345,7 @@ Say:
 
 The harness will regenerate `contracts/specs/openapi.yaml` +
 `asyncapi.yaml` + `lineage.json` + `harness-report.md` strictly from
-`process/{cap}/` + `bcm-pack`, with full bidirectional `x-lineage` (process
+`process/{cap}/` + `rlv-knowledge`, with full bidirectional `x-lineage` (process
 + bcm) on every operation, message, and channel. Treat its outcome the same
 way `/code` Step 2.5 does:
 
@@ -354,12 +354,12 @@ way `/code` Step 2.5 does:
 | ✅ Closure green, drift = 0                         | proceed to Step 4 (re-validate with the test skill).                          |
 | ❌ Drift > 0 (specs regenerated)                    | the new specs ARE the fix surface — proceed to Step 4. The fix commit (Step 5) will include the spec diff alongside the code change. |
 | ❌ Dangling `x-lineage.process.*`                   | model is wrong. **Stall** (do not consume loop budget): set `stalled_reason: "harness closure failed: process gap — <detail>"`, refresh BOARD.md, point user at `/process <CAPABILITY_ID>`. |
-| ❌ Dangling `x-lineage.bcm.*`                       | BCM is wrong. **Stall**: `stalled_reason: "harness closure failed: bcm gap — <detail>"`, point user at `banking-knowledge`. |
+| ❌ Dangling `x-lineage.bcm.*`                       | BCM is wrong. **Stall**: `stalled_reason: "harness closure failed: bcm gap — <detail>"`, point user at `reliever-knowledge`. |
 | ❌ Missing controller / consumer                    | feed the gap into the failure list and loop back to Step 3.2 — same remediation cycle as a test failure. |
 
 Stalls from process / bcm closure failures are deliberate: an upstream fix
 cannot be done by `/fix` itself — the process model is authored upstream in
-banking-knowledge and consumed here read-only via `bcm-pack process`, so it
+reliever-knowledge and consumed here read-only via `rlv-knowledge process`, so it
 cannot be amended from this repo at all.
 
 ---
@@ -507,7 +507,7 @@ Worktree retained at /tmp/kanban-worktrees/TASK-NNN-{slug} until the PR is merge
 - **Never bypass tests.** The matching test skill is mandatory. If Playwright cannot
   install on Path B, fall back to `manual-checklist.md` exactly like `/test-app` does.
 - **Never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
-  `/product-vision/`, or `/tech-vision/` directly.** Use `bcm-pack`.
+  `/product-vision/`, or `/tech-vision/` directly.** Use `rlv-knowledge`.
 - **One task per invocation.** Refuse compound requests; ask which to fix first.
 - **Loop budget is shared with `/code`.** A task that already burned 8 of 10 loops in
   `/code` only has 2 loops left in `/fix`.

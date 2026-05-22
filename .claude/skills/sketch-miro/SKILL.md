@@ -1,7 +1,7 @@
 ---
 name: sketch-miro
 description: >
-  Renders every process-modelled capability (enumerated via `bcm-pack process
+  Renders every process-modelled capability (enumerated via `rlv-knowledge process
   --list`) as a single Event-Storming-style Miro board via Miro's official REST
   API. Idempotent — re-runs update the same widgets in place rather than
   producing duplicates. Aggregates (yellow), commands (blue), domain events
@@ -24,8 +24,8 @@ local `.rtb` file — see the design note at the bottom for why.
 
 ## Position in the pipeline
 
-`/sketch-miro` consumes the process model read-only via `bcm-pack process`
-(authored by `/process` in the **banking-knowledge** repo) and produces a
+`/sketch-miro` consumes the process model read-only via `rlv-knowledge process`
+(authored by `/process` in the **reliever-knowledge** repo) and produces a
 sharable Miro board. The process model does not live in this repo, so there is
 nothing to write under `process/`. The only files the skill writes are two
 sidecars kept **next to the bundled script**: `banking-miro.url` (the board
@@ -72,7 +72,7 @@ The skill accepts:
 
 | Form | Behavior |
 |---|---|
-| `/sketch-miro` | Sync ALL process-modelled capabilities (via `bcm-pack process --list`) to the board |
+| `/sketch-miro` | Sync ALL process-modelled capabilities (via `rlv-knowledge process --list`) to the board |
 | `/sketch-miro CAP.<…>` | Sync ONE capability only — touches that frame, leaves the rest of the board alone |
 | `/sketch-miro --dry-run` | Print the change plan (CREATE / UPDATE / DELETE counts and a sample of each), make no API call |
 | `/sketch-miro --rebuild` | Delete every widget in the state file and rebuild from scratch — costs API calls but heals drift |
@@ -80,7 +80,7 @@ The skill accepts:
 `--rebuild` requires the user to confirm before proceeding (it is destructive on the board).
 
 No sentinel or write-guard is involved: the process model is consumed read-only
-via `bcm-pack process` and the only files written are the two sidecars next to
+via `rlv-knowledge process` and the only files written are the two sidecars next to
 the bundled script.
 
 ---
@@ -88,7 +88,7 @@ the bundled script.
 ## Step 2 — Run the script
 
 Delegate the heavy lifting to the bundled Python script. It handles
-discovery (via `bcm-pack process`), model parsing, API calls, rate-limit
+discovery (via `rlv-knowledge process`), model parsing, API calls, rate-limit
 retries, idempotency via the sidecar state file, and a final summary printed to
 stdout.
 
@@ -101,8 +101,8 @@ The script:
 1. Reads `MIRO_ACCESS_TOKEN` from the environment.
 2. Loads `.banking-miro.state.json` (next to the script, or starts fresh if absent).
 3. If no `board_id` is in state, creates a new board named "Reliever — Event Storming (process layer)" and stores its id.
-4. Enumerates capabilities via `bcm-pack process --list` (or only the one passed via `--cap`).
-5. For each capability, fetches its model with `bcm-pack process <CAP> --compact` and reads the `aggregates`, `commands`, `policies`, `read-models`, `bus` slices.
+4. Enumerates capabilities via `rlv-knowledge process --list` (or only the one passed via `--cap`).
+5. For each capability, fetches its model with `rlv-knowledge process <CAP> --compact` and reads the `aggregates`, `commands`, `policies`, `read-models`, `bus` slices.
 6. Computes a deterministic widget set: one frame per capability, lanes per kind (event / command / aggregate / policy / read-model), and connectors derived from `accepted_by`, `issues`, `emits`, and the bus subscriptions.
 7. Diffs against the state file:
    - artifact in target & in state → **PATCH**
@@ -201,7 +201,7 @@ script) stores `{board_id, widgets: {<artifact_id>: <miro_widget_id>}}`. This
 makes re-runs O(n) and avoids fragile content-prefix tagging.
 
 **Why keep the sidecars next to the script?** The process model no longer
-lives in this repo — it is served read-only by `bcm-pack process` from
-`banking-knowledge`. So there is no `process/` folder to anchor the sidecars
+lives in this repo — it is served read-only by `rlv-knowledge process` from
+`reliever-knowledge`. So there is no `process/` folder to anchor the sidecars
 to, and no write-guard to negotiate; the script's own directory is the natural,
 stable home for its idempotency ledger and the board URL.

@@ -7,13 +7,13 @@ description: >
   zone (docs/c4/enterprise/zone-<zone>.dsl — one per zone, every L2 in that
   zone as a container, cross-cap event flows), and per-L2 capability
   (docs/c4/<CAP_L2>/workspace.dsl — implementation artifacts as containers,
-  DDD elements from the process model (consumed via `bcm-pack process <CAP>`)
+  DDD elements from the process model (consumed via `rlv-knowledge process <CAP>`)
   as components, ADR refs as properties pointing at
-  github.com/Banking-Reliever/banking-knowledge). Every DSL file
+  github.com/Banking-PapeeteConsulting/reliever-knowledge). Every DSL file
   carries tags reflecting the on-disk implementation status (mode-a / stub /
   bff / frontend / not-scaffolded), with corresponding colors in the styles
   block so the rendered views show "where we stand". Reads upstream knowledge
-  exclusively via `bcm-pack` — never opens /bcm/, /adr/, /func-adr/, /tech-adr/,
+  exclusively via `rlv-knowledge` — never opens /bcm/, /adr/, /func-adr/, /tech-adr/,
   /product-vision/, /business-vision/, /tech-vision/ directly. Idempotent —
   re-runs overwrite the same files in place.
   Trigger on: "c4-export", "/c4-export", "structurizr export", "render c4",
@@ -35,11 +35,11 @@ landscape. The DSL is intentionally rendered offline — view the result with
 `/c4-export` is a read-mostly skill — it does NOT participate in the implementation
 pipeline (no zone routing, no agent dispatch, no test loop). It composes:
 
-- the **business-capability model** (upstream, in `banking-knowledge`, consumed
-  via `bcm-pack pack`),
+- the **business-capability model** (upstream, in `reliever-knowledge`, consumed
+  via `rlv-knowledge pack`),
 - the **process model** (aggregates, commands, policies, read-models, bus —
-  authored upstream in `banking-knowledge` and consumed read-only via
-  `bcm-pack process <CAP>`),
+  authored upstream in `reliever-knowledge` and consumed read-only via
+  `rlv-knowledge process <CAP>`),
 - the **on-disk implementation overlay** (`sources/<CAP>/{backend,stub,bff,frontend}`),
 
 into Structurizr DSL files under `docs/c4/`. The process model does not live in
@@ -73,7 +73,7 @@ docs/c4/
 |---|---|
 | Software System | The L2 capability itself — named by its BCM `name` (e.g. `Tier Management`), described by its BCM `description`, with the dotted `capability-id` (e.g. `BNK.RLVR.CAP.BSP.001.TIE`) stored as a property |
 | Container | An implementation artifact: backend microservice (Mode A), contract stub (Mode B), BFF, frontend, or a `not-scaffolded` placeholder |
-| Component | A DDD element mined from the process model (via `bcm-pack process <CAP>`) — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
+| Component | A DDD element mined from the process model (via `rlv-knowledge process <CAP>`) — aggregates, read-models, policies, business-event publishers. Display labels strip the namespace prefix and turn `_` into spaces (e.g. `BNK.RLVR.EVT.BSP.001.TIER_UPGRADED` → `TIER UPGRADED`); the full ID is preserved on the `id` property |
 
 Upstream capabilities (other L2s that emit business events this capability
 subscribes to) appear as `external-capability` Software Systems named after
@@ -136,24 +136,24 @@ a quick glance at any view tells you where each capability stands.
 Every L2 file carries `properties` of the form:
 
 ```dsl
-"adr:ADR-BCM-FUNC-0005" "https://github.com/Banking-Reliever/banking-knowledge/blob/main/func-adr/ADR-BCM-FUNC-0005-...md"
-"adr:ADR-TECH-TACT-003" "https://github.com/Banking-Reliever/banking-knowledge/blob/main/tech-adr/ADR-TECH-TACT-003-...md"
-"adr:ADR-BCM-URBA-0009" "https://github.com/Banking-Reliever/banking-knowledge/blob/main/adr/ADR-BCM-URBA-0009-...md"
+"adr:ADR-BCM-FUNC-0005" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/func-adr/ADR-BCM-FUNC-0005-...md"
+"adr:ADR-TECH-TACT-003" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/tech-adr/ADR-TECH-TACT-003-...md"
+"adr:ADR-BCM-URBA-0009" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/adr/ADR-BCM-URBA-0009-...md"
 ```
 
 ADR IDs and their on-disk paths are extracted from the `files` slice of
-`bcm-pack pack <CAP_ID> --deep --compact` — never from a direct read of
-`banking-knowledge`.
+`rlv-knowledge pack <CAP_ID> --deep --compact` — never from a direct read of
+`reliever-knowledge`.
 
 ## Step 0 — Prerequisites
 
-Verify `bcm-pack` is on PATH:
+Verify `rlv-knowledge` is on PATH:
 
 ```bash
-command -v bcm-pack && bcm-pack list >/dev/null && echo OK || echo MISSING
+command -v rlv-knowledge && rlv-knowledge list >/dev/null && echo OK || echo MISSING
 ```
 
-If `bcm-pack` is missing, stop and tell the user. The skill cannot proceed
+If `rlv-knowledge` is missing, stop and tell the user. The skill cannot proceed
 without it — there is no fallback.
 
 Python ≥ 3.9 is sufficient; the script uses only the standard library.
@@ -175,17 +175,17 @@ python3 .claude/skills/c4-export/c4_export.py [--cap CAP.<…>] [--enterprise-on
 
 The script:
 
-1. Calls `bcm-pack list` to enumerate every capability.
+1. Calls `rlv-knowledge list` to enumerate every capability.
 2. Filters to L2 leaves (L1 parents are surfaced inside per-L2 files via the
    `parent` property, and at the enterprise view as a zone grouping).
-3. For each L2 in scope, calls `bcm-pack pack <CAP> --deep --compact` to fetch
+3. For each L2 in scope, calls `rlv-knowledge pack <CAP> --deep --compact` to fetch
    the full slice set.
 4. Inspects `sources/<CAP>/{backend,stub,bff,frontend}` to set the
    implementation overlay tag.
-5. Optionally fetches the process model via `bcm-pack process <CAP>`
+5. Optionally fetches the process model via `rlv-knowledge process <CAP>`
    (aggregates / read-models / policies / bus) to add DDD components.
 6. Builds GitHub URLs for every referenced ADR from the `files` slice
-   (`banking-knowledge` repo, `main` branch).
+   (`reliever-knowledge` repo, `main` branch).
 7. Emits the per-L2, per-zone, and enterprise DSL files under `docs/c4/`.
 8. Logs each write to stdout.
 
@@ -204,7 +204,7 @@ After the script returns:
   docker run -it --rm -p 8080:8080 -v "$(pwd)/docs/c4/enterprise:/usr/local/structurizr" structurizr/lite
   ```
 
-- If a capability was renamed or removed in `banking-knowledge` since the
+- If a capability was renamed or removed in `reliever-knowledge` since the
   last run, stale `docs/c4/<old-id>/` folders may remain. The script does not
   delete them — `git status docs/c4` to inspect, then remove by hand.
 
@@ -213,11 +213,11 @@ After the script returns:
 This skill MUST NOT:
 
 - Treat the process model as a local writable lane. It is authored by `/process`
-  in `banking-knowledge` and consumed read-only via `bcm-pack process` — there
+  in `reliever-knowledge` and consumed read-only via `rlv-knowledge process` — there
   is no `process/` folder in this repo to read from or write to.
 - Open `/bcm/`, `/adr/`, `/func-adr/`, `/tech-adr/`, `/product-vision/`,
   `/business-vision/`, `/tech-vision/` directly. All upstream knowledge flows
-  through `bcm-pack`.
+  through `rlv-knowledge`.
 - Modify `sources/`, `src/`, `tasks/`, `roadmap/`. Implementation status is
   detected, not changed.
 - Spawn agents. C4 export is pure rendering.
@@ -232,12 +232,12 @@ makes Structurizr useful here.
 
 **Why ADRs as `properties` and not `!docs`?** `!docs` requires the actual
 markdown files to be reachable from the DSL workspace. We deliberately do
-NOT clone `banking-knowledge` into this repo — `bcm-pack` is the only access
+NOT clone `reliever-knowledge` into this repo — `rlv-knowledge` is the only access
 point. Properties pointing at GitHub URLs preserve traceability without
 breaking the read-only contract.
 
 **Why detect implementation from the filesystem instead of asking
-`bcm-pack`?** `bcm-pack` describes the business model, which is repo-agnostic.
+`rlv-knowledge`?** `rlv-knowledge` describes the business model, which is repo-agnostic.
 The point of the implementation overlay is to show how far THIS working tree
 has gotten — that signal lives in `sources/` and `src/`, nowhere else.
 

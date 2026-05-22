@@ -23,37 +23,37 @@ language. The "how" emerges in the task phase.
 
 ---
 
-## Process model — consumed read-only via `bcm-pack process`
+## Process model — consumed read-only via `rlv-knowledge process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **banking-knowledge** repo and consumed here **read-only** via
-> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> **reliever-knowledge** repo and consumed here **read-only** via
+> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 This skill consumes the model as a primary input to ground epics in real
-aggregates and commands. Fetch it once via `bcm-pack process <CAP_ID>` and read
+aggregates and commands. Fetch it once via `rlv-knowledge process <CAP_ID>` and read
 the slices it returns; do not attempt to derive aggregates or commands inside the
 roadmap, that is a category violation owned by `/process`.
 
 ---
 
-## Readiness gate — the process model must resolve via `bcm-pack process`
+## Readiness gate — the process model must resolve via `rlv-knowledge process`
 
 Before reading anything from the process model, verify it resolves. A model is
-ready iff `bcm-pack process <CAP_ID>` returns exit 0 (bcm-pack resolves the
-published `main` of banking-knowledge by default).
+ready iff `rlv-knowledge process <CAP_ID>` returns exit 0 (rlv-knowledge resolves the
+published `main` of reliever-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# The process model lives in banking-knowledge now; it is ready iff bcm-pack
-# can resolve it (bcm-pack resolves the published main by default).
-if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
+# can resolve it (rlv-knowledge resolves the published main by default).
+if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -61,28 +61,28 @@ fi
 
 If the gate fails, **stop and surface the failure to the user with the redirect
 message above** — do not proceed to draft the roadmap. Once `/process <CAP_ID>`
-is run in the banking-knowledge repo and its PR merged, re-run `/roadmap`.
+is run in the reliever-knowledge repo and its PR merged, re-run `/roadmap`.
 
 ---
 
-## Knowledge access — `bcm-pack` CLI (mandatory)
+## Knowledge access — `rlv-knowledge` CLI (mandatory)
 
-**You MUST source all BCM, ADR, vision, and event knowledge from the `bcm-pack` CLI.**
+**You MUST source all BCM, ADR, vision, and event knowledge from the `rlv-knowledge` CLI.**
 Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`, or any 
 other knowledge file directly from the local working directory — those paths may be missing, 
 stale, or incomplete in this checkout. The authoritative corpus lives in the
-`Banking-Reliever/banking-knowledge` Git repository, and `bcm-pack` is the only sanctioned 
+`Banking-PapeeteConsulting/reliever-knowledge` Git repository, and `rlv-knowledge` is the only sanctioned 
 way to query it.
 
 Two subcommands are all you need:
 
 ```bash
 # 1. Enumerate plannable capabilities (use to disambiguate user input)
-bcm-pack list --level L2
-bcm-pack list --level L3
+rlv-knowledge list --level L2
+rlv-knowledge list --level L3
 
 # 2. Fetch the full pack for one capability (lightweight mode is the default)
-bcm-pack pack <CAPABILITY_ID> --deep --compact
+rlv-knowledge pack <CAPABILITY_ID> --deep --compact
 ```
 
 Always pass `--deep` from this skill: it pulls in the rationale ADRs (URBA, governance,
@@ -117,52 +117,52 @@ should land in the roadmap's **Open Questions** section.
 
 ### Repo ref and offline behaviour
 
-- Default ref is `main` on `git@github.com:Banking-Reliever/banking-knowledge.git`. To pin a 
-  specific snapshot (e.g. matching a release): `bcm-pack --ref v0.1.0 pack <ID> --deep --compact`.
-- Cached locally under `~/.cache/bcm-pack/`. Add `--no-fetch` to skip the per-invocation 
+- Default ref is `main` on `git@github.com:Banking-PapeeteConsulting/reliever-knowledge.git`. To pin a 
+  specific snapshot (e.g. matching a release): `rlv-knowledge --ref v0.1.0 pack <ID> --deep --compact`.
+- Cached locally under `~/.cache/rlv-knowledge/`. Add `--no-fetch` to skip the per-invocation 
   `git fetch` if the network is slow or unreachable; `--fresh` re-clones from scratch.
 - If the user has a local checkout, they can set `BANKING_KNOWLEDGE_ROOT=/path/to/checkout` 
-  and `bcm-pack` will read from disk silently. Don't assume that's the case.
+  and `rlv-knowledge` will read from disk silently. Don't assume that's the case.
 
 ### Recommended invocation pattern
 
 ```bash
 # One JSON object → parse it once, then drive the roadmap from the parsed slices.
-bcm-pack pack BNK.RLVR.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
+rlv-knowledge pack BNK.RLVR.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
 jq '.slices.capability_self[0]'         /tmp/pack.json
 jq '.slices.capability_definition[0]'   /tmp/pack.json
 jq '.slices.emitted_business_events'    /tmp/pack.json
 jq '.warnings'                          /tmp/pack.json
 ```
 
-If the capability ID is unknown to `bcm-pack pack` (exit code 2), do not fall back to local
-files — surface the error to the user and ask them to confirm the ID against `bcm-pack list`.
+If the capability ID is unknown to `rlv-knowledge pack` (exit code 2), do not fall back to local
+files — surface the error to the user and ask them to confirm the ID against `rlv-knowledge list`.
 
 ---
 
 ## Before You Begin
 
 1. **Identify which capability to roadmap.** The user should specify the capability ID (e.g., 
-   `BNK.RLVR.CAP.BSP.001.PAL`) or a name. If ambiguous, run `bcm-pack list --level L2` (and 
+   `BNK.RLVR.CAP.BSP.001.PAL`) or a name. If ambiguous, run `rlv-knowledge list --level L2` (and 
    `--level L3` if relevant), present the matches, and ask the user to select.
 
-2. **Fetch the capability pack** with `bcm-pack pack <ID> --deep --compact`. This single call 
+2. **Fetch the capability pack** with `rlv-knowledge pack <ID> --deep --compact`. This single call 
    replaces all of the previous local file reads (capability YAML, FUNC ADR, strategic 
    vision, product vision, etc.). Do not read those files from disk.
 
 3. **Read the Process Modelling layer (read-only).** Fetch it once with
-   `bcm-pack process <CAPABILITY_ID> --compact` and read the slices from the
+   `rlv-knowledge process <CAPABILITY_ID> --compact` and read the slices from the
    returned envelope (use `.model.<stem>.parsed`, falling back to `.raw` when
    `parsed` is null). These are produced by the `/process` skill in
-   banking-knowledge and are the canonical source of:
+   reliever-knowledge and are the canonical source of:
    - the **aggregates** (consistency boundaries) the roadmap must deliver — `.model.aggregates`,
    - the **commands** the capability accepts — `.model.commands` (often `parsed:null`; use `.raw`),
    - the **policies** wiring consumed events to commands — `.model.policies`,
    - the **read-models** and queries the capability exposes — `.model["read-models"]` (often `parsed:null`; use `.raw`),
    - the **bus topology** (exchanges, routing keys, subscriptions) — `.model.bus`.
 
-   If `bcm-pack process` does not resolve (gate fail above), **stop** and ask the
-   user to run `/process <CAPABILITY_ID>` in the banking-knowledge repo and merge
+   If `rlv-knowledge process` does not resolve (gate fail above), **stop** and ask the
+   user to run `/process <CAPABILITY_ID>` in the reliever-knowledge repo and merge
    its PR. Do **not** attempt to invent aggregates / commands from the FUNC ADR —
    that is `/process`'s responsibility.
 
@@ -170,7 +170,7 @@ files — surface the error to the user and ask them to confirm the ID against `
    surface the gap and ask the user to refresh `/process` upstream.
 
 4. **Check if a roadmap already exists** locally at `/roadmap/{capability-id}/roadmap.md`. This *is* a
-   local file — the roadmap output lives in the working repo, not in `banking-knowledge`. If it 
+   local file — the roadmap output lives in the working repo, not in `reliever-knowledge`. If it 
    exists, ask: "A roadmap already exists. Do you want to update it or start fresh?"
 
    The folder `/tasks/` is reserved for the kanban (`/tasks/BOARD.md` and the
@@ -231,7 +231,7 @@ For each epic, define:
 - **Complexity**: S / M / L / XL (relative estimation — no days or sprints)
 - **Capabilities needed**: which other L2 capabilities must exist or be partially ready?
   Source this from `consumed_business_events[*].subscribed_event` (trace the event back to its
-  emitting capability via another `bcm-pack pack` call if needed).
+  emitting capability via another `rlv-knowledge pack` call if needed).
 - **Key business events unlocked**: which events from `emitted_business_events` become 
   producible when this epic is done?
 
@@ -351,7 +351,7 @@ preferred.
 - [Anything surfaced via `pack.warnings`]
 
 ## Knowledge Source
-- bcm-pack ref: [the `--ref` used, default `main`]
+- rlv-knowledge ref: [the `--ref` used, default `main`]
 - Capability pack mode: deep
 - Pack date: [today's date]
 ```
