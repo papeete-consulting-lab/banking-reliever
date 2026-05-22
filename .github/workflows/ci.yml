@@ -57,6 +57,13 @@ jobs:
             exit 0
           fi
           pip install --upgrade pip
+          # rlv-knowledge depends on gov-pack, sourced from the *private*
+          # banking-governance repo over https. The token embedded in the
+          # reliever-knowledge URL below only covers that top-level clone — the
+          # transitive gov-pack clone uses a bare `https://github.com/...` URL
+          # and would fail with "could not read Username". Rewrite bare github
+          # https URLs to carry the token so transitive private clones auth too.
+          git config --global url."https://x-access-token:${RELIEVER_KNOWLEDGE_TOKEN}@github.com/".insteadOf "https://github.com/"
           pip install "git+https://${RELIEVER_KNOWLEDGE_TOKEN}@github.com/Banking-PapeeteConsulting/reliever-knowledge.git@main"
           rlv-knowledge --help >/dev/null
           rlv-knowledge process --list >/dev/null   # fail fast if the CLI predates the `process` subcommand
