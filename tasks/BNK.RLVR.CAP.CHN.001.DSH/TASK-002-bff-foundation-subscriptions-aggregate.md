@@ -10,7 +10,7 @@ depends_on: [BNK.RLVR.CAP.BSP.001.SCO/TASK-001, BNK.RLVR.CAP.BSP.001.TIE/TASK-00
 task_type: full-microservice
 loop_count: 0
 max_loops: 10
-pr_url: https://github.com/Banking-Reliever/banking/pull/17
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/17
 ---
 
 > **Started on:** 2026-05-16

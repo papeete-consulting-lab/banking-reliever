@@ -2,7 +2,7 @@
 """c4_export.py — render the Reliever business-capability tree as
 Structurizr DSL files.
 
-Reads upstream BCM via `bcm-pack` only — never touches /bcm/, /adr/,
+Reads upstream BCM via `rlv-knowledge` only — never touches /bcm/, /adr/,
 /func-adr/, /tech-adr/, /tech-vision/, /product-vision/, /business-vision/
 on disk. The implementation overlay is taken from `sources/<CAP>/{backend,
 stub,bff,frontend}/` in the working tree.
@@ -25,14 +25,14 @@ Outputs:
 All cross-capability flows are drawn from BUSINESS event subscriptions
 only — `consumed_business_events` / `emitted_business_events` slices and
 `paired_business_event:` entries of the capability's bus model (logical
-artifact `process/<CAP>/bus.yaml`, now consumed via `bcm-pack process`).
+artifact `process/<CAP>/bus.yaml`, now consumed via `rlv-knowledge process`).
 The resource-event layer (RVT.*) is intentionally hidden as it is an
 implementation detail of the bus rail.
 
 The DDD process model (aggregates, read-models, policies, bus topology) is
-authored by the `/process` skill in the **banking-knowledge** repo and
-consumed here **read-only** via `bcm-pack process <CAP_ID>` — exactly like
-the BCM corpus via `bcm-pack pack`. It does not live in this repo.
+authored by the `/process` skill in the **reliever-knowledge** repo and
+consumed here **read-only** via `rlv-knowledge process <CAP_ID>` — exactly like
+the BCM corpus via `rlv-knowledge pack`. It does not live in this repo.
 
 Run from the repo root:
 
@@ -58,9 +58,9 @@ DOCS_C4 = REPO_ROOT / "docs" / "c4"
 SOURCES_DIR = REPO_ROOT / "sources"
 
 BANKING_KNOWLEDGE_BLOB = (
-    "https://github.com/Banking-Reliever/banking-knowledge/blob/main"
+    "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main"
 )
-BANKING_BLOB = "https://github.com/Banking-Reliever/banking/blob/main"
+BANKING_BLOB = "https://github.com/Banking-PapeeteConsulting/banking-reliever/blob/main"
 
 # Zone abbreviation used to name per-zone Structurizr files (zone-<abbrev>.dsl)
 # and the OTel `zone` resource tag — NOT the on-disk layout, which is uniformly
@@ -77,27 +77,27 @@ ZONE_ABBREV = {
 
 
 # ─────────────────────────────────────────────────────────────────────
-# bcm-pack invocation
+# rlv-knowledge invocation
 # ─────────────────────────────────────────────────────────────────────
 
 
 def run_bcm_pack(*args: str) -> str:
-    """Invoke `bcm-pack` and return stdout. The first '[bcm-pack] fetching ...'
+    """Invoke `rlv-knowledge` and return stdout. The first '[rlv-knowledge] fetching ...'
     log line on stdout is stripped — only the JSON / TSV payload is returned."""
-    cmd = ["bcm-pack", *args]
+    cmd = ["rlv-knowledge", *args]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
-        print(f"!! bcm-pack {' '.join(args)} failed:", file=sys.stderr)
+        print(f"!! rlv-knowledge {' '.join(args)} failed:", file=sys.stderr)
         print(proc.stderr, file=sys.stderr)
         sys.exit(proc.returncode)
-    # bcm-pack prints "[bcm-pack] fetching ..." on stdout before the payload.
+    # rlv-knowledge prints "[rlv-knowledge] fetching ..." on stdout before the payload.
     lines = proc.stdout.splitlines()
-    payload = "\n".join(line for line in lines if not line.startswith("[bcm-pack]"))
+    payload = "\n".join(line for line in lines if not line.startswith("[rlv-knowledge]"))
     return payload
 
 
 def list_capabilities() -> list[dict]:
-    """Return every capability bcm-pack knows about. Each entry has
+    """Return every capability rlv-knowledge knows about. Each entry has
     id / level / zone / name."""
     raw = run_bcm_pack("list")
     out: list[dict] = []
@@ -116,7 +116,7 @@ def list_capabilities() -> list[dict]:
 
 
 def pack_capability(cap_id: str) -> dict:
-    """Return the bcm-pack --deep --compact payload for one capability."""
+    """Return the rlv-knowledge --deep --compact payload for one capability."""
     raw = run_bcm_pack("pack", cap_id, "--deep", "--compact")
     return json.loads(raw)
 
@@ -126,13 +126,13 @@ _PROCESS_CACHE: dict[str, dict | None] = {}
 
 
 def fetch_process_model(cap_id: str) -> dict | None:
-    """Fetch one capability's DDD process model via `bcm-pack process
+    """Fetch one capability's DDD process model via `rlv-knowledge process
     <cap_id> --compact` and return the parsed JSON envelope.
 
-    The process model lives in the banking-knowledge repo and is served
-    read-only by the CLI — exactly like the BCM corpus via `bcm-pack pack`.
+    The process model lives in the reliever-knowledge repo and is served
+    read-only by the CLI — exactly like the BCM corpus via `rlv-knowledge pack`.
     Returns None (treated everywhere as "no process model") when:
-      - bcm-pack is not installed / not on PATH,
+      - rlv-knowledge is not installed / not on PATH,
       - the CLI exits non-zero (e.g. exit 3 = no model for this id),
       - the payload is not valid JSON.
     """
@@ -140,13 +140,13 @@ def fetch_process_model(cap_id: str) -> dict | None:
         return _PROCESS_CACHE[cap_id]
     try:
         proc = subprocess.run(
-            ["bcm-pack", "process", cap_id, "--compact"],
+            ["rlv-knowledge", "process", cap_id, "--compact"],
             capture_output=True,
             text=True,
             check=False,
         )
     except FileNotFoundError:
-        print("!! bcm-pack not found on PATH — treating as no process model",
+        print("!! rlv-knowledge not found on PATH — treating as no process model",
               file=sys.stderr)
         _PROCESS_CACHE[cap_id] = None
         return None
@@ -154,11 +154,11 @@ def fetch_process_model(cap_id: str) -> dict | None:
         _PROCESS_CACHE[cap_id] = None
         return None
     lines = proc.stdout.splitlines()
-    payload = "\n".join(line for line in lines if not line.startswith("[bcm-pack]"))
+    payload = "\n".join(line for line in lines if not line.startswith("[rlv-knowledge]"))
     try:
         env = json.loads(payload)
     except json.JSONDecodeError:
-        print(f"!! bcm-pack process {cap_id} returned non-JSON output",
+        print(f"!! rlv-knowledge process {cap_id} returned non-JSON output",
               file=sys.stderr)
         _PROCESS_CACHE[cap_id] = None
         return None
@@ -189,7 +189,7 @@ class ImplStatus:
     has_stub: bool = False       # sources/<CAP>/stub/
     has_frontend: bool = False   # sources/<CAP>/frontend/
     has_bff: bool = False        # sources/<CAP>/bff/
-    has_process: bool = False    # bcm-pack process <CAP> resolves (exit 0)
+    has_process: bool = False    # rlv-knowledge process <CAP> resolves (exit 0)
 
     @property
     def label(self) -> str:
@@ -215,13 +215,13 @@ def detect_impl(cap_id: str, zone: str) -> ImplStatus:
     if (cap_dir / "bff").is_dir():
         s.has_bff = True
 
-    # has_process is True iff `bcm-pack process <cap_id>` resolves (exit 0).
+    # has_process is True iff `rlv-knowledge process <cap_id>` resolves (exit 0).
     s.has_process = fetch_process_model(cap_id) is not None
     return s
 
 
 # ─────────────────────────────────────────────────────────────────────
-# DDD components, mined from the `bcm-pack process` model (logical
+# DDD components, mined from the `rlv-knowledge process` model (logical
 # process/<CAP>/ artifacts) when present
 # ─────────────────────────────────────────────────────────────────────
 
@@ -249,7 +249,7 @@ def _scan_yaml_ids(text: str, prefixes: tuple[str, ...]) -> list[str]:
     aggregate entry but use a different prefix).
 
     Operates on raw YAML TEXT (the `.model.<stem>.raw` string from the
-    `bcm-pack process` envelope) so it works whether or not `.parsed` is
+    `rlv-knowledge process` envelope) so it works whether or not `.parsed` is
     null for that file."""
     if not text:
         return []
@@ -284,7 +284,7 @@ def mine_ddd(cap_id: str) -> DddComponents:
         for line in bus_text.splitlines():
             m = re.match(
                 # Business-event IDs carry an optional source-context prefix
-                # (e.g. BNK.RLVR.EVT.…) since the CLI v1.0.0 namespacing.
+                # (e.g. BNK.RLVR.EVT.…) since the CLI v2.0.0 namespacing.
                 r"\s*(?:paired_business_event|business_event):\s*"
                 r"((?:[A-Z]{2,}\.[A-Z]{2,}\.)?EVT\.[A-Z0-9._-]+)",
                 line,
@@ -296,7 +296,7 @@ def mine_ddd(cap_id: str) -> DddComponents:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# ADR URLs — derived from the `files` slice of bcm-pack pack output
+# ADR URLs — derived from the `files` slice of rlv-knowledge pack output
 # ─────────────────────────────────────────────────────────────────────
 
 

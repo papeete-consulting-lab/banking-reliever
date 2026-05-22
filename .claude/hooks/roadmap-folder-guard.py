@@ -34,7 +34,7 @@ import time
 
 # Racine canonique du repo. La détection accepte aussi les worktrees kanban,
 # qui exposent une copie de l'arbre sous /tmp/kanban-worktrees/TASK-NNN-*/.
-PROJECT_ROOT = "/home/yoann/sources/banking"
+PROJECT_ROOT = "/home/yoann/sources/banking/banking-reliever"
 ROADMAP_REL = "roadmap"
 SENTINEL = "/tmp/.claude-roadmap-skill.active"
 SENTINEL_MAX_AGE_SECONDS = 30 * 60  # 30 min

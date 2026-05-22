@@ -47,7 +47,7 @@ services:
       RELIEVER_PG_DSN: "postgresql://reliever:reliever@postgres:5432/beneficiary_anchor"
       RELIEVER_AMQP_URL: "amqp://admin:password@rabbitmq:5672/"
       # JSON Schemas are vendored inside the image (package-local default) — the
-      # process model lives upstream in banking-knowledge (`bcm-pack process`),
+      # process model lives upstream in reliever-knowledge (`rlv-knowledge process`),
       # so there is no process/ folder to mount here any more.
     ports:
       - "9080:8000"

@@ -229,7 +229,7 @@ Epic 1 (foundation) ────────────────────
 
 ## Knowledge Source
 
-- `bcm-pack` ref: `main` (default)
+- `rlv-knowledge` ref: `main` (default)
 - Capability pack mode: `--deep --compact`
 - Pack date: 2026-05-16
 - Process model ref: `process/BNK.RLVR.CAP.CHN.001.DSH/` v0.2.0 on `main` (uniform across all 7 files).

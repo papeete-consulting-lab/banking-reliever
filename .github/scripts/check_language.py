@@ -3,12 +3,12 @@
 
 The BCM is the source of truth for the project's ubiquitous language. Since
 neither the BCM nor the process-modelling layer lives in this repo any more
-(both are hosted in the external `banking-knowledge` repo and consumed via the
-`bcm-pack` CLI), this script:
+(both are hosted in the external `reliever-knowledge` repo and consumed via the
+`rlv-knowledge` CLI), this script:
 
-  1. Discovers the capabilities to check via `bcm-pack process --list` — the
+  1. Discovers the capabilities to check via `rlv-knowledge process --list` — the
      capability ids that have a process model published upstream.
-  2. For each capability, calls `bcm-pack pack <CAP_ID> --compact` to fetch
+  2. For each capability, calls `rlv-knowledge pack <CAP_ID> --compact` to fetch
      the upstream prose (capability descriptions, FUNC ADR decision /
      context / consequences, business-object definitions, vision narratives).
   3. Aggregates the prose, runs a stop-word language detector, and picks the
@@ -16,14 +16,14 @@ neither the BCM nor the process-modelling layer lives in this repo any more
   4. Compares it to the dominant language found in code under `sources/` and
      `src/`. Mismatch ⇒ exit 1.
 
-Detection is stop-word based: tiny, no extra deps beyond `bcm-pack` itself
+Detection is stop-word based: tiny, no extra deps beyond `rlv-knowledge` itself
 and the standard library.
 
 Exit codes:
   0 — BCM and code agree, OR there is nothing to check yet (no process model
-      published upstream, no source code, or `bcm-pack` unavailable).
+      published upstream, no source code, or `rlv-knowledge` unavailable).
   1 — BCM and code disagree.
-  2 — `bcm-pack` is installed but every invocation failed (hard error).
+  2 — `rlv-knowledge` is installed but every invocation failed (hard error).
 """
 from __future__ import annotations
 
@@ -100,20 +100,20 @@ CAP_ID_RE = re.compile(r"^[A-Z0-9.]*CAP\.[A-Z0-9.]+$")
 def discover_capabilities() -> list[str]:
     """List CAP_IDs that have a process model published upstream.
 
-    Source of truth is `bcm-pack process --list` (the process layer lives in
-    banking-knowledge now, not in this repo). Stdout is one capability id per
+    Source of truth is `rlv-knowledge process --list` (the process layer lives in
+    reliever-knowledge now, not in this repo). Stdout is one capability id per
     line; the provenance header is written to stderr, so stdout stays clean.
     """
     try:
         result = subprocess.run(
-            ["bcm-pack", "process", "--list"],
+            ["rlv-knowledge", "process", "--list"],
             capture_output=True, text=True, timeout=60, check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
     if result.returncode != 0:
         print(
-            f"  ⚠ bcm-pack process --list: exit {result.returncode}\n"
+            f"  ⚠ rlv-knowledge process --list: exit {result.returncode}\n"
             f"    stderr: {result.stderr.strip()[:300]}",
             file=sys.stderr,
         )
@@ -125,24 +125,24 @@ def discover_capabilities() -> list[str]:
 
 
 def fetch_pack(cap_id: str) -> dict | None:
-    """Run `bcm-pack pack <cap_id> --compact` and return parsed JSON, or None on failure."""
+    """Run `rlv-knowledge pack <cap_id> --compact` and return parsed JSON, or None on failure."""
     try:
         result = subprocess.run(
-            ["bcm-pack", "pack", cap_id, "--deep", "--compact"],
+            ["rlv-knowledge", "pack", cap_id, "--deep", "--compact"],
             capture_output=True,
             text=True,
             timeout=60,
             check=False,
         )
     except FileNotFoundError:
-        return None  # bcm-pack not installed — caller decides what to do
+        return None  # rlv-knowledge not installed — caller decides what to do
     except subprocess.TimeoutExpired:
-        print(f"  ⚠ bcm-pack pack {cap_id}: timed out after 60s", file=sys.stderr)
+        print(f"  ⚠ rlv-knowledge pack {cap_id}: timed out after 60s", file=sys.stderr)
         return None
 
     if result.returncode != 0:
         print(
-            f"  ⚠ bcm-pack pack {cap_id}: exit {result.returncode}\n"
+            f"  ⚠ rlv-knowledge pack {cap_id}: exit {result.returncode}\n"
             f"    stderr: {result.stderr.strip()[:300]}",
             file=sys.stderr,
         )
@@ -151,7 +151,7 @@ def fetch_pack(cap_id: str) -> dict | None:
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        print(f"  ⚠ bcm-pack pack {cap_id}: invalid JSON ({exc})", file=sys.stderr)
+        print(f"  ⚠ rlv-knowledge pack {cap_id}: invalid JSON ({exc})", file=sys.stderr)
         return None
 
 
@@ -173,7 +173,7 @@ def collect_bcm_text(capabilities: list[str]) -> tuple[str, int]:
     chunks: list[str] = []
     packs_seen = 0
     for cap_id in capabilities:
-        print(f"  · bcm-pack pack {cap_id} --deep --compact")
+        print(f"  · rlv-knowledge pack {cap_id} --deep --compact")
         pack = fetch_pack(cap_id)
         if pack is None:
             continue
@@ -216,31 +216,31 @@ def detect_language(text: str) -> tuple[str | None, dict[str, int]]:
 
 
 def main() -> int:
-    # Skip cleanly when bcm-pack is not installed (e.g. CI runs without
-    # access to the private banking-knowledge repo). The check is
+    # Skip cleanly when rlv-knowledge is not installed (e.g. CI runs without
+    # access to the private reliever-knowledge repo). The check is
     # advisory in that case rather than a hard CI failure.
-    if shutil.which("bcm-pack") is None:
+    if shutil.which("rlv-knowledge") is None:
         print(
-            "ℹ bcm-pack CLI not on PATH — skipping language check.\n"
-            "  To enable this check in CI, install bcm-pack from the\n"
-            "  banking-knowledge repo (requires read access)."
+            "ℹ rlv-knowledge CLI not on PATH — skipping language check.\n"
+            "  To enable this check in CI, install rlv-knowledge from the\n"
+            "  reliever-knowledge repo (requires read access)."
         )
         return 0
 
     capabilities = discover_capabilities()
     if not capabilities:
-        print("ℹ `bcm-pack process --list` returned no models — no capability modeled yet, skipping.")
+        print("ℹ `rlv-knowledge process --list` returned no models — no capability modeled yet, skipping.")
         return 0
 
     print(f"Discovered {len(capabilities)} capabilities with an upstream process model:")
     for cap in capabilities:
         print(f"  - {cap}")
 
-    print("\nFetching prose from bcm-pack:")
+    print("\nFetching prose from rlv-knowledge:")
     bcm_text, packs_seen = collect_bcm_text(capabilities)
     if packs_seen == 0:
         print(
-            "ERROR: bcm-pack is installed but every `bcm-pack pack` call failed.\n"
+            "ERROR: rlv-knowledge is installed but every `rlv-knowledge pack` call failed.\n"
             "       Check the messages above (auth, network, missing capability…).",
             file=sys.stderr,
         )

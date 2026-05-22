@@ -16,10 +16,10 @@ permissions:
 jobs:
   # NOTE: the former `forbidden-paths` job (which rejected PRs touching
   # `process/` from non-`process/*` branches) was removed when the DDD
-  # Process Modelling layer migrated to the banking-knowledge repo. There is
+  # Process Modelling layer migrated to the reliever-knowledge repo. There is
   # no `process/` folder here any more; the process model is consumed
-  # read-only via `bcm-pack process <CAP_ID>`, and its write-protection now
-  # lives in banking-knowledge.
+  # read-only via `rlv-knowledge process <CAP_ID>`, and its write-protection now
+  # lives in reliever-knowledge.
 
   language-check:
     name: Code Language Matches BCM
@@ -32,34 +32,41 @@ jobs:
           python-version: '3.x'
 
       # The BCM and the process model no longer live in this repo — both are
-      # hosted in the private `banking-knowledge` repo and consumed via the
-      # `bcm-pack` CLI. check_language.py discovers capabilities via
-      # `bcm-pack process --list` and fetches prose via `bcm-pack pack`, so
-      # the installed CLI must include the `process` subcommand (post-v1.0.0
+      # hosted in the private `reliever-knowledge` repo and consumed via the
+      # `rlv-knowledge` CLI. check_language.py discovers capabilities via
+      # `rlv-knowledge process --list` and fetches prose via `rlv-knowledge pack`, so
+      # the installed CLI must include the `process` subcommand (post-v2.0.0
       # — we pin `main`). Requires a token with read access to
-      # Banking-Reliever/banking-knowledge in the `BANKING_KNOWLEDGE_TOKEN`
+      # Banking-PapeeteConsulting/reliever-knowledge in the `RELIEVER_KNOWLEDGE_TOKEN`
       # repo secret.
       #
       # If the secret is not set (or installation fails for any other
       # reason), the install step succeeds silently and the script will
       # detect the missing CLI and skip the check (exit 0). Configure the
       # secret to make this check effective.
-      - name: Install bcm-pack from banking-knowledge (optional)
+      - name: Install rlv-knowledge from reliever-knowledge (optional)
         id: install_bcm_pack
         continue-on-error: true
         env:
-          BANKING_KNOWLEDGE_TOKEN: ${{ secrets.BANKING_KNOWLEDGE_TOKEN }}
+          RELIEVER_KNOWLEDGE_TOKEN: ${{ secrets.RELIEVER_KNOWLEDGE_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${BANKING_KNOWLEDGE_TOKEN:-}" ]; then
-            echo "ℹ BANKING_KNOWLEDGE_TOKEN secret not set — skipping bcm-pack install."
+          if [ -z "${RELIEVER_KNOWLEDGE_TOKEN:-}" ]; then
+            echo "ℹ RELIEVER_KNOWLEDGE_TOKEN secret not set — skipping rlv-knowledge install."
             echo "  The language-check script will run in skip mode."
             exit 0
           fi
           pip install --upgrade pip
-          pip install "git+https://${BANKING_KNOWLEDGE_TOKEN}@github.com/Banking-Reliever/banking-knowledge.git@main"
-          bcm-pack --help >/dev/null
-          bcm-pack process --list >/dev/null   # fail fast if the CLI predates the `process` subcommand
+          # rlv-knowledge depends on gov-pack, sourced from the *private*
+          # banking-governance repo over https. The token embedded in the
+          # reliever-knowledge URL below only covers that top-level clone — the
+          # transitive gov-pack clone uses a bare `https://github.com/...` URL
+          # and would fail with "could not read Username". Rewrite bare github
+          # https URLs to carry the token so transitive private clones auth too.
+          git config --global url."https://x-access-token:${RELIEVER_KNOWLEDGE_TOKEN}@github.com/".insteadOf "https://github.com/"
+          pip install "git+https://${RELIEVER_KNOWLEDGE_TOKEN}@github.com/Banking-PapeeteConsulting/reliever-knowledge.git@main"
+          rlv-knowledge --help >/dev/null
+          rlv-knowledge process --list >/dev/null   # fail fast if the CLI predates the `process` subcommand
 
       - name: Verify natural language consistency (BCM ↔ code)
         run: python3 .github/scripts/check_language.py

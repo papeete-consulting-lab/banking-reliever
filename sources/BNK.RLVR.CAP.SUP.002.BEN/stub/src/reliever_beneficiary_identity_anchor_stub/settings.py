@@ -103,7 +103,7 @@ class StubSettings(BaseSettings):
     def schemas_dir(self) -> Path:
         # Package-local *vendored* schema snapshot (a stub owns the contract
         # snapshot it validates against). Refresh via
-        # `bcm-pack process BNK.RLVR.CAP.SUP.002.BEN` (`.schemas["<FILE>.schema.json"]`).
+        # `rlv-knowledge process BNK.RLVR.CAP.SUP.002.BEN` (`.schemas["<FILE>.schema.json"]`).
         return _PKG_DIR / "schemas"
 
     @property

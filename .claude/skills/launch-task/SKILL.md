@@ -62,52 +62,52 @@ agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Process model — consumed read-only via `bcm-pack process`
+## Process model — consumed read-only via `rlv-knowledge process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **banking-knowledge** repo and consumed here **read-only** via
-> `bcm-pack process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`.
+> **reliever-knowledge** repo and consumed here **read-only** via
+> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 The `code` agents you spawn (and the test agents that follow) consume the model
-as a **read-only contract**, fetched via `bcm-pack process <CAP_ID>`. There is
+as a **read-only contract**, fetched via `rlv-knowledge process <CAP_ID>`. There is
 no local `process/` folder in the main checkout or in any worktree, so:
 
 - The `code` / `fix` agents you spawn have nothing to commit under `process/`.
 - If a `code` agent reports that the model needs to change to satisfy the
   task, treat it as a **stall** signal: stop the agent, tell the user to run
-  `/process <CAPABILITY_ID>` in the banking-knowledge repo to amend the model,
+  `/process <CAPABILITY_ID>` in the reliever-knowledge repo to amend the model,
   then reschedule the task once the model has been updated and its PR merged.
 
 When you create a new worktree, propagate this constraint by including in the
 agent prompt:
 
 > "The process model for this capability is the read-only contract. Fetch it
-> via `bcm-pack process <CAPABILITY_ID>` for AGG / CMD / POL / PRJ / QRY / bus
+> via `rlv-knowledge process <CAPABILITY_ID>` for AGG / CMD / POL / PRJ / QRY / bus
 > topology / JSON Schemas, but never reshape it — it is authored upstream in
-> banking-knowledge."
+> reliever-knowledge."
 
 ---
 
-## Readiness gate — the process model must resolve via `bcm-pack process`
+## Readiness gate — the process model must resolve via `rlv-knowledge process`
 
 Before launching any code agent for a task whose capability is `<CAP_ID>`,
-verify the process model resolves. A model is ready iff `bcm-pack process
-<CAP_ID>` returns exit 0 (bcm-pack resolves the published `main` of
-banking-knowledge by default). Launching against a capability with no published
+verify the process model resolves. A model is ready iff `rlv-knowledge process
+<CAP_ID>` returns exit 0 (rlv-knowledge resolves the published `main` of
+reliever-knowledge by default). Launching against a capability with no published
 process model produces a useless run.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task-about-to-launch>"
 
-# The process model lives in banking-knowledge now; it is ready iff bcm-pack
-# can resolve it (bcm-pack resolves the published main by default).
-if ! bcm-pack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
+# can resolve it (rlv-knowledge resolves the published main by default).
+if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the banking-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   # In auto mode: SKIP this candidate; continue with other capabilities.
 fi
@@ -249,12 +249,12 @@ If the worktree already exists (same case): use it as-is without recreating.
 Read the complete content of the `TASK-NNN-*.md` file to include in the sub-agent prompt.
 Read the local roadmap at `/roadmap/{capability-id}/roadmap.md`.
 
-For **all** BCM/ADR/vision context, fetch the capability pack from the `bcm-pack` CLI —
+For **all** BCM/ADR/vision context, fetch the capability pack from the `rlv-knowledge` CLI —
 do NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/product-vision/`
 directly:
 
 ```bash
-bcm-pack pack <CAPABILITY_ID> --compact > /tmp/pack-launch.json
+rlv-knowledge pack <CAPABILITY_ID> --compact > /tmp/pack-launch.json
 ```
 
 Pass the parsed pack JSON (or just the capability ID + a note that the spawned agent will
@@ -268,7 +268,7 @@ layer:
 | `emitted_business_events`   | included in the sub-agent prompt                  |
 | `consumed_business_events`  | included in the sub-agent prompt                  |
 
-The sub-agent will issue its own `bcm-pack` calls — possibly with `--deep` — when it
+The sub-agent will issue its own `rlv-knowledge` calls — possibly with `--deep` — when it
 needs vision narratives or the rationale ADRs.
 
 ---
@@ -297,9 +297,9 @@ capability [CAPABILITY_NAME] ([CAPABILITY_ID]) using the `code` skill.
 
 [CONTENT OF PLAN.MD]
 
-## Capability Pack (from `bcm-pack`)
+## Capability Pack (from `rlv-knowledge`)
 
-[Inline the relevant slices of `bcm-pack pack [CAPABILITY_ID] --compact` —
+[Inline the relevant slices of `rlv-knowledge pack [CAPABILITY_ID] --compact` —
  at minimum: `capability_self`, `capability_definition`, `emitted_business_events`,
  `consumed_business_events`, `carried_objects`. Do NOT inline the full pack —
  the spawned agent re-fetches with `--deep` if it needs vision narratives.]
@@ -307,7 +307,7 @@ capability [CAPABILITY_NAME] ([CAPABILITY_ID]) using the `code` skill.
 ## Knowledge access reminder
 
 The spawned agent MUST source any further BCM/ADR/vision context via the
-`bcm-pack` CLI, e.g. `bcm-pack pack [CAPABILITY_ID] --deep --compact`. It must
+`rlv-knowledge` CLI, e.g. `rlv-knowledge pack [CAPABILITY_ID] --deep --compact`. It must
 NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`,
 or `/tech-vision/` directly — those paths are not authoritative in this checkout.
 

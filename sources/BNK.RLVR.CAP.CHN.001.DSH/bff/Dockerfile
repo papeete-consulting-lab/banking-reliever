@@ -3,8 +3,8 @@
 # Notes:
 #   - The upstream RVT JSON Schemas the BFF validates against are VENDORED into
 #     the project under src/Reliever.BeneficiaryDashboard.Bff/process-schemas/
-#     (the process model itself lives upstream in banking-knowledge, consumed via
-#     `bcm-pack process`). They ship with the project copy below — no separate
+#     (the process model itself lives upstream in reliever-knowledge, consumed via
+#     `rlv-knowledge process`). They ship with the project copy below — no separate
 #     process/ mount is needed. Build context can be this folder or the repo root:
 #       docker build -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/Dockerfile -t chn-001-dsh-bff:dev .
 

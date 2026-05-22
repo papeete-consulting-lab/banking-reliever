@@ -3,7 +3,7 @@
 The schemas are vendored as a static snapshot under
 ``reliever_beneficiary_anchor/infrastructure/schema_validation/schemas/``
 (this service owns the contract snapshot it validates against). Refresh via
-``bcm-pack process BNK.RLVR.CAP.SUP.002.BEN`` (``.schemas["<FILE>.schema.json"]``).
+``rlv-knowledge process BNK.RLVR.CAP.SUP.002.BEN`` (``.schemas["<FILE>.schema.json"]``).
 Fail-fast at startup if any schema is missing or malformed.
 """
 
@@ -46,7 +46,7 @@ def load_schema(schemas_dir: Path, filename: str) -> dict[str, Any]:
             f"Required vendored schema not found: {path}. "
             "This service validates against its package-local vendored snapshot "
             "(infrastructure/schema_validation/schemas/); refresh via "
-            "`bcm-pack process BNK.RLVR.CAP.SUP.002.BEN`."
+            "`rlv-knowledge process BNK.RLVR.CAP.SUP.002.BEN`."
         )
     with path.open() as f:
         return json.load(f)

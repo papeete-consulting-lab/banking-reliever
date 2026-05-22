@@ -79,13 +79,13 @@ Before generating any test file, do this in order.
 
 The caller hands you a task identifier (`TASK-NNN`) and optionally a branch
 or environment slug. **All BCM/ADR/vision context is sourced from the
-`bcm-pack` CLI** — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
+`rlv-knowledge` CLI** — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
 `/tech-vision/`, `/strategic-vision/`, or `/product-vision/` directly.
 
 Run **once** at the top of step 1:
 
 ```bash
-bcm-pack pack {capability_id} --deep --compact > /tmp/pack-test-app.json
+rlv-knowledge pack {capability_id} --deep --compact > /tmp/pack-test-app.json
 ```
 
 Use `--deep` so the vision narratives are present — they feed the lightweight

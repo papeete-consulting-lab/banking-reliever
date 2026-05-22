@@ -4,11 +4,11 @@ description: >
   Orchestrates the local implementation pipeline: roadmap → task →
   sort-task / launch-task → code → test. Upstream knowledge (BCM YAML,
   FUNC/URBA/GOV/TECH ADRs, product/business/tech visions) is fetched on demand
-  from the external `bcm-pack` CLI — this skill no longer drives any modeling
+  from the external `rlv-knowledge` CLI — this skill no longer drives any modeling
   or brainstorming session. The DDD tactical Process Modelling layer
   (aggregates, commands, policies, read-models, bus topology, JSON Schemas) is
-  authored by `/process` in the external `banking-knowledge` repo and consumed
-  here read-only via `bcm-pack process <CAP_ID>`; the local pipeline starts by
+  authored by `/process` in the external `reliever-knowledge` repo and consumed
+  here read-only via `rlv-knowledge process <CAP_ID>`; the local pipeline starts by
   consuming it, every downstream stage reading it as a read-only contract. The code stage is
   zone-aware AND language-aware: non-CHANNEL capabilities go to a
   language-matching implement-capability* agent — `implement-capability`
@@ -44,8 +44,8 @@ that takes a planned business capability all the way to a running, validated
 artifact.
 
 All upstream knowledge (BCM YAML, FUNC/URBA/GOV/TECH ADRs, product/business/tech
-visions) lives in the external `banking-knowledge` repository and is exposed
-read-only through the `bcm-pack` CLI. This skill never authors or modifies
+visions) lives in the external `reliever-knowledge` repository and is exposed
+read-only through the `rlv-knowledge` CLI. This skill never authors or modifies
 upstream artifacts — it consumes them.
 
 ---
@@ -53,10 +53,10 @@ upstream artifacts — it consumes them.
 ## The Pipeline
 
 ```
-[0] Process                         (process skill — IN banking-knowledge, NOT this repo)   [PARALLELIZABLE per L2/L3 capability]
-        ↓ reads:    `bcm-pack pack <CAP_ID> --deep` (BCM + FUNC/URBA/TECH-STRAT ADRs + visions)
+[0] Process                         (process skill — IN reliever-knowledge, NOT this repo)   [PARALLELIZABLE per L2/L3 capability]
+        ↓ reads:    `rlv-knowledge pack <CAP_ID> --deep` (BCM + FUNC/URBA/TECH-STRAT ADRs + visions)
         ↓ produces: the DDD tactical Process Modelling layer, authored upstream in
-        ↓           banking-knowledge and consumed here read-only via `bcm-pack process <CAP_ID>`:
+        ↓           reliever-knowledge and consumed here read-only via `rlv-knowledge process <CAP_ID>`:
         ↓           ├─ .readme                     (framing + scenarios + open questions)
         ↓           ├─ .model.aggregates           (AGG.* — consistency boundaries, invariants)
         ↓           ├─ .model.commands             (CMD.* — verbs accepted, preconditions, errors)
@@ -65,20 +65,20 @@ upstream artifacts — it consumes them.
         ↓           ├─ .model.bus                  (exchange + routing keys + subscriptions)
         ↓           ├─ .model.api                  (derived REST surface)
         ↓           └─ .schemas[...]               (JSON Schemas for CMD and RVT payloads)
-        ↓ NOTE: `/process` runs in the banking-knowledge repo. The local pipeline does NOT
-        ↓       author the process model — it consumes it via `bcm-pack process`. There is
+        ↓ NOTE: `/process` runs in the reliever-knowledge repo. The local pipeline does NOT
+        ↓       author the process model — it consumes it via `rlv-knowledge process`. There is
         ↓       no process/ folder in this repo, so nothing to guard or write here.
 
 [1] Roadmap                         (roadmap skill)                           [PARALLELIZABLE per L2 capability]
-        ↓ reads:    `bcm-pack pack <CAP_ID> --deep` + `bcm-pack process <CAP_ID>` (read-only)
+        ↓ reads:    `rlv-knowledge pack <CAP_ID> --deep` + `rlv-knowledge process <CAP_ID>` (read-only)
         ↓           + local `/roadmap/{capability-id}/roadmap.md` if updating an existing roadmap
         ↓ produces: /roadmap/{capability-id}/roadmap.md  (epics, milestones, exit conditions)
         ↓ NOTE: /tasks/ folder is reserved for the kanban (BOARD.md + <CAP_ID>/TASK-*.md) —
         ↓       the roadmap skill writes to /roadmap/, never to /tasks/.
 
 [2] Task                            (task skill)                              [PARALLELIZABLE per capability]
-        ↓ reads:    /roadmap/{capability-id}/roadmap.md (local) + `bcm-pack process <CAP_ID>` (read-only)
-        ↓           + `bcm-pack pack <CAP_ID>` (BCM + ADRs)
+        ↓ reads:    /roadmap/{capability-id}/roadmap.md (local) + `rlv-knowledge process <CAP_ID>` (read-only)
+        ↓           + `rlv-knowledge pack <CAP_ID>` (BCM + ADRs)
         ↓ produces: /tasks/{capability-id}/TASK-NNN-*.md
                     (frontmatter: task_id, status, priority, depends_on, loop_count, max_loops)
 
@@ -110,9 +110,9 @@ upstream artifacts — it consumes them.
 
 [4a-bis] harness-backend agent     (contract harness — Path A only)
          entry point: /harness-backend
-         input: the process model via `bcm-pack process <CAP_ID>` — logically
+         input: the process model via `rlv-knowledge process <CAP_ID>` — logically
                  process/{cap}/{api.yaml,commands.yaml,read-models.yaml,
-                 bus.yaml,schemas/} + bcm-pack pack <CAP_ID> --deep
+                 bus.yaml,schemas/} + rlv-knowledge pack <CAP_ID> --deep
          output: sources/{capability-name}/backend/
                    ├ src/{Namespace}.{CapabilityName}.Contracts.Harness/
                    └ contracts/specs/{openapi.yaml,asyncapi.yaml,
@@ -160,30 +160,30 @@ board) and `/launch-task` (orchestrator)** — this skill does not launch
 implementation agents directly.
 
 > **Read-only contract.** The process model is authored by `/process` in the
-> **banking-knowledge** repo and is the **read-only input** of stages 1, 2, 4, 5
-> and any `/fix` / `/continue-work` re-entry, fetched via `bcm-pack process
-> <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`. It does not live
+> **reliever-knowledge** repo and is the **read-only input** of stages 1, 2, 4, 5
+> and any `/fix` / `/continue-work` re-entry, fetched via `rlv-knowledge process
+> <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`. It does not live
 > in this repo, so there is nothing to guard locally and nothing to write under
 > `process/`. If a downstream stage discovers that the model is wrong, it must
 > surface the gap and stop, so the user can re-run `/process <CAPABILITY_ID>` in
-> the banking-knowledge repo and merge its PR.
+> the reliever-knowledge repo and merge its PR.
 
 ---
 
 ## Step 1 — Assess Pipeline Status
 
 The pipeline operates on a per-capability basis. For each capability the user
-wants to advance, query `bcm-pack` to verify upstream knowledge is complete,
+wants to advance, query `rlv-knowledge` to verify upstream knowledge is complete,
 then check local artifacts. Do not `ls` `/bcm/`, `/func-adr/`, `/adr/`,
 `/strategic-vision/`, `/product-vision/`, `/tech-vision/`, or `/tech-adr/` —
 those paths are not authoritative locally and are typically absent.
 
 ```bash
-# Pick a target capability (or iterate over `bcm-pack list --level L2`)
+# Pick a target capability (or iterate over `rlv-knowledge list --level L2`)
 CAP_ID="BNK.RLVR.CAP.BSP.001"
 
 # Upstream readiness — all required slices must be non-empty for stages 1-2 to run
-bcm-pack pack $CAP_ID --deep --compact > /tmp/probe.json
+rlv-knowledge pack $CAP_ID --deep --compact > /tmp/probe.json
 jq '{
   product_vision:        (.slices.product_vision        | length),
   business_vision:       (.slices.business_vision       | length),
@@ -195,8 +195,8 @@ jq '{
   warnings:              .warnings
 }' /tmp/probe.json
 
-# Stage 0 — the process model (authored upstream in banking-knowledge), read via bcm-pack
-bcm-pack process $CAP_ID --compact >/dev/null 2>&1 && echo "Stage 0: process model present" || echo "Stage 0: no process model"
+# Stage 0 — the process model (authored upstream in reliever-knowledge), read via rlv-knowledge
+rlv-knowledge process $CAP_ID --compact >/dev/null 2>&1 && echo "Stage 0: process model present" || echo "Stage 0: no process model"
 
 # Local artifacts produced by this pipeline
 ls /roadmap/$CAP_ID/roadmap.md                          # Stage 1
@@ -207,24 +207,24 @@ ls tests/*/TASK-*-*/report.html                         # Stage 5 reports
 
 # Knowledge-base DRIFT — has upstream moved since this capability was modelled?
 # The process model carries the ref it was built from in its .knowledge_base block.
-PINNED_REF=$(bcm-pack process $CAP_ID --compact 2>/dev/null | jq -r '.knowledge_base.ref // empty')
-CURRENT_REF=$(bcm-pack version --compact | jq -r '.ref')
+PINNED_REF=$(rlv-knowledge process $CAP_ID --compact 2>/dev/null | jq -r '.knowledge_base.ref // empty')
+CURRENT_REF=$(rlv-knowledge version --compact | jq -r '.ref')
 if [ -n "$PINNED_REF" ] && [ "$PINNED_REF" != "$CURRENT_REF" ]; then
-  bcm-pack diff "$PINNED_REF" --capability "$CAP_ID" --compact | jq '{from:.from.ref,to:.to.ref,empty:.empty,summary:.summary}'
+  rlv-knowledge diff "$PINNED_REF" --capability "$CAP_ID" --compact | jq '{from:.from.ref,to:.to.ref,empty:.empty,summary:.summary}'
 fi
 ```
 
 Report the status clearly:
 
 ```
-Upstream (bcm-pack) for BNK.RLVR.CAP.BSP.001:
+Upstream (rlv-knowledge) for BNK.RLVR.CAP.BSP.001:
   ✅ product_vision / business_vision / tech_vision present
   ✅ FUNC ADR present (capability_definition non-empty)
   ✅ Tactical ADR present (tactical_stack non-empty)
   ✅ BCM YAML present (capability_self non-empty, no warnings)
 
 Local pipeline:
-  ✅ Stage 0 — Process: `bcm-pack process BNK.RLVR.CAP.BSP.001` resolves (aggregates, commands, policies, read-models, bus, api, schemas — authored upstream in banking-knowledge)
+  ✅ Stage 0 — Process: `rlv-knowledge process BNK.RLVR.CAP.BSP.001` resolves (aggregates, commands, policies, read-models, bus, api, schemas — authored upstream in reliever-knowledge)
   ✅ Stage 1 — Roadmap: /roadmap/BNK.RLVR.CAP.BSP.001/roadmap.md
   ⏳ Stage 2 — Tasks: 3/8 epics covered
   ⬜ Stage 3 — Kanban: BOARD.md not yet generated
@@ -232,52 +232,52 @@ Local pipeline:
   ⬜ Stage 5 — No test reports
 
 Knowledge drift:
-  ⚠️  Process model pinned to v1.0.0; knowledge base now at v1.1.0 —
-      `bcm-pack diff` reports 1 changed business event, 2 changed ADRs for this
+  ⚠️  Process model pinned to v2.0.0; knowledge base now at v2.1.0 —
+      `rlv-knowledge diff` reports 1 changed business event, 2 changed ADRs for this
       capability. Re-run `/process BNK.RLVR.CAP.BSP.001` to refresh the model,
       then re-derive roadmap/tasks, before resuming Stage 4.
 
 Next action: complete task generation for the remaining 5 epics.
 ```
 
-**Drift gate.** When `bcm-pack diff <pinned_ref> --capability <CAP_ID>` reports a
+**Drift gate.** When `rlv-knowledge diff <pinned_ref> --capability <CAP_ID>` reports a
 non-empty summary, the process model is stale relative to upstream knowledge.
-Flag it loudly and recommend re-running `/process` in the banking-knowledge repo
+Flag it loudly and recommend re-running `/process` in the reliever-knowledge repo
 (then `/roadmap` → `/task` here) before any further Stage 4 work — implementing
 against a stale model silently breaks the traceability chain. An empty diff means
 the artifact is current.
 
 If any upstream slice is empty or `pack.warnings` is non-empty, the upstream
 knowledge corpus is incomplete — direct the user to the upstream
-`banking-knowledge` repository to fix it. This skill cannot author or modify
+`reliever-knowledge` repository to fix it. This skill cannot author or modify
 upstream artifacts.
 
 ---
 
 ## Step 2 — Guide or Execute the Next Action
 
-### Stage 0 — Process Modelling (authored upstream in banking-knowledge)
+### Stage 0 — Process Modelling (authored upstream in reliever-knowledge)
 
 Stage 0 is **not run from this repo.** The DDD Process Modelling layer is
-authored by the `/process` skill in the **banking-knowledge** repo and consumed
-here read-only via `bcm-pack process <CAP_ID>`. The local pipeline starts by
+authored by the `/process` skill in the **reliever-knowledge** repo and consumed
+here read-only via `rlv-knowledge process <CAP_ID>`. The local pipeline starts by
 *consuming* that model, not producing it.
 
 For each target capability, verify the model resolves:
 
 ```bash
 CAP_ID="BNK.RLVR.CAP.ZONE.NNN"
-if bcm-pack process "$CAP_ID" --compact >/dev/null 2>&1; then
+if rlv-knowledge process "$CAP_ID" --compact >/dev/null 2>&1; then
   echo "✅ Stage 0 — process model for $CAP_ID resolves (proceed to Stage 1)"
 else
   echo "⬜ Stage 0 — no process model for $CAP_ID."
-  echo "   Run /process $CAP_ID in the banking-knowledge repo and merge its PR,"
+  echo "   Run /process $CAP_ID in the reliever-knowledge repo and merge its PR,"
   echo "   then resume the pipeline here."
 fi
 ```
 
 If the model does not resolve, direct the user to run `/process <CAP_ID>` in the
-banking-knowledge repo and merge its PR — this skill cannot author it. Once it
+reliever-knowledge repo and merge its PR — this skill cannot author it. Once it
 resolves, the model is read-only input for every downstream stage; there is no
 local `process/` folder and nothing to write here.
 
@@ -289,8 +289,8 @@ For each L2 capability without a `roadmap.md`, spawn one subagent:
 Use the roadmap skill to generate a roadmap for capability [BNK.RLVR.CAP.ZONE.NNN — Name].
 
 Knowledge access (mandatory):
-- Source ALL BCM, ADR, and vision context from the `bcm-pack` CLI:
-    `bcm-pack pack [BNK.RLVR.CAP.ZONE.NNN] --deep --compact`
+- Source ALL BCM, ADR, and vision context from the `rlv-knowledge` CLI:
+    `rlv-knowledge pack [BNK.RLVR.CAP.ZONE.NNN] --deep --compact`
   Do NOT read /bcm/, /func-adr/, /adr/, /strategic-vision/, /product-vision/,
   /tech-vision/, or /tech-adr/ directly. The pack returns slices for
   capability_self, capability_definition (FUNC ADR), tactical_stack
@@ -313,8 +313,8 @@ Use the task skill to generate tasks for capability [BNK.RLVR.CAP.ZONE.NNN — N
 Read the roadmap from /roadmap/[capability-id]/roadmap.md (local).
 
 Knowledge access (mandatory):
-- Source ALL BCM and ADR context from the `bcm-pack` CLI:
-    `bcm-pack pack [BNK.RLVR.CAP.ZONE.NNN] --compact`
+- Source ALL BCM and ADR context from the `rlv-knowledge` CLI:
+    `rlv-knowledge pack [BNK.RLVR.CAP.ZONE.NNN] --compact`
   (lightweight is enough for task generation — the rationale ADRs are not
   needed). Do NOT read /bcm/, /func-adr/, /adr/, or /tech-adr/ directly.
   Use slices: capability_self, capability_definition,
@@ -365,7 +365,7 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
    no open questions, status not `stalled`.
 2. **Reads loop counters** — initializes `loop_count: 0`, `max_loops: 10` if absent.
 3. **Detects the capability zone AND the implementation language.**
-   Zone is read from the `bcm-pack` slice (`capability_self.zoning`).
+   Zone is read from the `rlv-knowledge` slice (`capability_self.zoning`).
    Language is read from `tactical_stack[0].tags` (the TECH-TACT ADR):
    `python` / `fastapi` route to `implement-capability-python`,
    `dotnet` / `csharp` / `aspnet` route to `implement-capability`, and
@@ -508,27 +508,27 @@ under the same `tests/{capability-id}/TASK-NNN-{slug}/` directory.
 
 | Stage | Prerequisite |
 |-------|--------------|
-| 0 (Process) | `bcm-pack pack <CAP_ID> --deep` returns non-empty `capability_self`, `capability_definition`, `tactical_stack`, `governing_urba`, `governing_tech_strat`, `product_vision`, `business_vision`, `tech_vision`, and `pack.warnings` is empty. The full upstream chain (product → strategic business → strategic tech → FUNC ADR → tactical ADR → BCM YAML) must be in place in the `banking-knowledge` repo. |
-| 1 (Roadmap) | Stage 0 prerequisites + `bcm-pack process <CAP_ID>` resolves (exit 0) with at least `.readme`, `.model.aggregates`, `.model.commands`, `.model.policies`, `.model["read-models"]`, `.model.bus`. |
+| 0 (Process) | `rlv-knowledge pack <CAP_ID> --deep` returns non-empty `capability_self`, `capability_definition`, `tactical_stack`, `governing_urba`, `governing_tech_strat`, `product_vision`, `business_vision`, `tech_vision`, and `pack.warnings` is empty. The full upstream chain (product → strategic business → strategic tech → FUNC ADR → tactical ADR → BCM YAML) must be in place in the `reliever-knowledge` repo. |
+| 1 (Roadmap) | Stage 0 prerequisites + `rlv-knowledge process <CAP_ID>` resolves (exit 0) with at least `.readme`, `.model.aggregates`, `.model.commands`, `.model.policies`, `.model["read-models"]`, `.model.bus`. |
 | 2 (Task) | Stage 1 prerequisite + local `/roadmap/{capability-id}/roadmap.md` has at least one epic with an exit condition |
 | 3 (sort-task / launch-task) | At least one `TASK-NNN-*.md` in local `/tasks/*/` with valid frontmatter |
-| 4 (Code) | Task status is `todo` (or `in_progress` re-entry); all `depends_on` are `done`; no open questions; not `stalled`; `bcm-pack process <CAP_ID>` resolves (task references AGG/CMD/POL/PRJ/QRY identifiers from the model) |
+| 4 (Code) | Task status is `todo` (or `in_progress` re-entry); all `depends_on` are `done`; no open questions; not `stalled`; `rlv-knowledge process <CAP_ID>` resolves (task references AGG/CMD/POL/PRJ/QRY identifiers from the model) |
 | 5 (Test) | An implementation artifact exists in `sources/{CAP_ID}/{backend,stub,bff,frontend}/` |
 
 If a prerequisite is missing, explain which earlier stage must be completed
-first. If the gap is upstream (any required `bcm-pack` slice is empty), point
-the user to the `banking-knowledge` repository — this skill cannot fix it.
+first. If the gap is upstream (any required `rlv-knowledge` slice is empty), point
+the user to the `reliever-knowledge` repository — this skill cannot fix it.
 
 ---
 
 ## Governance Reminders
 
 - **All upstream context is read-only.** GOV / URBA / TECH-STRAT / FUNC /
-  TACTICAL ADRs and BCM YAML live in the `banking-knowledge` repo and are
-  consumed via `bcm-pack` only. To author or update them, work in that
+  TACTICAL ADRs and BCM YAML live in the `reliever-knowledge` repo and are
+  consumed via `rlv-knowledge` only. To author or update them, work in that
   repository directly.
 - Every task must trace back to a roadmap epic, which traces back to an L2
-  capability whose `bcm-pack` slice is complete (capability_self,
+  capability whose `rlv-knowledge` slice is complete (capability_self,
   capability_definition, tactical_stack).
 - Every implementation artifact (microservice, BFF, frontend) must be
   reachable from a TASK-NNN, which is itself reachable from a roadmap epic.
@@ -536,12 +536,12 @@ the user to the `banking-knowledge` repository — this skill cannot fix it.
 **The traceability chain is unbreakable:**
 
 ```
-[upstream — banking-knowledge / bcm-pack]
+[upstream — reliever-knowledge / rlv-knowledge]
   Service Offer → Strategic L1 → Strategic Tech (TECH-STRAT) → IS L1/L2 (FUNC) →
   Tactical Tech (TECH-TACT) → BCM YAML
                           ↓
-[upstream — banking-knowledge / bcm-pack process]
-  Process Modelling (consumed via `bcm-pack process`)
+[upstream — reliever-knowledge / rlv-knowledge process]
+  Process Modelling (consumed via `rlv-knowledge process`)
                           ↓
 [local — this repo]
   Roadmap Epic → Task → Code → Tests → PR
@@ -551,8 +551,8 @@ Any stage that cannot establish this chain must stop and surface the gap to
 the user.
 
 **The process layer is authored upstream.** Only `/process` can author the
-process model, and it does so in the **banking-knowledge** repo; this repo
-consumes it read-only via `bcm-pack process <CAP_ID>`. There is no local
+process model, and it does so in the **reliever-knowledge** repo; this repo
+consumes it read-only via `rlv-knowledge process <CAP_ID>`. There is no local
 `process/` folder here, so branches and PRs opened by `/code`, `/fix`, or
 `/launch-task` (and their CI/CD pipelines) carry no `process/` diff — there
 is nothing to guard locally.

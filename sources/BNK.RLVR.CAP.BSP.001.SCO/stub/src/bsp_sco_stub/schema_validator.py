@@ -7,7 +7,7 @@ BEFORE publication.
 
 The schemas are a static vendored snapshot of the upstream contract (a stub
 owns the contract snapshot it validates against). Refresh via
-``bcm-pack process BNK.RLVR.CAP.BSP.001.SCO`` (``.schemas["<FILE>.schema.json"]``).
+``rlv-knowledge process BNK.RLVR.CAP.BSP.001.SCO`` (``.schemas["<FILE>.schema.json"]``).
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ class SchemaValidator:
                 f"Vendored schemas dir not found: {self._schemas_dir}. "
                 "The stub reads RVT.*.schema.json from its package-local "
                 "vendored snapshot (bsp_sco_stub/schemas/); refresh via "
-                "`bcm-pack process BNK.RLVR.CAP.BSP.001.SCO`."
+                "`rlv-knowledge process BNK.RLVR.CAP.BSP.001.SCO`."
             )
         for rvt_id, filename in SCHEMA_FILES.items():
             path = self._schemas_dir / filename

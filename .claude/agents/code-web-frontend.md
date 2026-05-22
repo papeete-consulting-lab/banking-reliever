@@ -64,7 +64,7 @@ through which beneficiaries interact with the IS.
 
 > **Read-only contract — the process model.**
 > The process model is authored by the `/process` skill in the
-> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
+> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
 > process <CAP_ID>` — it does not live in this repo, so there is nothing to
 > guard locally and nothing to write under `process/`. Fetch it once and
 > read `.model.api` and `.model["read-models"]` (use `.parsed` when
@@ -165,12 +165,12 @@ ID. Locate `/tasks/{capability-id}/TASK-NNN-*.md` and verify:
 If a prerequisite fails, stop and explain:
 > "TASK-NNN cannot start because [reason]. Resolve this first."
 
-Then source the BCM/ADR/vision context from the `bcm-pack` CLI — never
+Then source the BCM/ADR/vision context from the `rlv-knowledge` CLI — never
 read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
 `/product-vision/`, `/tech-vision/`, or `/tech-adr/` directly:
 
 ```bash
-bcm-pack pack {capability_id} --deep --compact > /tmp/pack-frontend.json
+rlv-knowledge pack {capability_id} --deep --compact > /tmp/pack-frontend.json
 ```
 
 Use `--deep` here — the frontend agent specifically needs the **vision

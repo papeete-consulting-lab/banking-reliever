@@ -42,7 +42,7 @@
 ### Epic 1 — Contract & Development Stub (extension)
 **Goal**: Freeze the wire contract of `BNK.RLVR.CAP.BSP.001.SCO` by validating against the JSON Schemas for all three resource events (`ENTRY_SCORE_COMPUTED`, `CURRENT_SCORE_RECOMPUTED`, `SCORE_THRESHOLD_REACHED`) — now all present under `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/` since v0.2.0 of the model — and a development stub publishing them on the agreed RabbitMQ topology with the UUIDv7 envelope, so every downstream consumer can develop in isolation.
 
-**Entry condition**: `process/BNK.RLVR.CAP.BSP.001.SCO/` v0.2.0 is on `main` (already met) and the BCM event declarations are merged (already met per `bcm-pack` corpus). The first stub iteration (`TASK-001`, covering `RVT.CURRENT_SCORE_RECOMPUTED`) has been delivered and merged.
+**Entry condition**: `process/BNK.RLVR.CAP.BSP.001.SCO/` v0.2.0 is on `main` (already met) and the BCM event declarations are merged (already met per `rlv-knowledge` corpus). The first stub iteration (`TASK-001`, covering `RVT.CURRENT_SCORE_RECOMPUTED`) has been delivered and merged.
 
 **Exit condition (DoD)**:
 - The five JSON Schemas (Draft 2020-12) — 2 CMDs + 3 RVTs — are present under `process/BNK.RLVR.CAP.BSP.001.SCO/schemas/` (already met in v0.2.0; *authored by `/process`*, this epic only references them).
@@ -208,7 +208,7 @@
 ---
 
 ## Knowledge Source
-- bcm-pack ref: `main`
+- rlv-knowledge ref: `main`
 - Capability pack mode: `deep`
 - Pack date: 2026-05-15
 - Process model version: `process/BNK.RLVR.CAP.BSP.001.SCO/` **v0.2.0** (merged on `main`) — re-pointed at the post-rezone `BNK.RLVR.CAP.SUP.002.BEN`, added UUIDv7 envelope per `ADR-TECH-STRAT-007`, added `ADR-TECH-STRAT-008` multi-faceted-producer framing, ratified tactical stack `ADR-TECH-TACT-003` (Python / FastAPI / PostgreSQL / RabbitMQ / Kafka), wrote the 4 previously missing JSON Schemas (now 5 total under `schemas/`).

@@ -8,7 +8,7 @@ Mode B (contract + stub) per implement-capability-python.
 
 Both halves validate every outgoing payload against the package-local
 *vendored* JSON Schema snapshot (``reliever_beneficiary_identity_anchor_stub/
-schemas/``); refresh via ``bcm-pack process BNK.RLVR.CAP.SUP.002.BEN``.
+schemas/``); refresh via ``rlv-knowledge process BNK.RLVR.CAP.SUP.002.BEN``.
 """
 
 __version__ = "0.1.0"

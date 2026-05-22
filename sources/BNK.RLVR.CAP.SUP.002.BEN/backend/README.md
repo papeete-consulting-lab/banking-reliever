@@ -149,7 +149,7 @@ Env-var prefix: `RELIEVER_`.
 | `RELIEVER_ROUTING_KEY` | `BNK.RLVR.EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` | Binding key. |
 | `RELIEVER_OUTBOX_POLL_INTERVAL_SECONDS` | `0.5` | Relay tick. |
 | `RELIEVER_OUTBOX_BATCH_SIZE` | `50` | Max outbox rows drained per tick. |
-| `RELIEVER_PROCESS_SCHEMAS_DIR` | vendored package dir (`…/infrastructure/schema_validation/schemas`) | Override only to point at a different JSON-Schema snapshot. The model lives upstream in banking-knowledge (`bcm-pack process`). |
+| `RELIEVER_PROCESS_SCHEMAS_DIR` | vendored package dir (`…/infrastructure/schema_validation/schemas`) | Override only to point at a different JSON-Schema snapshot. The model lives upstream in reliever-knowledge (`rlv-knowledge process`). |
 | `RELIEVER_MIGRATIONS_DIR` | `<backend>/migrations` | Migration files. |
 | `RELIEVER_RUN_OUTBOX_RELAY` | `true` | Disable in tests where the relay must be quiescent. |
 | `RELIEVER_RUN_PROJECTION_CONSUMER` | `true` | Disable for relay-only deployments. |

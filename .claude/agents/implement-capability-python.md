@@ -5,7 +5,7 @@ description: |
   hexagonal architecture, DDD, and Event Storming. The Python sibling of
   the `implement-capability` agent — same decision framework, same Mode A
   / Mode B split, same read-only process-model contract consumed via
-  `bcm-pack process <CAP_ID>`, same harness-backend hand-off — but emits a
+  `rlv-knowledge process <CAP_ID>`, same harness-backend hand-off — but emits a
   Python stack instead of .NET 10.
 
   Operates in two modes, selected from the TASK frontmatter:
@@ -25,8 +25,8 @@ description: |
     `.model.api` with canned cold-data fixtures AND an asyncio task
     publishing `RVT.*` events on the agreed bus topology. The wire-format
     JSON Schemas are NOT regenerated here — they are read from `.schemas`
-    of `bcm-pack process <CAP_ID>` (already authored by `/process` in
-    banking-knowledge). Mode B output is a minimal Python package under
+    of `rlv-knowledge process <CAP_ID>` (already authored by `/process` in
+    reliever-knowledge). Mode B output is a minimal Python package under
     `sources/{cap-name}/stub/`. If `.model.api` declares no operations,
     only the event half ships; if `.model.bus` declares no emitted events,
     only the query half ships; if both are empty, Mode B aborts with a
@@ -76,8 +76,8 @@ the current working directory.
 > **Read-only contract — the process model.**
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **banking-knowledge** repo and consumed here **read-only** via `bcm-pack
-> process <CAP_ID>` — exactly like the BCM corpus via `bcm-pack pack`. It
+> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
+> process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`. It
 > does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`. Fetch it once on entry and read its
 > slices — `.model.aggregates`, `.model.commands`, `.model.policies`,
@@ -89,12 +89,12 @@ the current working directory.
 > modules, PascalCased for class names). If you find that the contract is
 > wrong (missing aggregate, mis-paired routing key, schema field absent),
 > abort and tell the caller to run `/process <CAPABILITY_ID>` in the
-> banking-knowledge repo and merge its PR to amend the model. Your PR must
+> reliever-knowledge repo and merge its PR to amend the model. Your PR must
 > not contain any diff under `process/`.
 
 > **Read-only contract — the TECH-TACT ADR.**
 > You were selected (over the .NET sibling) because the capability's
-> TECH-TACT ADR (`tactical_stack[0]` of `bcm-pack pack <CAP_ID>`)
+> TECH-TACT ADR (`tactical_stack[0]` of `rlv-knowledge pack <CAP_ID>`)
 > tagged the runtime as Python. Re-read it on entry — the agent that
 > drove `/code` only inspected the `tags` array, but the ADR's
 > structured fields (`grounded_in_*`, `strategic_overrides`) AND its
@@ -130,7 +130,7 @@ the current working directory.
 >    names) — the harness's validator inspects aio-pika
 >    queue/exchange registrations and will fail the build on any drift.
 > 5. Use the BCM `RES.*` resource shape (from
->    `bcm-pack.carried_objects`) as the canonical projection for any
+>    `rlv-knowledge.carried_objects`) as the canonical projection for any
 >    read endpoint — the harness asserts that read responses are
 >    structurally compatible with the corresponding `RES.*`.
 >
@@ -193,7 +193,7 @@ Read the TASK file frontmatter and extract the `task_type` field:
 | `task_type` value | Mode | Output |
 |---|---|---|
 | (absent) or `full-microservice` | **Mode A** — full microservice scaffold | `sources/{capability-name}/backend/` with the full hexagonal tree |
-| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal FastAPI host: HTTP query API serving `.model.api` responses from canned fixtures + asyncio publisher emitting `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `bcm-pack process <CAP_ID>` (already authored by `/process`). |
+| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal FastAPI host: HTTP query API serving `.model.api` responses from canned fixtures + asyncio publisher emitting `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `rlv-knowledge process <CAP_ID>` (already authored by `/process`). |
 
 Announce the chosen mode:
 
@@ -204,13 +204,13 @@ Announce the chosen mode:
 ### 0.6. Confirm TECH-TACT — Python is the chosen runtime
 
 ```bash
-bcm-pack pack {capability_id} --compact > /tmp/pack-impl-python.json
+rlv-knowledge pack {capability_id} --compact > /tmp/pack-impl-python.json
 ```
 
 `{capability_id}` is the **full source-context-prefixed ID** (e.g.
-`BNK.RLVR.CAP.SUP.002.BEN`); the v1.0.0 CLI rejects the short `CAP.…` form (exit 2).
+`BNK.RLVR.CAP.SUP.002.BEN`); the v2.0.0 CLI rejects the short `CAP.…` form (exit 2).
 
-> **Asset-ID namespacing (CLI v1.0.0+).** Every ID `bcm-pack` returns —
+> **Asset-ID namespacing (CLI v2.0.0+).** Every ID `rlv-knowledge` returns —
 > `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
 > Use them **verbatim**: pydantic event models map to the full ID, routing keys
 > are the prefixed `<EVT-id>.<RVT-id>` from the process model's `.model.bus`, and the
@@ -220,11 +220,11 @@ bcm-pack pack {capability_id} --compact > /tmp/pack-impl-python.json
 
 > **Platform substrate (optional, Mode A).** When the TECH-TACT / TECH-STRAT
 > slices reference a `BNK.TECH.CAP.…` runtime/deployment platform capability,
-> fetch its contract from the platform CLI: `pcm-pack pack {platform_capability_id}
-> --compact` (reads the `banking-platform` repo, prefix `BNK.TECH.`). Skip when no
-> `BNK.TECH.` dependency is referenced. (`pcm-pack` ≥ 1.0.1 ships as its own
-> `pcm_pack` package and coexists cleanly with `bcm-pack`; point it at a local
-> checkout with `--repo-root <banking-platform>` or `BANKING_PLATFORM_ROOT`.)
+> fetch its contract from the platform CLI: `tech pack {platform_capability_id}
+> --compact` (reads the `banking-tech` repo, prefix `BNK.TECH.`). Skip when no
+> `BNK.TECH.` dependency is referenced. (`tech` ≥ 2.0.0 ships as its own
+> `pcm_pack` package and coexists cleanly with `rlv-knowledge`; point it at a local
+> checkout with `--repo-root <banking-tech>` or `BANKING_PLATFORM_ROOT`.)
 
 Inspect `slices.tactical_stack[0]`:
 
@@ -268,7 +268,7 @@ defaults when the ADR is silent:
 ### 1. Read the context
 
 The caller will hand you a task to implement. **All BCM/ADR/vision
-context is sourced from the `bcm-pack` CLI** — never read `/bcm/`,
+context is sourced from the `rlv-knowledge` CLI** — never read `/bcm/`,
 `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`,
 `/tech-vision/`, or `/tech-adr/` directly.
 
@@ -524,7 +524,7 @@ endpoints over HTTP — with canned cold data, so downstream consumers
 can develop in isolation. This is not the place to build real domain
 logic.
 
-The stub has **two halves** driven by the `bcm-pack process <CAP_ID>` model:
+The stub has **two halves** driven by the `rlv-knowledge process <CAP_ID>` model:
 
 | Half | Driven by | Output |
 |---|---|---|
@@ -563,13 +563,13 @@ types.
 
 ### B.3 — Read the process model — bus, api, schemas (do NOT regenerate)
 
-Identical contract to the .NET sibling (fetch `bcm-pack process <CAP_ID>`
+Identical contract to the .NET sibling (fetch `rlv-knowledge process <CAP_ID>`
 once and read `.model.bus`, `.model.api`, `.schemas[*]` — `.parsed` when
-non-null, else `.raw`; the model is upstream in banking-knowledge and not
+non-null, else `.raw`; the model is upstream in reliever-knowledge and not
 writable from here).
 
 Gap handling: missing schema → stop and tell caller to run
-`/process <CAP_ID>` in banking-knowledge and merge its PR. Empty
+`/process <CAP_ID>` in reliever-knowledge and merge its PR. Empty
 `.model.bus` → skip publisher half. Empty `.model.api` → skip query half.
 Both empty → abort.
 
@@ -688,7 +688,7 @@ RABBIT_MGMT_PORT=$((LOCAL_PORT + 201))
   - Operations to stub:   [list of {method} {path} from .model.api]
   - Response schemas:     [list of schema keys read from .schemas]
   - Fixtures planned:     [N fixtures per operation (≥3 required)]
-- Schemas (read-only):    bcm-pack process <CAP_ID> .schemas[*]
+- Schemas (read-only):    rlv-knowledge process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
 - Ports:                  HTTP=[LOCAL_PORT or n/a], AMQP=[RABBIT_PORT or n/a], MGMT=[RABBIT_MGMT_PORT or n/a]
 
@@ -705,8 +705,8 @@ Assumptions taken:     [list, or "none"]
   Mode:                 Contract + development stub (events + query API)
   Stack:                Python {version} / FastAPI / aio-pika / jsonschema
   TECH-TACT ADR:        [id]
-  Schemas consumed (read-only, owned by /process, via bcm-pack process):
-    bcm-pack process <CAP_ID> .schemas[*]
+  Schemas consumed (read-only, owned by /process, via rlv-knowledge process):
+    rlv-knowledge process <CAP_ID> .schemas[*]
   Stub:                 sources/{capability-name}/stub/
 
   Publisher half:       [enabled | disabled]
