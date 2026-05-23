@@ -18,13 +18,21 @@ from typing import TYPE_CHECKING
 from uuid_extensions import uuid7
 
 from .errors import (
+    AnchorAlreadyArchived,
     AnchorArchived,
+    AnchorNotArchived,
     AnchorPseudonymised,
     IdentityFieldsMissing,
     InternalIdImmutable,
     NoFieldsToUpdate,
 )
-from .events import AnchorMinted, AnchorUpdated, TransitionEvent
+from .events import (
+    AnchorArchivedEvent,
+    AnchorMinted,
+    AnchorRestoredEvent,
+    AnchorUpdated,
+    TransitionEvent,
+)
 from .value_objects import (
     Actor,
     AnchorStatus,
@@ -270,6 +278,114 @@ class IdentityAnchor:
                 command_id=command_id,
                 occurred_at=now,
                 actor=actor,
+            )
+        )
+
+    # ─── Command — ARCHIVE_ANCHOR ──────────────────────────────────────
+
+    def archive(
+        self,
+        *,
+        command_id: str,
+        reason: str,
+        actor: Actor,
+    ) -> None:
+        """Flip anchor_status ACTIVE → ARCHIVED (INV.BEN.004).
+
+        ARCHIVE is only valid from ACTIVE. State-machine guards:
+          * PSEUDONYMISED → AnchorPseudonymised (409, terminal)
+          * ARCHIVED      → AnchorAlreadyArchived (409)
+
+        PII is NOT mutated (INV.BEN.002) — only ``anchor_status`` and
+        ``revision`` move. Emits exactly one AnchorArchivedEvent carrying
+        the full post-state snapshot (INV.BEN.007).
+        """
+        # Terminal state takes precedence — archival is irrelevant once
+        # the anchor has been pseudonymised.
+        if self.anchor_status == "PSEUDONYMISED":
+            raise AnchorPseudonymised(str(self.internal_id))
+        if self.anchor_status == "ARCHIVED":
+            raise AnchorAlreadyArchived(str(self.internal_id))
+        assert self.anchor_status == "ACTIVE"
+
+        # INV.BEN.002 — the post-transition snapshot still carries the live
+        # PII (ARCHIVE does not wipe it). last/first/dob are guaranteed
+        # present for an ACTIVE anchor (only PSEUDONYMISE nulls them).
+        assert self.pii.last_name is not None
+        assert self.pii.first_name is not None
+        assert self.pii.date_of_birth is not None
+
+        now = _now_utc()
+        self.anchor_status = "ARCHIVED"
+        self.revision += 1
+        self.last_processed_command_id = command_id
+
+        self._pending_events.append(
+            AnchorArchivedEvent(
+                internal_id=self.internal_id,
+                last_name=self.pii.last_name,
+                first_name=self.pii.first_name,
+                date_of_birth=self.pii.date_of_birth,
+                contact_details=self.pii.contact_details,
+                creation_date=self.creation_date,
+                revision=self.revision,
+                transition_kind="ARCHIVED",
+                anchor_status="ARCHIVED",
+                command_id=command_id,
+                occurred_at=now,
+                actor=actor,
+                reason=reason,
+            )
+        )
+
+    # ─── Command — RESTORE_ANCHOR ──────────────────────────────────────
+
+    def restore(
+        self,
+        *,
+        command_id: str,
+        reason: str,
+        actor: Actor,
+    ) -> None:
+        """Flip anchor_status ARCHIVED → ACTIVE (INV.BEN.005).
+
+        RESTORE is only valid from ARCHIVED. State-machine guards:
+          * PSEUDONYMISED → AnchorPseudonymised (409, terminal)
+          * ACTIVE        → AnchorNotArchived (409 — nothing to restore)
+
+        PII is NOT mutated (INV.BEN.002). Emits exactly one
+        AnchorRestoredEvent with the full post-state snapshot (INV.BEN.007).
+        """
+        if self.anchor_status == "PSEUDONYMISED":
+            raise AnchorPseudonymised(str(self.internal_id))
+        if self.anchor_status == "ACTIVE":
+            raise AnchorNotArchived(str(self.internal_id))
+        assert self.anchor_status == "ARCHIVED"
+
+        assert self.pii.last_name is not None
+        assert self.pii.first_name is not None
+        assert self.pii.date_of_birth is not None
+
+        now = _now_utc()
+        self.anchor_status = "ACTIVE"
+        self.revision += 1
+        self.last_processed_command_id = command_id
+
+        self._pending_events.append(
+            AnchorRestoredEvent(
+                internal_id=self.internal_id,
+                last_name=self.pii.last_name,
+                first_name=self.pii.first_name,
+                date_of_birth=self.pii.date_of_birth,
+                contact_details=self.pii.contact_details,
+                creation_date=self.creation_date,
+                revision=self.revision,
+                transition_kind="RESTORED",
+                anchor_status="ACTIVE",
+                command_id=command_id,
+                occurred_at=now,
+                actor=actor,
+                reason=reason,
             )
         )
 

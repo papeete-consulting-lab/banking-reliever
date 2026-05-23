@@ -23,6 +23,8 @@ from ...application.ports import SchemaValidator
 # Resolved at startup from settings.process_schemas_dir (vendored snapshot dir).
 MINT_ANCHOR_SCHEMA_FILE = "CMD.SUP.002.BEN.MINT_ANCHOR.schema.json"
 UPDATE_ANCHOR_SCHEMA_FILE = "CMD.SUP.002.BEN.UPDATE_ANCHOR.schema.json"
+ARCHIVE_ANCHOR_SCHEMA_FILE = "CMD.SUP.002.BEN.ARCHIVE_ANCHOR.schema.json"
+RESTORE_ANCHOR_SCHEMA_FILE = "CMD.SUP.002.BEN.RESTORE_ANCHOR.schema.json"
 RVT_BENEFICIARY_ANCHOR_UPDATED_SCHEMA_FILE = "BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json"
 
 
@@ -60,6 +62,8 @@ class Validators:
 
     mint: JsonSchemaValidator
     update: JsonSchemaValidator
+    archive: JsonSchemaValidator
+    restore: JsonSchemaValidator
     rvt: JsonSchemaValidator
 
 
@@ -67,10 +71,14 @@ def build_validators_bundle(schemas_dir: Path) -> Validators:
     """Return the full bundle. Fail-fast on any missing or malformed schema."""
     mint = load_schema(schemas_dir, MINT_ANCHOR_SCHEMA_FILE)
     update = load_schema(schemas_dir, UPDATE_ANCHOR_SCHEMA_FILE)
+    archive = load_schema(schemas_dir, ARCHIVE_ANCHOR_SCHEMA_FILE)
+    restore = load_schema(schemas_dir, RESTORE_ANCHOR_SCHEMA_FILE)
     rvt = load_schema(schemas_dir, RVT_BENEFICIARY_ANCHOR_UPDATED_SCHEMA_FILE)
     return Validators(
         mint=JsonSchemaValidator(mint),
         update=JsonSchemaValidator(update),
+        archive=JsonSchemaValidator(archive),
+        restore=JsonSchemaValidator(restore),
         rvt=JsonSchemaValidator(rvt),
     )
 
@@ -90,5 +98,7 @@ __all__ = [
     "build_validators_bundle",
     "MINT_ANCHOR_SCHEMA_FILE",
     "UPDATE_ANCHOR_SCHEMA_FILE",
+    "ARCHIVE_ANCHOR_SCHEMA_FILE",
+    "RESTORE_ANCHOR_SCHEMA_FILE",
     "RVT_BENEFICIARY_ANCHOR_UPDATED_SCHEMA_FILE",
 ]

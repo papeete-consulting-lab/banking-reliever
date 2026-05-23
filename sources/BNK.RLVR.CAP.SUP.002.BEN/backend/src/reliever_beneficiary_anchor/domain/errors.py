@@ -88,6 +88,37 @@ class AnchorPseudonymised(DomainError):
         )
 
 
+class AnchorAlreadyArchived(DomainError):
+    """INV.BEN.004 — ARCHIVE rejected when the anchor is already ARCHIVED.
+
+    Per commands.yaml::CMD.ARCHIVE_ANCHOR.errors.ANCHOR_ALREADY_ARCHIVED —
+    the ARCHIVE verb is only valid from the ACTIVE state.
+    """
+
+    def __init__(self, internal_id: str) -> None:
+        super().__init__(
+            code="ANCHOR_ALREADY_ARCHIVED",
+            message=f"Anchor {internal_id} is already ARCHIVED.",
+        )
+
+
+class AnchorNotArchived(DomainError):
+    """INV.BEN.005 — RESTORE rejected when the anchor is not ARCHIVED.
+
+    Per commands.yaml::CMD.RESTORE_ANCHOR.errors.ANCHOR_NOT_ARCHIVED — the
+    RESTORE verb is only valid from the ARCHIVED state. An ACTIVE anchor has
+    nothing to restore.
+    """
+
+    def __init__(self, internal_id: str) -> None:
+        super().__init__(
+            code="ANCHOR_NOT_ARCHIVED",
+            message=(
+                f"Anchor {internal_id} is ACTIVE — there is nothing to restore."
+            ),
+        )
+
+
 class NoFieldsToUpdate(DomainError):
     """commands.yaml::CMD.UPDATE_ANCHOR.errors.NO_FIELDS_TO_UPDATE — the
     effective payload (after stripping ``command_id``) carries no field to

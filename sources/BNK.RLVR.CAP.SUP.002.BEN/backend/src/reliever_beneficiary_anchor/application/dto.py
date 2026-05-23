@@ -189,6 +189,35 @@ class UpdateAnchorCommandDto:
 
 
 @dataclass(frozen=True, slots=True)
+class ArchiveAnchorCommandDto:
+    """Input payload of CMD.ARCHIVE_ANCHOR — already passed through JSON
+    Schema validation at the presentation boundary.
+
+    ``internal_id`` is the PATH parameter. ``reason`` is the validated
+    archival-reason enum; ``comment`` is the optional audit annotation.
+    """
+
+    internal_id: str
+    command_id: str
+    reason: str
+    comment: str | None
+    actor: Actor
+
+
+@dataclass(frozen=True, slots=True)
+class RestoreAnchorCommandDto:
+    """Input payload of CMD.RESTORE_ANCHOR — already passed through JSON
+    Schema validation at the presentation boundary.
+    """
+
+    internal_id: str
+    command_id: str
+    reason: str
+    comment: str | None
+    actor: Actor
+
+
+@dataclass(frozen=True, slots=True)
 class BeneficiaryAnchorDto:
     """Canonical wire-format BeneficiaryAnchor — matches the QRY.GET_ANCHOR
     response and the 201 response of POST /anchors.
@@ -221,9 +250,11 @@ class BeneficiaryAnchorDto:
 
 
 __all__ = [
+    "ArchiveAnchorCommandDto",
     "BeneficiaryAnchorDto",
     "ContactDetailsUpdate",
     "MintAnchorCommandDto",
+    "RestoreAnchorCommandDto",
     "UNSET",
     "UpdateAnchorCommandDto",
     "UpdateFields",

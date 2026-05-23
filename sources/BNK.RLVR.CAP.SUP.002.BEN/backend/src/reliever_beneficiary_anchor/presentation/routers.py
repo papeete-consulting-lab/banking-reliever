@@ -19,21 +19,25 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi.responses import JSONResponse
 
 from ..application.dto import (
+    ArchiveAnchorCommandDto,
     ContactDetailsUpdate,
     MintAnchorCommandDto,
+    RestoreAnchorCommandDto,
     UNSET,
     UpdateAnchorCommandDto,
     UpdateFields,
 )
 from ..application.handlers import (
-    GetAnchorHandler,
-    MintAnchorHandler,
+    ArchiveAnchorHandler,
+    LifecycleResult,
     MintResult,
-    UpdateAnchorHandler,
+    RestoreAnchorHandler,
     UpdateResult,
 )
 from ..domain.errors import (
+    AnchorAlreadyArchived,
     AnchorArchived,
+    AnchorNotArchived,
     AnchorNotFound,
     AnchorPseudonymised,
     CallerSuppliedInternalId,
@@ -47,10 +51,12 @@ from ..infrastructure.persistence.projection import compute_etag
 from ..infrastructure.security.jwt import actor_from_bearer
 from .dependencies import AppState, get_state
 from .dto import (
+    ArchiveAnchorRequest,
     BeneficiaryAnchorResponse,
     ContactDetailsModel,
     ErrorResponse,
     MintAnchorRequest,
+    RestoreAnchorRequest,
     UpdateAnchorRequest,
 )
 
@@ -382,6 +388,173 @@ def _parse_update_fields(body: dict[str, Any]) -> UpdateFields:
     )
 
 
+# ─── CMD.ARCHIVE_ANCHOR ────────────────────────────────────────────────
+
+
+@router.post(
+    "/anchors/{internal_id}/archive",
+    tags=["commands"],
+    summary="Archive an anchor (ACTIVE → ARCHIVED; INV.BEN.004)",
+    response_model=None,
+    responses={
+        200: {
+            "model": BeneficiaryAnchorResponse,
+            "description": (
+                "Anchor archived. On an idempotent re-call "
+                "(COMMAND_ALREADY_PROCESSED) the body wraps the prior anchor: "
+                "`{\"error_code\": \"COMMAND_ALREADY_PROCESSED\", \"anchor\": {...}}`."
+            ),
+        },
+        400: {"model": ErrorResponse, "description": "Schema violation (missing/invalid reason)."},
+        404: {"model": ErrorResponse, "description": "ANCHOR_NOT_FOUND."},
+        409: {
+            "model": ErrorResponse,
+            "description": "ANCHOR_ALREADY_ARCHIVED or ANCHOR_PSEUDONYMISED.",
+        },
+    },
+)
+async def archive_anchor(  # noqa: PLR0911 — explicit error-mapping branches
+    internal_id: str,
+    body: dict[str, Any],
+    request: Request,
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> Response:
+    return await _handle_lifecycle(
+        internal_id=internal_id,
+        body=body,
+        authorization=authorization,
+        validator=state.archive_validator,
+        handler=state.archive_handler,
+        command_dto_cls=ArchiveAnchorCommandDto,
+    )
+
+
+# ─── CMD.RESTORE_ANCHOR ────────────────────────────────────────────────
+
+
+@router.post(
+    "/anchors/{internal_id}/restore",
+    tags=["commands"],
+    summary="Restore an archived anchor (ARCHIVED → ACTIVE; INV.BEN.005)",
+    response_model=None,
+    responses={
+        200: {
+            "model": BeneficiaryAnchorResponse,
+            "description": (
+                "Anchor restored. On an idempotent re-call "
+                "(COMMAND_ALREADY_PROCESSED) the body wraps the prior anchor."
+            ),
+        },
+        400: {"model": ErrorResponse, "description": "Schema violation (missing/invalid reason)."},
+        404: {"model": ErrorResponse, "description": "ANCHOR_NOT_FOUND."},
+        409: {
+            "model": ErrorResponse,
+            "description": "ANCHOR_NOT_ARCHIVED or ANCHOR_PSEUDONYMISED.",
+        },
+    },
+)
+async def restore_anchor(  # noqa: PLR0911 — explicit error-mapping branches
+    internal_id: str,
+    body: dict[str, Any],
+    request: Request,
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> Response:
+    return await _handle_lifecycle(
+        internal_id=internal_id,
+        body=body,
+        authorization=authorization,
+        validator=state.restore_validator,
+        handler=state.restore_handler,
+        command_dto_cls=RestoreAnchorCommandDto,
+    )
+
+
+async def _handle_lifecycle(  # noqa: PLR0911
+    *,
+    internal_id: str,
+    body: dict[str, Any],
+    authorization: str | None,
+    validator: Any,
+    handler: ArchiveAnchorHandler | RestoreAnchorHandler,
+    command_dto_cls: type,
+) -> Response:
+    """Shared request-mapping for the ARCHIVE and RESTORE verbs.
+
+    Both verbs carry the identical wire shape (command_id + reason +
+    optional comment) and the identical error surface modulo the 409
+    discriminator, so the presentation flow is shared. The handler-specific
+    state-machine guard (AnchorAlreadyArchived vs AnchorNotArchived) is
+    raised by the aggregate and mapped to 409 here.
+    """
+    # ─── Reject ill-formed internal_id (404 per api.yaml policy) ───────
+    if not _UUIDV7_RE.match(internal_id):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error_code": "ANCHOR_NOT_FOUND",
+                "message": f"No anchor found for internal_id={internal_id}.",
+            },
+        )
+
+    # ─── INV.BEN.002 — body must NOT carry internal_id ─────────────────
+    if "internal_id" in body:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error_code": "INTERNAL_ID_IMMUTABLE",
+                "message": (
+                    "internal_id is the path parameter and is immutable; do "
+                    "not carry it in the request body (INV.BEN.002)."
+                ),
+            },
+        )
+
+    # ─── JSON Schema validation (canonical contract) ───────────────────
+    try:
+        validator.validate_payload(body)
+    except jsonschema.ValidationError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error_code": "INVALID_PAYLOAD", "message": exc.message},
+        )
+
+    actor = actor_from_bearer(authorization)
+    cmd = command_dto_cls(
+        internal_id=internal_id,
+        command_id=body["command_id"],
+        reason=body["reason"],
+        comment=body.get("comment"),
+        actor=actor,
+    )
+
+    # ─── Handle ────────────────────────────────────────────────────────
+    try:
+        result: LifecycleResult = await handler.handle(cmd)
+    except AnchorNotFound as exc:
+        return JSONResponse(
+            status_code=404,
+            content={"error_code": exc.code, "message": exc.message},
+        )
+    except (AnchorAlreadyArchived, AnchorNotArchived, AnchorPseudonymised) as exc:
+        return JSONResponse(
+            status_code=409,
+            content={"error_code": exc.code, "message": exc.message},
+        )
+
+    anchor_payload = result.anchor.to_dict()
+    etag = compute_etag(result.anchor.internal_id, result.anchor.revision)
+    if result.idempotent_replay:
+        body_out = {"error_code": result.error_code, "anchor": anchor_payload}
+        return JSONResponse(status_code=200, content=body_out, headers={"ETag": etag})
+    return JSONResponse(
+        status_code=200,
+        content=anchor_payload,
+        headers={"ETag": etag, "Cache-Control": "max-age=60"},
+    )
+
+
 # ─── QRY.GET_ANCHOR ────────────────────────────────────────────────────
 
 
@@ -469,4 +642,10 @@ def install_exception_handlers(app) -> None:  # noqa: ANN001
 
 # ``UpdateAnchorRequest`` is re-exported for OpenAPI tooling (the harness
 # generator inspects the routers' imports).
-__all__ = ["router", "install_exception_handlers", "UpdateAnchorRequest"]
+__all__ = [
+    "router",
+    "install_exception_handlers",
+    "UpdateAnchorRequest",
+    "ArchiveAnchorRequest",
+    "RestoreAnchorRequest",
+]
