@@ -10,6 +10,7 @@ depends_on: [TASK-002]
 task_type: full-microservice
 loop_count: 0
 max_loops: 10
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/29
 ---
 
 > **Started on:** 2026-05-23 (relaunched via /launch-task — prior attempt PR #18 closed)
