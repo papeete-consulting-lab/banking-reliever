@@ -16,17 +16,27 @@ from uuid_extensions import uuid7
 
 from ..domain.aggregate import IdentityAnchor
 from ..domain.errors import (
+    AnchorAlreadyArchived,
     AnchorArchived,
+    AnchorNotArchived,
     AnchorNotFound,
     AnchorPseudonymised,
     DomainError,
     NoFieldsToUpdate,
 )
-from ..domain.events import AnchorMinted, AnchorUpdated, TransitionEvent
+from ..domain.events import (
+    AnchorArchivedEvent,
+    AnchorMinted,
+    AnchorRestoredEvent,
+    AnchorUpdated,
+    TransitionEvent,
+)
 from ..domain.value_objects import Actor, ClientRequestId
 from .dto import (
+    ArchiveAnchorCommandDto,
     BeneficiaryAnchorDto,
     MintAnchorCommandDto,
+    RestoreAnchorCommandDto,
     UpdateAnchorCommandDto,
 )
 from .ports import (
@@ -48,6 +58,8 @@ EMITTING_CAPABILITY = "BNK.RLVR.CAP.SUP.002.BEN"
 # the same key (in the unlikely chance) do not collide.
 IDEMPOTENCY_SCOPE_MINT = "MINT_ANCHOR"
 IDEMPOTENCY_SCOPE_UPDATE = "UPDATE_ANCHOR"
+IDEMPOTENCY_SCOPE_ARCHIVE = "ARCHIVE_ANCHOR"
+IDEMPOTENCY_SCOPE_RESTORE = "RESTORE_ANCHOR"
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,9 +103,14 @@ def _build_rvt_payload(event: TransitionEvent, actor: Actor) -> dict[str, Any]:
     PII snapshot — MINTED, UPDATED, RESTORED, ARCHIVED. The PSEUDONYMISED
     branch (which nulls PII) lands at TASK-005.
 
+    ``anchor_status`` is read from the event when present (ARCHIVED carries
+    ``ARCHIVED``; RESTORED carries ``ACTIVE``); MINTED/UPDATED events predate
+    the field and default to ``ACTIVE`` — consistent with their RVT branch.
+
     Validated against the canonical JSON Schema before the outbox row is
     written (fail-fast on contract drift).
     """
+    anchor_status = getattr(event, "anchor_status", "ACTIVE")
     payload: dict[str, Any] = {
         "envelope": {
             "message_id": _mint_uuidv7(),
@@ -109,9 +126,9 @@ def _build_rvt_payload(event: TransitionEvent, actor: Actor) -> dict[str, Any]:
         "first_name": event.first_name,
         "date_of_birth": event.date_of_birth.isoformat(),
         "contact_details": event.contact_details.to_dict() if event.contact_details else None,
-        "anchor_status": "ACTIVE",  # MINTED/UPDATED/RESTORED branch is always ACTIVE
+        "anchor_status": anchor_status,  # ACTIVE for MINTED/UPDATED/RESTORED, ARCHIVED for ARCHIVED
         "creation_date": event.creation_date.isoformat(),
-        "pseudonymized_at": None,
+        "pseudonymized_at": None,  # MINTED/UPDATED/RESTORED/ARCHIVED branches keep this null
         "revision": event.revision,
         "transition_kind": event.transition_kind,
         "command_id": event.command_id,
@@ -330,6 +347,173 @@ class UpdateAnchorHandler:
             return UpdateResult(anchor=dto, http_status=200, idempotent_replay=False)
 
 
+# ─── CMD.ARCHIVE_ANCHOR / CMD.RESTORE_ANCHOR ───────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class LifecycleResult:
+    """Result of a lifecycle transition (ARCHIVE / RESTORE).
+
+    ``http_status`` is 200 either way (fresh or idempotent re-call);
+    ``idempotent_replay`` discriminates so the presentation layer can
+    populate ``error_code`` consistently (COMMAND_ALREADY_PROCESSED).
+    """
+
+    anchor: BeneficiaryAnchorDto
+    http_status: int
+    idempotent_replay: bool
+    error_code: str | None = None
+
+
+class _LifecycleTransitionHandler:
+    """Shared orchestration for the ARCHIVE and RESTORE verbs.
+
+    Both verbs share the identical flow — idempotency probe on
+    ``command_id``, load aggregate (404 on miss), apply a status-only
+    transition on the aggregate, build + validate the RVT, write outbox +
+    idempotency row in one transaction. They differ only in:
+
+      * the idempotency scope,
+      * which aggregate method they call (``archive`` vs ``restore``),
+      * the expected emitted event type.
+
+    Subclasses provide those via ``_scope`` and ``_apply``.
+    """
+
+    _scope: str
+
+    def __init__(
+        self,
+        *,
+        uow_factory: UnitOfWorkFactory,
+        rvt_validator: SchemaValidator,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._rvt_validator = rvt_validator
+
+    def _apply(
+        self, anchor: IdentityAnchor, *, command_id: str, reason: str, actor: Actor
+    ) -> None:  # pragma: no cover — overridden
+        raise NotImplementedError
+
+    async def _handle(
+        self, *, internal_id: str, command_id: str, reason: str, actor: Actor
+    ) -> LifecycleResult:
+        scope = self._scope
+
+        # ─── Idempotency check (INV.BEN.008) ──────────────────────────
+        async with self._uow_factory() as uow:
+            prior = await uow.idempotency.get(scope=scope, key=command_id)
+            if prior is not None:
+                stored: dict[str, Any] = prior["response_body"]
+                return LifecycleResult(
+                    anchor=_deserialize_anchor(stored),
+                    http_status=200,
+                    idempotent_replay=True,
+                    error_code="COMMAND_ALREADY_PROCESSED",
+                )
+
+        # ─── Fresh transition ─────────────────────────────────────────
+        async with self._uow_factory() as uow:
+            # Re-check inside the transaction — race defence.
+            prior = await uow.idempotency.get(scope=scope, key=command_id)
+            if prior is not None:
+                stored = prior["response_body"]
+                await uow.rollback()
+                return LifecycleResult(
+                    anchor=_deserialize_anchor(stored),
+                    http_status=200,
+                    idempotent_replay=True,
+                    error_code="COMMAND_ALREADY_PROCESSED",
+                )
+
+            anchor = await uow.anchors.get(internal_id)
+            if anchor is None:
+                raise AnchorNotFound(internal_id)
+
+            # Apply the transition. Raises the state-machine guards:
+            #   ARCHIVE  → AnchorAlreadyArchived / AnchorPseudonymised
+            #   RESTORE  → AnchorNotArchived / AnchorPseudonymised
+            self._apply(anchor, command_id=command_id, reason=reason, actor=actor)
+
+            events = anchor.pull_pending_events()
+            assert len(events) == 1, (
+                "AGG must emit exactly one event per transition (INV.BEN.007)"
+            )
+            event = events[0]
+
+            payload = _build_rvt_payload(event, actor)
+            self._rvt_validator.validate_payload(payload)
+
+            await uow.anchors.update(anchor)
+
+            message_id = payload["envelope"]["message_id"]
+            await uow.outbox.append(
+                message_id=message_id,
+                correlation_id=str(event.internal_id),
+                causation_id=event.command_id,
+                schema_id=SCHEMA_ID,
+                schema_version=SCHEMA_VERSION,
+                routing_key=ROUTING_KEY,
+                exchange=EXCHANGE_NAME,
+                occurred_at=event.occurred_at,
+                actor=actor.to_dict(),
+                payload=payload,
+            )
+
+            dto = _anchor_to_dto(anchor)
+            await uow.idempotency.remember(
+                scope=scope,
+                key=command_id,
+                internal_id=str(anchor.internal_id),
+                response_body=dto.to_dict(),
+                response_code=200,
+            )
+
+            await uow.commit()
+            return LifecycleResult(anchor=dto, http_status=200, idempotent_replay=False)
+
+
+class ArchiveAnchorHandler(_LifecycleTransitionHandler):
+    """Handles CMD.SUP.002.BEN.ARCHIVE_ANCHOR (POST /anchors/{id}/archive)."""
+
+    _scope = IDEMPOTENCY_SCOPE_ARCHIVE
+
+    def _apply(
+        self, anchor: IdentityAnchor, *, command_id: str, reason: str, actor: Actor
+    ) -> None:
+        anchor.archive(command_id=command_id, reason=reason, actor=actor)
+
+    async def handle(self, cmd: ArchiveAnchorCommandDto) -> LifecycleResult:
+        result = await self._handle(
+            internal_id=cmd.internal_id,
+            command_id=cmd.command_id,
+            reason=cmd.reason,
+            actor=cmd.actor,
+        )
+        return result
+
+
+class RestoreAnchorHandler(_LifecycleTransitionHandler):
+    """Handles CMD.SUP.002.BEN.RESTORE_ANCHOR (POST /anchors/{id}/restore)."""
+
+    _scope = IDEMPOTENCY_SCOPE_RESTORE
+
+    def _apply(
+        self, anchor: IdentityAnchor, *, command_id: str, reason: str, actor: Actor
+    ) -> None:
+        anchor.restore(command_id=command_id, reason=reason, actor=actor)
+
+    async def handle(self, cmd: RestoreAnchorCommandDto) -> LifecycleResult:
+        result = await self._handle(
+            internal_id=cmd.internal_id,
+            command_id=cmd.command_id,
+            reason=cmd.reason,
+            actor=cmd.actor,
+        )
+        return result
+
+
 # ─── Helpers ───────────────────────────────────────────────────────────
 
 
@@ -415,9 +599,12 @@ def _row_to_dto(row: dict[str, Any]) -> BeneficiaryAnchorDto:
 __all__ = [
     "MintAnchorHandler",
     "UpdateAnchorHandler",
+    "ArchiveAnchorHandler",
+    "RestoreAnchorHandler",
     "GetAnchorHandler",
     "MintResult",
     "UpdateResult",
+    "LifecycleResult",
     "EXCHANGE_NAME",
     "ROUTING_KEY",
     "SCHEMA_ID",
@@ -425,4 +612,6 @@ __all__ = [
     "EMITTING_CAPABILITY",
     "IDEMPOTENCY_SCOPE_MINT",
     "IDEMPOTENCY_SCOPE_UPDATE",
+    "IDEMPOTENCY_SCOPE_ARCHIVE",
+    "IDEMPOTENCY_SCOPE_RESTORE",
 ]

@@ -142,7 +142,9 @@ async def test_explicit_null_on_email_clears_only_email(client):
     )
     assert resp.status_code == 200, resp.text
     body = await _wait_for_projection(client, internal_id, expected_revision=2)
-    assert body["contact_details"]["email"] is None
+    # ContactDetails.to_dict() omits null channels, so a cleared email is
+    # represented as either an absent key or an explicit null.
+    assert body["contact_details"].get("email") is None
     assert body["contact_details"]["phone"] == "+33 1 23 45 67 89"  # sticky
 
 

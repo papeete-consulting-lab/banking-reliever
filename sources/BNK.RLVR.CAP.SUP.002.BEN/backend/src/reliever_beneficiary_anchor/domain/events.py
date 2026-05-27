@@ -13,6 +13,7 @@ from typing import Union
 
 from .value_objects import (
     Actor,
+    AnchorStatus,
     ContactDetails,
     InternalId,
     TransitionKind,
@@ -67,10 +68,68 @@ class AnchorUpdated:
     actor: Actor
 
 
+@dataclass(frozen=True, slots=True)
+class AnchorArchivedEvent:
+    """Emitted by AGG.IDENTITY_ANCHOR when ARCHIVE_ANCHOR is accepted.
+
+    Carries the full POST-transition snapshot (INV.BEN.007). The PII fields
+    are unchanged across the ARCHIVE transition (INV.BEN.002 — only
+    anchor_status and revision move); the snapshot therefore still carries
+    the live PII, but ``anchor_status`` is now ``ARCHIVED``. Maps 1:1 to the
+    wire RVT with ``transition_kind = "ARCHIVED"``.
+    """
+
+    internal_id: InternalId
+    last_name: str
+    first_name: str
+    date_of_birth: date
+    contact_details: ContactDetails | None
+    creation_date: date
+    revision: int
+    transition_kind: TransitionKind  # always "ARCHIVED" for this event
+    anchor_status: AnchorStatus  # always "ARCHIVED" for this event
+    command_id: str  # caller-supplied command_id of CMD.ARCHIVE_ANCHOR
+    occurred_at: datetime
+    actor: Actor
+    reason: str  # archival reason enum — audit only, not on the RVT wire shape
+
+
+@dataclass(frozen=True, slots=True)
+class AnchorRestoredEvent:
+    """Emitted by AGG.IDENTITY_ANCHOR when RESTORE_ANCHOR is accepted.
+
+    Carries the full POST-transition snapshot (INV.BEN.007). PII is
+    unchanged (INV.BEN.002); ``anchor_status`` flips back to ``ACTIVE``.
+    Maps 1:1 to the wire RVT with ``transition_kind = "RESTORED"``.
+    """
+
+    internal_id: InternalId
+    last_name: str
+    first_name: str
+    date_of_birth: date
+    contact_details: ContactDetails | None
+    creation_date: date
+    revision: int
+    transition_kind: TransitionKind  # always "RESTORED" for this event
+    anchor_status: AnchorStatus  # always "ACTIVE" for this event
+    command_id: str  # caller-supplied command_id of CMD.RESTORE_ANCHOR
+    occurred_at: datetime
+    actor: Actor
+    reason: str  # restore reason enum — audit only
+
+
 # Union of all transition events the aggregate can emit.
-# TASK-003 covers MINTED + UPDATED; ARCHIVED / RESTORED / PSEUDONYMISED
-# land at TASK-004 / TASK-005.
-TransitionEvent = Union[AnchorMinted, AnchorUpdated]
+# TASK-003 covers MINTED + UPDATED; TASK-004 adds ARCHIVED + RESTORED;
+# PSEUDONYMISED lands at TASK-005.
+TransitionEvent = Union[
+    AnchorMinted, AnchorUpdated, AnchorArchivedEvent, AnchorRestoredEvent
+]
 
 
-__all__ = ["AnchorMinted", "AnchorUpdated", "TransitionEvent"]
+__all__ = [
+    "AnchorMinted",
+    "AnchorUpdated",
+    "AnchorArchivedEvent",
+    "AnchorRestoredEvent",
+    "TransitionEvent",
+]

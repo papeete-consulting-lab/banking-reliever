@@ -78,6 +78,43 @@ class UpdateAnchorRequest(BaseModel):
     contact_details: _ContactDetailsUpdateModel | None = None
 
 
+# ─── CMD.ARCHIVE_ANCHOR / CMD.RESTORE_ANCHOR ───────────────────────────
+#
+# JSON Schema validation against CMD.SUP.002.BEN.ARCHIVE_ANCHOR.schema.json /
+# CMD.SUP.002.BEN.RESTORE_ANCHOR.schema.json remains the authoritative check
+# at the presentation boundary. These Pydantic models exist for OpenAPI docs.
+
+
+class ArchiveAnchorRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    command_id: str = Field(
+        ..., description="UUIDv7 — caller-supplied command id (30-day idempotency window)."
+    )
+    reason: str = Field(
+        ...,
+        description=(
+            "Archival reason. One of PROGRAMME_EXIT_SUCCESS, "
+            "PROGRAMME_EXIT_DROPOUT, PROGRAMME_EXIT_TRANSFER, "
+            "ADMINISTRATIVE_ARCHIVAL."
+        ),
+    )
+    comment: str | None = Field(default=None, max_length=1000)
+
+
+class RestoreAnchorRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    command_id: str = Field(
+        ..., description="UUIDv7 — caller-supplied command id (30-day idempotency window)."
+    )
+    reason: str = Field(
+        ...,
+        description="Restore reason. One of ARCHIVED_IN_ERROR, REINSTATED_AFTER_REVIEW.",
+    )
+    comment: str | None = Field(default=None, max_length=1000)
+
+
 class BeneficiaryAnchorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
