@@ -4,12 +4,13 @@ capability_id: BNK.RLVR.CAP.SUP.002.BEN
 bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 4 — Anchor lifecycle (archive / restore)
-status: in_progress
+status: done
 priority: medium
 depends_on: [TASK-002]
 task_type: full-microservice
 loop_count: 0
 max_loops: 10
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/29
 ---
 
 > **Started on:** 2026-05-16 (redo after PR #18 closed — Copilot conflict-resolution untrusted)
