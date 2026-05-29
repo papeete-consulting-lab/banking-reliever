@@ -26,6 +26,15 @@ docs/tools/structurizr.watch.dev.json
 *.pem
 *.key
 
+# Deployment contract — committed-by-design files (CLAUDE.md, section
+# "Deployment contract (local + dev)"). The per-component .env under
+# deployment/local/ carries only the deterministic COMPONENT_PORT and
+# platform service-name URLs (e.g. amqp://...@rabbitmq:5672/) — no
+# secrets, stable per capability, so it MUST be tracked. The whitelists
+# below override the broad `.env` rule above.
+!sources/**/deployment/local/.env
+!sources/**/deployment/local/.env.example
+
 # Editor / OS noise
 .DS_Store
 Thumbs.db
