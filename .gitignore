@@ -7,6 +7,21 @@ __pycache__/
 *.pyc
 tasks/BOARD.md
 
+# Python tool caches — pytest / ruff / mypy. Promoted to root so future
+# capabilities don't each need their own nested .gitignore for these.
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Python packaging artefacts
+*.egg-info/
+
+# .NET build output — promoted to root for the same reason. Safe today:
+# no tracked file lives under bin/ or obj/ anywhere (verified). The new
+# Deployment contract puts NO bin/ or obj/ under deployment/.
+bin/
+obj/
+
 # Python virtualenvs
 .venv/
 .venv-*/
