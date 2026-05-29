@@ -117,6 +117,11 @@ stage. Idempotent: re-invoke after each stage completes.
 /tasks/                   Stages 2-3 — BOARD.md + <CAP_ID>/TASK-NNN-*.md
 /sources/<CAP_ID>/        Stage 4 — backend/ (Mode A microservice) | stub/ (Mode B)
                                   | bff/ (CHANNEL BFF) | frontend/ (CHANNEL SPA)
+                          Each component carries its own deployment/ subtree:
+                            <component>/deployment/local/        — Dockerfile + compose + .env
+                            <component>/deployment/dev/k8s/      — kustomize base + dev overlay
+                            <component>/deployment/dev/terraform/ — banking-tech modules only
+/deployment/PORTS.md      Audit ledger of deterministic component ports (collision check)
 /tests/<CAP_ID>/TASK-NNN-{slug}/   Stage 5 — generated pytest suite + report.html
 /docs/c4/                 Structurizr DSL — enterprise/workspace.dsl, enterprise/zone-*.dsl,
                           <CAP_L2>/workspace.dsl (owned by /c4-export)
@@ -160,11 +165,11 @@ falls back to the .NET agent with a warning.
 
 | Trigger | Agent(s) | Output |
 |---|---|---|
-| `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `rlv-knowledge process <CAP_ID>` (`.schemas`, does NOT regenerate them) |
-| `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `rlv-knowledge process <CAP_ID>` (`.schemas`) |
-| zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTICS`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika |
-| same zones + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ |
-| zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 Minimal API BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS) — language fixed; TECH-TACT tags ignored for CHANNEL |
+| `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `rlv-knowledge process <CAP_ID>` (`.schemas`, does NOT regenerate them) + `deployment/{local,dev}/` per the **Deployment contract** below |
+| `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `rlv-knowledge process <CAP_ID>` (`.schemas`) + `deployment/{local,dev}/` per the **Deployment contract** below |
+| zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTICS`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika + `deployment/{local,dev}/` per the **Deployment contract** below (kind = `api`) |
+| same zones + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB or PostgreSQL (per TECH-TACT), connecting to the **external platform broker** (no bundled RabbitMQ) + `deployment/{local,dev}/` per the **Deployment contract** below (kind = `api`) |
+| zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 Minimal API BFF, kind = `bff`) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS served by an `nginx:alpine` image, kind = `frontend`) — language fixed; TECH-TACT tags ignored for CHANNEL. Both ship `deployment/{local,dev}/` per the **Deployment contract** below |
 
 Post-implementation:
 - Stage 5 runs automatically (`test-business-capability` for non-CHANNEL,
@@ -175,6 +180,115 @@ Post-implementation:
   that derives `openapi.yaml` + `asyncapi.yaml` from the process model
   (`rlv-knowledge process <CAP_ID>`) and the BCM corpus, with bidirectional
   `x-lineage` extensions.
+
+## Deployment contract (local + dev)
+
+Every Stage-4 agent — `implement-capability`, `implement-capability-python`,
+`create-bff`, `code-web-frontend` (and the Mode-B stub variants) — owns the
+deployment of the component it scaffolds. Each component (api, bff, frontend)
+ships **two environments now** (ephemeral + prod come later):
+
+```
+sources/<CAP_ID>/<component>/                  # <component> ∈ { backend, stub, bff, frontend }
+  deployment/
+    local/
+      Dockerfile               # universal build — reused by dev (ECR by CI)
+      docker-compose.yml       # component image ONLY; joins external network
+      .env                     # COMPONENT_PORT + AMQP/DB URLs → platform service names
+      platform.compose.yml     # OPTIONAL stand-in platform (ext net + RabbitMQ + DB)
+      README.md                # how to run; platform is a prerequisite
+    dev/
+      k8s/
+        base/                  # kustomization.yaml + deployment.yaml + service.yaml
+        overlay/dev/           # kustomization.yaml + namespace + ingress + patches
+      terraform/
+        main.tf variables.tf versions.tf outputs.tf terraform.tfvars.dev
+        README.md              # platform caps resolved; any escape-hatch issue link
+```
+
+### Derivation chain — `rlv-knowledge` → `tech` (no direct repo access)
+
+**Hard rule:** agents never read the `banking-tech` repo directly. The chain is
+always **two CLIs in sequence**:
+
+1. `rlv-knowledge pack <CAP_ID> --deep` → reads the component's needs from its
+   `slices.tactical_stack[].tags` (e.g. `postgresql`, `aws-eks`, `train-release`),
+   `slices.tactical_stack[].platform_overrides`, and `slices.governing_tech_strat[]`
+   (by `tech_domain`: `EVENT_INFRASTRUCTURE`, `DATA_PERSISTENCE`, `API_CONTRACT`,
+   `RUNTIME`, `DEPLOYMENT`).
+2. For each need, resolve the matching platform capability (`BNK.TECH.CAP.…`) and
+   call `tech pack <PLATFORM_CAP_ID>` (and related `tech` subcommands) to obtain
+   the canonical Terraform-module reference, required inputs, and the
+   ingress/network/security rules. The agent writes these verbatim into
+   `deployment/dev/{k8s,terraform}/` — no inventions, no hardcoded paths.
+
+### Local environment
+
+- **Platform is out of scope.** A platform installation on the dev laptop
+  provides **RabbitMQ AND the per-L2 databases**; the component never bundles
+  infra. The local `docker-compose.yml` declares **only the component service**
+  and joins the **shared external Docker network** `reliever-platform` (services
+  resolved by name: `rabbitmq`, `postgres`, …).
+- **One stable port per component, deterministic from `capability_id`:**
+
+  ```
+  PORT = 20000 + ( int(sha256(f"{capability_id}:{kind}").hexdigest()[:8], 16) % 9000 )
+  kind ∈ { api, bff, frontend }    # range 20000–28999
+  ```
+
+  Same capability + same kind → same port across every branch and every
+  laptop. The *one active task per capability* invariant guarantees no
+  intra-capability conflict. Cross-capability hash collisions are detected
+  via the audit ledger `/deployment/PORTS.md` (auto-appended); on collision
+  the agent re-hashes with salt `:1`, `:2`, … and records the salt.
+- **Bus isolation unchanged**: exchange/queue **names** still carry the
+  branch slug so concurrent worktrees on the shared platform broker don't
+  cross-talk. The legacy `RABBIT_PORT = LOCAL_PORT + 200` derivation is
+  **removed** — no local broker is ever bundled.
+- A single **`Dockerfile`** under `deployment/local/` is the universal build
+  artifact; dev pulls the same image from ECR (`delivery/registry`). No
+  per-environment Dockerfiles.
+- An **optional `deployment/local/platform.compose.yml`** stands up an
+  ext-net + RabbitMQ + DB stand-in for devs without the real platform
+  and for the test agents. It is explicitly **not** the platform — the
+  component's own compose never owns infra.
+
+### Dev environment
+
+1. **kustomize** under `deployment/dev/k8s/` — `base/` (Deployment + Service +
+   `GET /health` probes the agents already emit); `overlay/dev/` (namespace
+   per zone + PodSecurityStandards + ResourceQuotas per `runtime/deploy`;
+   Ingress per `runtime/api_ingress` — ALB `group.name` annotation + the
+   `https://k8s.<base>/{env}/<CAP_ID>/api/` URL contract from
+   ADR-TECH-STRAT-003; ServiceAccount + IRSA + External Secrets per
+   `identity/*`). All values **derived via `tech`**, not invented.
+2. **Terraform** under `deployment/dev/terraform/` — a root that calls
+   `banking-tech` modules **only** (e.g. `source/data/db` for `postgresql`,
+   `source/runtime/static_hosting` for the frontend), at the ref `tech`
+   reports, with inputs `project_name`, `environment="dev"`, `tenant`, `tags`.
+   RabbitMQ is **not** provisioned here (platform-level `data/broker`).
+3. **Terraform escape hatch.** When a required resource has **no** matching
+   `banking-tech` module (e.g. generic application-blob S3 — confirmed gap),
+   the agent **stops** that resource, does **not** improvise raw cloud
+   resources, and opens (or finds) a GitHub issue:
+
+   ```bash
+   gh issue create \
+     --repo Banking-PapeeteConsulting/banking-tech \
+     --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+     --body  "<need + caller + bcm_ref>"
+   ```
+
+   The issue URL is recorded in `deployment/dev/terraform/README.md` and
+   surfaced as a blocker in the agent's final report.
+
+### Boundaries
+
+- **Ephemeral + prod** are explicitly deferred. The `deployment/<env>/`
+  layout leaves room for `ephemeral/` and `prod/` siblings.
+- **No raw cloud resources, ever.** Dev Terraform calls banking-tech modules
+  only; the gap path is the GitHub issue, not improvisation.
+- **One image, many envs.** The local `Dockerfile` is the universal build.
 
 ## Skill cheatsheet
 
@@ -230,6 +344,12 @@ Post-implementation:
   all carry the branch slug — concurrent worktrees never collide.
 - **One `/code` agent per task; one active task per capability.**
 - **Loop counters live on the TASK file**, not on the board.
+- **Deployment derivation is two-CLI, never direct.** Stage-4 agents owe
+  `deployment/{local,dev}/` per the **Deployment contract** above. The
+  derivation is `rlv-knowledge pack` (what the component needs) → `tech pack`
+  (how the platform provides it). Agents never read the `banking-tech` repo
+  directly (no `gh`/git/`WebFetch` against it). The `tech` CLI is a runtime
+  prerequisite for the dev layer, alongside `rlv-knowledge` and `gov`.
 - **Every artifact traces back** to a TASK → roadmap epic → process model →
   BCM capability (`BNK.RLVR.CAP.…`) → FUNC ADR → URBA constraints, pinned to a
   knowledge-base `bcm_ref`. The chain is unbreakable and version-anchored.

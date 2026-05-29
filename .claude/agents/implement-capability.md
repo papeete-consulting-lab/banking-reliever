@@ -307,18 +307,36 @@ echo "Branch slug: $BRANCH"
 
 If not in a git repo or the command fails, use `local`. Use `{branch}` as a placeholder threaded through every artefact (bus channels, OTel `environment` tag, frontend badges if any).
 
-### Pattern 2 — Allocate ports
+### Pattern 2 — Allocate the component port (deterministic)
 
-```bash
-LOCAL_PORT=$(shuf -i 10000-59999 -n 1)
+There is exactly **one stable port per component**, derived from the
+capability ID. RabbitMQ and MongoDB are **not** allocated — they live on
+the external platform (or its `platform.compose.yml` stand-in) and are
+reached by service name (`rabbitmq`, `mongo`, …) on the shared external
+Docker network `reliever-platform`. The legacy `LOCAL_PORT+100/200/201`
+derivations are gone.
+
+```python
+# kind is always "api" for this agent
+COMPONENT_PORT = 20000 + ( int(sha256(f"{capability_id}:api").hexdigest()[:8], 16) % 9000 )
 ```
 
-Derive:
-- MongoDB: `LOCAL_PORT + 100`
-- RabbitMQ AMQP: `LOCAL_PORT + 200`
-- RabbitMQ management UI: `LOCAL_PORT + 201`
+Same capability → same port across every branch and every laptop. The
+*one active task per capability* invariant guarantees no intra-capability
+conflict.
 
-Each capability gets a fresh allocation — never hardcode.
+**Audit ledger `/deployment/PORTS.md`** (repo root). Before writing:
+
+1. Read `/deployment/PORTS.md` (create with a header row if missing).
+2. If `(capability_id, api)` already has a row, **reuse** that port.
+3. Otherwise compute `COMPONENT_PORT`; if the resulting port is already
+   claimed by a different `(capability_id, kind)` row, re-hash with salt
+   `:1`, `:2`, … (`sha256(f"{capability_id}:api:1")`, etc.) until free,
+   and record the salt used in the ledger row.
+4. Append the row: `| {capability_id} | api | {COMPONENT_PORT} | {salt or ""} |`.
+
+See the canonical *Deployment contract (local + dev)* in `CLAUDE.md` for
+the full rules.
 
 ### Pattern 3 — Generate the project tree
 
@@ -330,12 +348,14 @@ Read all code templates from **`.claude/agents/implement-capability-templates.md
 | `{CapabilityName}` | e.g. `OrderPlacement` |
 | `{AggregateName}` | e.g. `FoodarooMealOrder` |
 | `{capability-lower}` | kebab/lowercase, e.g. `order-placement` |
-| `{LOCAL_PORT}` | the generated port |
-| `{MONGO_PORT}` | LOCAL_PORT + 100 |
-| `{RABBIT_PORT}` | LOCAL_PORT + 200 |
-| `{RABBIT_MGMT_PORT}` | LOCAL_PORT + 201 |
+| `{COMPONENT_PORT}` | deterministic port derived from `capability_id:api` (see Pattern 2) |
 | `{branch}` | slugified git branch |
 | `{channel}` | `{branch}-{ns-kebab}-{cap-kebab}-channel` |
+
+Note: the legacy random `{LOCAL_PORT}` and its derived broker/DB port
+placeholders no longer exist — RabbitMQ and MongoDB live on the
+external platform network `reliever-platform` and are reached by
+service name.
 
 ### Output directory layout
 
@@ -344,10 +364,27 @@ sources/{capability-name}/
 └── backend/
     ├── nuget.config
     ├── {Namespace}.{CapabilityName}.sln          ← generated via dotnet CLI
-    ├── docker-compose.yml
     ├── config/
     │   ├── cold.json
     │   └── hot.json
+    ├── deployment/
+    │   ├── local/
+    │   │   ├── Dockerfile                  ← universal build (reused by dev via ECR)
+    │   │   ├── docker-compose.yml          ← component image ONLY; joins reliever-platform
+    │   │   ├── .env                        ← COMPONENT_PORT + AMQP/DB URLs → platform names
+    │   │   ├── platform.compose.yml        ← OPTIONAL stand-in: ext net + RabbitMQ + Mongo
+    │   │   └── README.md                   ← how to run locally; platform is a prerequisite
+    │   └── dev/
+    │       ├── k8s/
+    │       │   ├── base/                   ← kustomization.yaml + deployment.yaml + service.yaml
+    │       │   └── overlay/dev/            ← namespace + Ingress + PSS + ResourceQuotas
+    │       └── terraform/
+    │           ├── main.tf
+    │           ├── variables.tf
+    │           ├── versions.tf
+    │           ├── outputs.tf
+    │           ├── terraform.tfvars.dev
+    │           └── README.md               ← platform caps resolved; escape-hatch issue links
     └── src/
         ├── {Namespace}.{CapabilityName}.Domain/
         │   ├── {Namespace}.{CapabilityName}.Domain.csproj
@@ -368,7 +405,6 @@ sources/{capability-name}/
         │   ├── {Namespace}.{CapabilityName}.Presentation.csproj
         │   ├── Program.cs
         │   ├── AppSettings.cs
-        │   ├── Dockerfile
         │   ├── config/
         │   │   ├── cold.json       ← same content as backend/config/cold.json
         │   │   └── hot.json        ← same content as backend/config/hot.json
@@ -380,6 +416,16 @@ sources/{capability-name}/
             ├── Commands/Create{AggregateName}Command.cs
             └── Events/{AggregateName}Created.cs
 ```
+
+The **`Dockerfile`** moved out of `Presentation/` into
+`backend/deployment/local/`: it is the *universal* build artefact —
+multi-stage as before, `ASPNETCORE_URLS=http://+:8080`, `EXPOSE 8080` —
+and dev pulls the same image from ECR. There is no per-environment
+Dockerfile. The bundled `docker-compose.yml` similarly moved into
+`backend/deployment/local/`: it now declares **only the component**
+service and joins the external `reliever-platform` Docker network —
+RabbitMQ and MongoDB are no longer inline (see *Deployment artifacts
+(local + dev)* below for the exact spec).
 
 For **each additional command** beyond the first, add:
 - `Contract/{AggregateName}/I{Command}Service.cs`
@@ -607,13 +653,30 @@ follows `STUB_ACTIVE`).
 ```
 sources/{capability-name}/stub/
 ├── nuget.config
-├── docker-compose.yml                           ← RabbitMQ only (no MongoDB)
 ├── {Namespace}.{CapabilityName}.Stub.sln
 ├── config/
 │   └── stub.json                                ← cadence, case IDs, exchange name, schema paths, fixture paths
 ├── fixtures/
 │   ├── {operation-slug-1}.json                  ← canned responses per api.yaml operation
 │   └── {operation-slug-2}.json
+├── deployment/
+│   ├── local/
+│   │   ├── Dockerfile                  ← universal build (reused by dev via ECR)
+│   │   ├── docker-compose.yml          ← stub component ONLY; joins reliever-platform
+│   │   ├── .env                        ← COMPONENT_PORT + AMQP_URL → rabbitmq service name
+│   │   ├── platform.compose.yml        ← OPTIONAL stand-in: ext net + RabbitMQ (NO Mongo)
+│   │   └── README.md
+│   └── dev/
+│       ├── k8s/
+│       │   ├── base/                   ← kustomization.yaml + deployment.yaml + service.yaml
+│       │   └── overlay/dev/            ← namespace + Ingress + PSS + ResourceQuotas
+│       └── terraform/
+│           ├── main.tf
+│           ├── variables.tf
+│           ├── versions.tf
+│           ├── outputs.tf
+│           ├── terraform.tfvars.dev
+│           └── README.md
 └── src/
     └── {Namespace}.{CapabilityName}.Stub/
         ├── {Namespace}.{CapabilityName}.Stub.csproj
@@ -629,8 +692,15 @@ sources/{capability-name}/stub/
 If `api.yaml` is empty, omit `fixtures/` and `Endpoints/` and drop the
 WebApplication host in favour of a `Host.CreateApplicationBuilder`
 worker-only build (matching the historical Mode B shape). If `bus.yaml`
-is empty, omit `Worker.cs` and `PayloadFactory.cs` and skip the RabbitMQ
-container in `docker-compose.yml`.
+is empty, omit `Worker.cs` and `PayloadFactory.cs` — and in that case
+also drop the `platform.compose.yml` stand-in (it would have nothing
+useful to spin up since the stub does not use a DB).
+
+The stub's `docker-compose.yml` (Mode B) follows the same
+component-only shape as Mode A — see *Deployment artifacts (local +
+dev)* below — joining the external `reliever-platform` network and
+talking to RabbitMQ by service name. No inline broker is ever bundled
+in the component compose.
 
 **Pattern Z — wiring**:
 
@@ -646,27 +716,29 @@ HTTP half, `RabbitMQ.Client` for the broker (publisher half),
 MongoDB, no Clean Architecture layers, no domain model — this is a
 narrow scaffold.
 
-### B.5 — Ports allocation (Mode B)
+### B.5 — Port allocation (Mode B)
 
-Mode B may need an HTTP port (query half) and/or a RabbitMQ port
-(publisher half). Allocate only the ports the stub actually uses:
+The stub uses the same deterministic helper as Mode A (kind = `api`,
+see Pattern 2 — repeated here for clarity):
 
-```bash
-# Always allocate a base port — easier than conditional logic.
-LOCAL_PORT=$(shuf -i 10000-59999 -n 1)
-RABBIT_PORT=$((LOCAL_PORT + 200))
-RABBIT_MGMT_PORT=$((LOCAL_PORT + 201))
+```python
+COMPONENT_PORT = 20000 + ( int(sha256(f"{capability_id}:api").hexdigest()[:8], 16) % 9000 )
 ```
 
-- If the query half is materialised: `LOCAL_PORT` is the Kestrel
-  listener for the Minimal-API.
-- If the publisher half is materialised: `RABBIT_PORT` / `RABBIT_MGMT_PORT`
-  are the RabbitMQ AMQP and management ports in `docker-compose.yml`.
-- Unused ports are not bound; do not start an HTTP listener if the query
-  half is empty, and do not bring up RabbitMQ if the publisher half is
-  empty.
+- If the query half is materialised, `COMPONENT_PORT` is the Kestrel
+  listener for the Minimal-API and is published in
+  `deployment/local/docker-compose.yml` as `${COMPONENT_PORT}:8080`.
+- If the publisher half is materialised, the stub talks to the broker
+  **by service name** (`rabbitmq`) on the external `reliever-platform`
+  network. The component allocates no broker port — the platform (or
+  the opt-in `platform.compose.yml` stand-in) owns the broker.
+- The publisher-only case (no query half) still allocates
+  `COMPONENT_PORT` so the container exposes a `GET /health` endpoint
+  for readiness probes, but the Kestrel surface is otherwise empty.
 
-No `MONGO_PORT` (no persistence — fixtures are in-memory).
+No persistence port either — fixtures are in-memory; no DB is
+provisioned. The audit ledger `/deployment/PORTS.md` is updated
+exactly as in Mode A.
 
 ### B.6 — State your assumptions (Mode B variant)
 
@@ -687,7 +759,8 @@ Before writing files, output:
   - Fixtures planned:     [N fixtures per operation (≥3 required)]
 - Schemas (read-only):    rlv-knowledge process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
-- Ports:                  HTTP=[LOCAL_PORT or n/a], AMQP=[RABBIT_PORT or n/a], MGMT=[RABBIT_MGMT_PORT or n/a]
+- Component port:         COMPONENT_PORT=[deterministic, see Pattern 2 / B.5]
+- Platform deps:          rabbitmq (via reliever-platform network); no local broker bundled
 
 Sources of truth used: [list of slices read — rlv-knowledge process .model.bus,
                        .model.api, .schemas[*],
@@ -712,17 +785,18 @@ When Mode B succeeds:
     Bus exchange:       [name]
     Routing keys:       [list]
     Cadence:            [range] events / minute (configurable)
-    RabbitMQ ports:     AMQP=[N], MGMT=[N+1]
+    RabbitMQ:           via reliever-platform network (service name: rabbitmq)
 
   Query half:           [enabled | disabled]
     Endpoints:          [list of {method} {path}]
     Fixtures:           sources/{capability-name}/stub/fixtures/ ([N] per operation)
-    HTTP port:          [LOCAL_PORT]
+    Component port:     [COMPONENT_PORT]   (deterministic — see Pattern 2)
 
-To start the stub locally:
-  cd sources/{capability-name}/stub
-  docker compose up -d                              # only if publisher half enabled
-  dotnet run --project src/{Namespace}.{CapabilityName}.Stub
+To start the stub locally (platform must be up — real or stand-in):
+  cd sources/{capability-name}/stub/deployment/local
+  # stand-in only if you don't have the real platform running:
+  # docker compose -f platform.compose.yml up -d
+  docker compose up -d                              # joins reliever-platform network
 
 ⚠ Set STUB_ACTIVE=true to enable event publication. Default off.
    The query half answers regardless of STUB_ACTIVE (toggle independently
@@ -730,6 +804,120 @@ To start the stub locally:
 
 Assumptions documented: [list, or "none"]
 ```
+
+---
+
+## Deployment artifacts (local + dev)
+
+This section is a **.NET-specific delta** on the canonical *Deployment
+contract (local + dev)* in `CLAUDE.md` — read that first. Everything below
+is what this agent (kind = `api`) owes per component, in both Mode A
+(`backend/`) and Mode B (`stub/`).
+
+### Local (`deployment/local/`)
+
+- **`Dockerfile`** — the universal build, identical to the prior
+  Presentation-folder version but moved here: multi-stage
+  (`mcr.microsoft.com/dotnet/sdk` build → `mcr.microsoft.com/dotnet/aspnet`
+  runtime), `ASPNETCORE_URLS=http://+:8080`, `EXPOSE 8080`,
+  non-root user, `ENTRYPOINT` on the published Presentation DLL. Dev
+  pulls this same image from ECR — no per-environment Dockerfile.
+- **`docker-compose.yml`** — component-only; declares no infra; joins
+  the external `reliever-platform` Docker network:
+
+  ```yaml
+  services:
+    <cap-kebab>-api:
+      image: <cap-kebab>-api:dev
+      build: .                       # the Dockerfile sits alongside in deployment/local/
+      env_file: .env
+      networks: [reliever-platform]
+      ports: ["${COMPONENT_PORT}:8080"]
+      healthcheck:
+        test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+        interval: 10s
+        retries: 6
+  networks:
+    reliever-platform: { external: true }
+  ```
+- **`.env`** — exactly:
+
+  ```
+  COMPONENT_PORT=<computed via Pattern 2>
+  AMQP_URL=amqp://guest:guest@rabbitmq:5672/
+  MONGO_URL=mongodb://mongo:27017/<cap-kebab>
+  # (if TECH-TACT tags `postgresql` instead of mongo, replace MONGO_URL with
+  #  POSTGRES_URL=postgres://app:app@postgres:5432/<cap-kebab>)
+  OTEL_RESOURCE_ATTRIBUTES=service.name=<cap-kebab>-api,environment={branch}
+  BUS_BRANCH_SLUG={branch}
+  ```
+
+  All hostnames are **platform service names** — never localhost, never
+  ports — because the component joins the `reliever-platform` network.
+- **`platform.compose.yml`** — OPTIONAL. Explicitly labelled at the top
+  with a comment `# Stand-in, NOT the real platform — for devs without
+  the real platform and for the test agents.` Creates the external
+  network and spins up RabbitMQ + MongoDB (Mode A) or RabbitMQ only
+  (Mode B — the stub does not need a DB). Opt-in: nothing references
+  it from the main compose; devs start it explicitly with
+  `docker compose -f platform.compose.yml up -d`.
+- **`README.md`** — three sentences: how to bring the platform up (real
+  or stand-in), then `docker compose up -d` for the component, then how
+  to reach `http://localhost:${COMPONENT_PORT}/health`.
+
+### Dev (`deployment/dev/`)
+
+Both subtrees are **derived via `tech`** from the capability's
+`tech pack <PLATFORM_CAP_ID>` calls — *no values are invented*. The agent
+**never** reads the `banking-tech` repo directly (no `gh repo view`, no
+`git clone`, no `WebFetch` against it). The `tech` CLI is the only way
+in; `gh` is used only to file the escape-hatch issue below.
+
+- **`k8s/`** — kustomize, derived from:
+  - `runtime/deploy` → namespace per zone + PodSecurityStandards +
+    ResourceQuotas (overlay/dev).
+  - `runtime/api_ingress` → Ingress with the ALB `group.name`
+    annotation and the URL contract
+    `https://k8s.<base>/{env}/<CAP_ID>/api/` (per
+    `ADR-TECH-STRAT-003`).
+  - `identity/secrets` + `identity/workload` → ServiceAccount + IRSA
+    + External Secrets.
+  - `base/deployment.yaml` references the ECR image of the universal
+    `Dockerfile` above and exposes the same `GET /health` probe the
+    agent already emits in Mode A / Mode B.
+- **`terraform/`** — calls `banking-tech` modules **only**, at the ref
+  `tech` reports, with inputs `project_name`, `environment="dev"`,
+  `tenant`, `tags`:
+  - `data/db` for `postgresql` / `mongodb` (per the TECH-TACT tag).
+  - **RabbitMQ is NOT provisioned here** — it is a platform-level
+    concern (`data/broker`).
+- **Escape hatch — generic gaps.** When the component needs a resource
+  that has **no** matching banking-tech module (e.g. a generic S3 blob
+  bucket), STOP that resource. Do **not** improvise raw cloud. Open or
+  reuse an issue:
+
+  ```bash
+  gh issue list --repo Banking-PapeeteConsulting/banking-tech \
+    --search "platform module needed <resource> for <CAP_ID>" --state open
+
+  # if no match, idempotent create:
+  gh issue create \
+    --repo Banking-PapeeteConsulting/banking-tech \
+    --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+    --body  "<need + caller + bcm_ref>"
+  ```
+
+  Record the resulting URL in `deployment/dev/terraform/README.md`
+  and surface it as a blocker in the final report. The `gh issue
+  create` line is the **only** allowed `gh` against `banking-tech`.
+
+### Ledger
+
+Before writing `deployment/local/.env`, update the audit ledger
+`/deployment/PORTS.md` per Pattern 2 (read → reuse or compute → on
+collision salt with `:1`, `:2`, … → append). The ledger is the
+canonical record of every `(capability_id, kind)` → `COMPONENT_PORT`
+binding across the repo.
 
 ---
 
@@ -767,16 +955,15 @@ When scaffolding succeeds (Mode A):
   Aggregate root:       {AggregateName}
   Commands:             [list]
   Events:               [list]
-  Local port:           {LOCAL_PORT}
-  MongoDB port:         {MONGO_PORT}
-  RabbitMQ AMQP:        {RABBIT_PORT}
-  RabbitMQ management:  {RABBIT_MGMT_PORT}
+  Component port:       {COMPONENT_PORT}     (deterministic — see Pattern 2)
+  Platform deps:        rabbitmq, mongo (via reliever-platform network)
   Bus channel:          {channel}
 
-To start the local stack:
-  cd sources/{capability-name}/backend
-  docker-compose up -d
-  dotnet run --project src/{Namespace}.{CapabilityName}.Presentation
+To start the local stack (platform must be up — real or stand-in):
+  cd sources/{capability-name}/backend/deployment/local
+  # stand-in only if you don't have the real platform running:
+  # docker compose -f platform.compose.yml up -d
+  docker compose up -d                              # joins reliever-platform network
 
 ⚠ Set GITHUB_USERNAME and GITHUB_TOKEN env vars before running dotnet restore
   (required for the naive-unicorn GitHub Packages feed in nuget.config)

@@ -27,10 +27,15 @@ description: |
   assistant: "Spawning test-app agent."
   <commentary>
   The agent reads the TASK file, the FUNC ADR, the plan, detects the
-  BFF + frontend combination, sources the BFF's `.env.local` for its
-  branch-scoped port, starts the BFF and a static HTTP server for the
-  frontend, runs Playwright tests against the frontend with API calls
-  routed to the live BFF, and reports DoD + dignity-rule verdicts.
+  BFF + frontend combination, re-derives the BFF and frontend ports
+  deterministically from the capability_id (cross-checked against
+  `deployment/local/.env`), brings up the stand-in `platform.compose.yml`
+  followed by the BFF's `deployment/local/docker-compose.yml` and the
+  frontend's `deployment/local/docker-compose.yml`, runs Playwright
+  tests against the nginx-served frontend with API calls routed to the
+  live BFF, and reports DoD + dignity-rule verdicts. Tests are
+  self-contained — the stand-in `platform.compose.yml` removes any
+  dependency on the real platform.
   </commentary>
   </example>
 
@@ -124,8 +129,11 @@ BRANCH=$(git branch --show-current 2>/dev/null \
 echo "Active branch/environment: $BRANCH"
 ```
 
-The branch slug scopes BFF port assignments (`.env.local`) and frontend
+The branch slug scopes RabbitMQ exchange/queue **names** (so concurrent
+worktrees on the shared stand-in broker don't cross-talk) and frontend
 artifact discovery when multiple branches co-exist on the same machine.
+Component ports are no longer branch-scoped — they are deterministic from
+`capability_id` (one stable port per `{capability_id, kind}` pair).
 
 ### 3. Locate artifacts and pick a test mode
 
@@ -141,13 +149,19 @@ Pick the mode that matches what's actually present:
 | Mode | Frontend | BFF | When |
 |------|----------|-----|------|
 | **full-mock** | present | absent | Frontend-only CHANNEL task — Playwright intercepts every API call using STUB_DATA from `api.js` |
-| **frontend + BFF** | present | present | CHANNEL task with BFF — start the BFF on its `.env.local` port, frontend talks to it directly, Playwright observes both layers |
+| **frontend + BFF** | present | present | CHANNEL task with BFF — start the stand-in `bff/deployment/local/platform.compose.yml`, then the BFF and frontend component composes; both ports are deterministic from `capability_id`; frontend talks to the BFF directly, Playwright observes both layers |
 | **bff-only** | absent | present | Rare — only if the TASK explicitly delivers a BFF without its frontend (e.g., contract-first iteration). Tests focus on BFF endpoints, ETag/304, OTel tags |
 
 Auto-detect BFF presence if `sources/{CAP_ID}/bff/*.sln` (or any
 `*.csproj` under `sources/{CAP_ID}/bff/`) exists (no `--bff` flag needed).
-If a BFF directory exists but `.env.local` is missing, surface that as a
-gap — `create-bff` did not finish.
+If a BFF directory exists but `sources/{CAP_ID}/bff/deployment/local/.env`,
+`sources/{CAP_ID}/bff/deployment/local/docker-compose.yml`, or
+`sources/{CAP_ID}/bff/deployment/local/platform.compose.yml` is missing,
+surface that as a gap — `create-bff` did not finish. Likewise for the
+frontend: if `sources/{CAP_ID}/frontend/` exists but
+`sources/{CAP_ID}/frontend/deployment/local/.env` or
+`sources/{CAP_ID}/frontend/deployment/local/docker-compose.yml` is
+missing, surface it as a gap — `code-web-frontend` did not finish.
 
 If **no CHANNEL artifact** matches the TASK (neither frontend nor BFF),
 **stop and report**:
@@ -217,43 +231,88 @@ guidelines, not blind steps.
 # Isolated temporary directory
 TEMP_DIR=$(mktemp -d /tmp/test-app-{capability-id}-XXXXXX)
 
-# Frontend: copy artifacts (originals are read-only)
-[ -d "sources/{capability-id}/frontend" ] && \
-  cp -r sources/{capability-id}/frontend/. "$TEMP_DIR/frontend/"
+# Deterministic port derivation (no .env sourcing for ports).
+#   PORT = 20000 + ( int(sha256(f"{capability_id}:{kind}").hexdigest()[:8], 16) % 9000 )
+#   kind ∈ { bff, frontend }
+derive_port() {
+  python3 -c "
+import hashlib, sys
+cap, kind = sys.argv[1], sys.argv[2]
+print(20000 + (int(hashlib.sha256(f'{cap}:{kind}'.encode()).hexdigest()[:8], 16) % 9000))
+" "$1" "$2"
+}
 
-# Allocate a free HTTP port for the static frontend server
-HTTP_PORT=$(python3 -c \
-  "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+CAP_ID="{capability-id}"
+BFF_PORT=$(derive_port "$CAP_ID" bff)
+FRONTEND_PORT=$(derive_port "$CAP_ID" frontend)
 
-# Static HTTP server (non-blocking)
-if [ -d "$TEMP_DIR/frontend" ]; then
-  python3 -m http.server "$HTTP_PORT" --directory "$TEMP_DIR/frontend/" &
-  HTTP_PID=$!
-  sleep 1
+# RabbitMQ is reached on the standard host ports exposed by the stand-in
+# platform.compose.yml (conventional, not deterministic).
+RABBIT_HOST_PORT=5672
+RABBIT_MGMT_HOST_PORT=15672
+
+BFF_DIR="sources/${CAP_ID}/bff"
+BFF_LOCAL_DIR="${BFF_DIR}/deployment/local"
+FRONT_DIR="sources/${CAP_ID}/frontend"
+FRONT_LOCAL_DIR="${FRONT_DIR}/deployment/local"
+
+# Cross-check: deployment/local/.env must agree on COMPONENT_PORT.
+check_env_port() {
+  local env_file="$1" expected="$2" component="$3"
+  [ -f "$env_file" ] || return 0   # absence already flagged as a gap upstream
+  local declared
+  declared=$(grep -E '^(COMPONENT_PORT|BFF_PORT|FRONTEND_PORT)=' "$env_file" \
+             | tail -1 | cut -d= -f2 | tr -d '"'"'"'')
+  if [ -n "$declared" ] && [ "$declared" != "$expected" ]; then
+    echo "✗ ${component}: deployment/local/.env declares ${declared} but deterministic derivation yields ${expected} — refusing to run." >&2
+    exit 2
+  fi
+}
+check_env_port "${BFF_LOCAL_DIR}/.env"   "${BFF_PORT}"      "BFF"
+check_env_port "${FRONT_LOCAL_DIR}/.env" "${FRONTEND_PORT}" "Frontend"
+
+# BFF stack — stand-in platform first (creates external network
+# `reliever-platform` + RabbitMQ), then the BFF image. Tests are
+# self-contained — no dependency on the real platform.
+if [ -f "${BFF_LOCAL_DIR}/docker-compose.yml" ]; then
+  if [ -f "${BFF_LOCAL_DIR}/platform.compose.yml" ]; then
+    docker compose -f "${BFF_LOCAL_DIR}/platform.compose.yml" up -d
+    # RabbitMQ readiness on the conventional host port
+    for i in $(seq 1 30); do
+      curl -sf "http://localhost:${RABBIT_MGMT_HOST_PORT}" >/dev/null 2>&1 && break
+      sleep 1
+    done
+  fi
+  docker compose -f "${BFF_LOCAL_DIR}/docker-compose.yml" up -d --build
+  # BFF readiness on its deterministic port
+  for i in $(seq 1 30); do
+    curl -sf "http://localhost:${BFF_PORT}/health" >/dev/null 2>&1 && break
+    sleep 1
+  done
 fi
 
-# BFF: start on its .env.local-assigned port (branch-scoped)
-BFF_PID=""
-BFF_DIR="sources/{CAP_ID}/bff"
-if [ -f "$BFF_DIR/.env.local" ]; then
-  source "$BFF_DIR/.env.local"   # exports BFF_PORT, BRANCH, RABBIT_PORT, RABBIT_MGMT_PORT
-  dotnet run --project "$BFF_DIR" --urls "http://localhost:$BFF_PORT" &
-  BFF_PID=$!
-  # Readiness probe
-  for i in $(seq 1 15); do
-    curl -sf "http://localhost:$BFF_PORT/health" >/dev/null 2>&1 && break
+# Frontend stack — nginx image from deployment/local/. The frontend never
+# needs a stand-in platform of its own.
+if [ -f "${FRONT_LOCAL_DIR}/docker-compose.yml" ]; then
+  docker compose -f "${FRONT_LOCAL_DIR}/docker-compose.yml" up -d --build
+  for i in $(seq 1 30); do
+    curl -sf "http://localhost:${FRONTEND_PORT}/" >/dev/null 2>&1 && break
     sleep 1
   done
 fi
 ```
 
-Always teardown in `Step Z` (below) with `kill $HTTP_PID $BFF_PID
-2>/dev/null` and `rm -rf "$TEMP_DIR"`. Never leak processes between runs.
+Always teardown in `Step Z` (below) — `docker compose down -v` on both
+the component composes and the stand-in `platform.compose.yml`, plus
+`rm -rf "$TEMP_DIR"`. Never leak containers, networks, or temp dirs
+between runs.
 
-If the BFF requires RabbitMQ to be up (consumed events), start it via
-`docker compose up -d` from `$BFF_DIR` first — the create-bff agent
-generates a `docker-compose.yml` aligned with `.env.local`. Tear it down
-with `docker compose down` in Step Z.
+The BFF and the stand-in RabbitMQ are brought up in order **before**
+tests run; the BFF reaches RabbitMQ by service name on the external
+`reliever-platform` Docker network, and the test process reaches both
+on the host ports above. No `dotnet run` fallback — the BFF is always
+built and run from its image via the component's `docker-compose.yml`
+(`build: .`).
 
 ### Pattern 2 — Verify tooling availability
 
@@ -288,17 +347,23 @@ tests/{capability-id}/TASK-NNN-{slug}/
 `sources/{capability-id}/frontend/api.js`, then build:
 - A `playwright_instance` session-scoped fixture (single `sync_playwright`).
 - A `page` fixture that launches headless Chromium and navigates to
-  `http://localhost:{HTTP_PORT}?beneficiaireId={MOCK_ID}` after waiting for
-  network idle.
+  `http://localhost:{FRONTEND_PORT}?beneficiaireId={MOCK_ID}` (the nginx
+  image from `frontend/deployment/local/`) after waiting for network idle.
 - Variant fixtures for alternate scenarios the TASK names explicitly
   (e.g., `page_consent_refuse` driven by `?consentement=refuse`).
 - The frontend uses the `frontend-baseline` pattern: `window.{Cap}Api`
   methods are overridable via `add_init_script(...)` *before* page load when
   you need data different from the default `STUB_DATA`.
 - In `frontend+bff` mode, do **not** mock the API by default — let the
-  frontend call the live BFF on `http://localhost:{BFF_PORT}` (configure
-  via `add_init_script` to override `API_CONFIG.baseUrl`). Mock only the
-  variant scenarios that are too rare to seed end-to-end.
+  frontend's `api.js` call the live BFF on `http://localhost:{BFF_PORT}`
+  (the deterministic BFF port). The BFF's CORS allowlist already accepts
+  the deterministic `http://localhost:{FRONTEND_PORT}` origin (the
+  `create-bff` agent re-derives `FRONTEND_PORT` for this purpose). If a
+  CORS sanity assertion exists in the corpus, keep it; otherwise no change.
+  Mock only the variant scenarios that are too rare to seed end-to-end.
+- In `full-mock` mode (no BFF), Playwright route-interception with
+  `STUB_DATA` is unchanged — only the serving substrate (nginx instead of
+  the previous in-process HTTP shim) has changed.
 
 **`test_dod.py`** — One `test_*` function per `[ ]` in the DoD section. The
 test docstring quotes the criterion verbatim. Common Playwright patterns:
@@ -349,7 +414,8 @@ are intentionally soft — a missed term is a hint, not a hard fail. Examples:
   term present
 
 **`test_bff.py`** (only if BFF is active) — Generated with values from
-`.env.local`:
+the deterministic port derivation (cross-checked against
+`bff/deployment/local/.env`):
 
 ```python
 import requests
@@ -405,8 +471,16 @@ business language. See "Final Report" template below.
 ### Pattern Z — Teardown (always run, even on failure)
 
 ```bash
-kill $HTTP_PID $BFF_PID 2>/dev/null
-[ -f "$BFF_DIR/docker-compose.yml" ] && (cd "$BFF_DIR" && docker compose down -v 2>/dev/null)
+# Frontend image
+[ -f "${FRONT_LOCAL_DIR}/docker-compose.yml" ] && \
+  docker compose -f "${FRONT_LOCAL_DIR}/docker-compose.yml" down -v 2>/dev/null
+# BFF image
+[ -f "${BFF_LOCAL_DIR}/docker-compose.yml" ] && \
+  docker compose -f "${BFF_LOCAL_DIR}/docker-compose.yml" down -v 2>/dev/null
+# Stand-in platform (external network + RabbitMQ) — last, since the BFF
+# depends on it
+[ -f "${BFF_LOCAL_DIR}/platform.compose.yml" ] && \
+  docker compose -f "${BFF_LOCAL_DIR}/platform.compose.yml" down -v 2>/dev/null
 rm -rf "$TEMP_DIR"
 ```
 
@@ -423,14 +497,21 @@ generate `tests/{capability-id}/TASK-NNN-{slug}/manual-checklist.md`:
 # Manual Test Checklist — TASK-NNN
 
 ## Startup
-cd sources/{capability-id}/frontend
-python3 -m http.server 3000
-# Open http://localhost:3000?beneficiaireId=BEN-001
+# 1) Stand-in platform (external network `reliever-platform` + RabbitMQ),
+#    only needed when a BFF is present:
+docker compose -f sources/{CAP_ID}/bff/deployment/local/platform.compose.yml up -d
 
-# If a BFF is present:
-cd sources/{CAP_ID}/bff
-docker compose up -d
-dotnet run
+# 2) BFF (built from its own image; `build: .` in the compose file):
+docker compose -f sources/{CAP_ID}/bff/deployment/local/docker-compose.yml up -d --build
+
+# 3) Frontend (nginx image):
+docker compose -f sources/{CAP_ID}/frontend/deployment/local/docker-compose.yml up -d --build
+
+# Open http://localhost:${FRONTEND_PORT}?beneficiaireId=BEN-001
+#   FRONTEND_PORT and BFF_PORT are deterministic from the capability_id:
+#     PORT = 20000 + ( int(sha256(f"{capability_id}:{kind}").hexdigest()[:8], 16) % 9000 )
+#     kind ∈ { bff, frontend }
+# Cross-check the value against deployment/local/.env in each component.
 
 ## Definition of Done
 - [ ] [Criterion 1] — How to verify: [step-by-step]
@@ -518,8 +599,10 @@ Always return one of these two blocks — never finish silently. Callers like
   behavior is missing from the DoD, surface it as a gap to the caller —
   never silently add it to your corpus.
 - **Never claim success when tooling failed.** If Playwright crashes, if
-  the BFF won't start, if `dotnet run` fails — say so and emit the manual
-  checklist. A green report on a half-run corpus is worse than no report.
+  the BFF image won't start, if the stand-in `platform.compose.yml` fails
+  to bring up RabbitMQ, or if the frontend nginx image won't serve — say
+  so and emit the manual checklist. A green report on a half-run corpus
+  is worse than no report.
 - **Tests are scoped to one TASK at a time.** Do not cross-validate
   multiple tasks in a single run — each TASK-NNN gets its own tests
   directory and its own verdict.

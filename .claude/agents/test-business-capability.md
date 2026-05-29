@@ -7,8 +7,9 @@ description: |
   the FUNC ADR business rules, the plan scoping, and the product/strategic
   vision — by reasoning from the functional and tactical context rather
   than running a fixed test recipe. Generates the test corpus, runs it in
-  an ephemeral local environment (the .NET service + its MongoDB +
-  RabbitMQ via docker-compose), then translates pytest output into a
+  an ephemeral local environment (the .NET service brought up via the
+  agent-generated `deployment/local/` stack — component compose + platform
+  stand-in `platform.compose.yml`), then translates pytest output into a
   business-language verdict.
 
   Spawn this agent whenever the `/test-business-capability` skill needs to
@@ -29,9 +30,10 @@ description: |
   <commentary>
   The agent reads the TASK file, the FUNC ADR, the plan, confirms the
   zone is non-CHANNEL, brings up the .NET microservice on its allocated
-  LOCAL_PORT plus MongoDB and RabbitMQ via docker-compose, generates
-  integration tests against the REST API and assertions on the bus, and
-  returns a per-criterion verdict.
+  COMPONENT_PORT plus MongoDB and RabbitMQ via the agent-generated
+  `deployment/local/` stack (component compose + platform stand-in),
+  generates integration tests against the REST API and assertions on the
+  bus, and returns a per-criterion verdict.
   </commentary>
   </example>
 
@@ -144,13 +146,48 @@ This agent operates in a single mode: **backend-only**. The presence of
 the .NET solution (`*.sln` or a `*.Presentation` project under
 `sources/{capability-name}/backend/src/`) is required.
 
-Read the local stack metadata produced by `implement-capability`:
+Derive the component's deterministic port directly from the TASK's
+`capability_id` (same formula used by every Stage-4 agent), and
+cross-check against `sources/{capability-name}/backend/deployment/local/.env`
+as defence in depth — fail loudly if they disagree:
 
-- `LOCAL_PORT` — the REST API port (typically in `appsettings.json` or
-  a `.env.local` produced by the agent).
-- `MONGO_PORT = LOCAL_PORT + 100`
-- `RABBIT_PORT = LOCAL_PORT + 200`
-- `RABBIT_MGMT_PORT = LOCAL_PORT + 201`
+```bash
+CAP_ID="<capability_id from TASK frontmatter>"
+COMPONENT_PORT=$(python3 -c "
+import hashlib, sys
+cap = sys.argv[1]
+print(20000 + (int(hashlib.sha256(f'{cap}:api'.encode()).hexdigest()[:8], 16) % 9000))
+" "$CAP_ID")
+
+# Cross-check with the .env shipped by the implement-capability agent.
+ENV_FILE="sources/{capability-name}/backend/deployment/local/.env"
+if [ -f "$ENV_FILE" ]; then
+  ENV_PORT=$(grep -E '^COMPONENT_PORT=' "$ENV_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+  if [ -n "$ENV_PORT" ] && [ "$ENV_PORT" != "$COMPONENT_PORT" ]; then
+    echo "✗ COMPONENT_PORT mismatch: derived=$COMPONENT_PORT vs .env=$ENV_PORT"
+    echo "  The agent-generated .env disagrees with the deterministic hash."
+    echo "  Refusing to run — implementation must be re-run."
+    exit 1
+  fi
+fi
+```
+
+The legacy per-component infra-port derivation chain (where the REST API
+port was parsed out of `appsettings.json` and offsets like `+100` / `+200`
+/ `+201` were added on top to produce per-component MongoDB / RabbitMQ /
+management ports) is **gone** — the test agent no longer parses
+`appsettings.json` or invents per-component infra ports. Instead, MongoDB
+and RabbitMQ are reached on the **standard host ports** exposed by the
+stand-in platform convention:
+
+- `MONGO_HOST_PORT=27017` — fixed (standard MongoDB host port).
+- `RABBIT_HOST_PORT=5672` — fixed (standard AMQP host port).
+- `RABBIT_MGMT_HOST_PORT=15672` — fixed (standard RabbitMQ management UI port).
+
+These constants are tied to the stand-in `platform.compose.yml` convention —
+they are NOT deterministic per-capability values and they are not derived
+from `COMPONENT_PORT`. The stand-in is an emulator that always exposes
+RabbitMQ + DB on their conventional host ports.
 
 If no backend artifact is found, **stop and report**:
 
@@ -171,7 +208,10 @@ Before generating any test file, output this block to the caller:
 - Branch / env:      [slug]
 - Mode:              backend-only
 - Artifacts located: [list of paths]
-- Local stack:       LOCAL_PORT=[N], MONGO_PORT=[N+100], RABBIT_PORT=[N+200], RABBIT_MGMT_PORT=[N+201]
+- Local stack:       COMPONENT_PORT=[N] (deterministic from capability_id, kind=api),
+                     MONGO_HOST_PORT=27017, RABBIT_HOST_PORT=5672, RABBIT_MGMT_HOST_PORT=15672
+                     (RabbitMQ + DB provided by the stand-in platform.compose.yml on
+                     standard host ports — never assumes a pre-existing platform)
 - Test corpus:
     DoD criteria       → [N tests in test_dod.py]
     FUNC ADR rules     → [N tests in test_business_rules.py]
@@ -216,8 +256,14 @@ guidelines, not blind steps.
 
 ### Pattern 1 — Bring up the ephemeral environment
 
+The test agent **only** uses the stand-in `platform.compose.yml` — it
+never assumes a pre-existing platform installation on the host. The
+stand-in keeps tests self-contained and CI-friendly: tests do not depend
+on the dev laptop's real platform.
+
 ```bash
-BACKEND_DIR="sources/{capability-name}/backend"
+BACKEND_DIR="sources/{capability-name}/backend"        # or sources/{cap}/stub for Mode B
+LOCAL_DIR="${BACKEND_DIR}/deployment/local"
 
 # Required environment variables (NuGet GitHub Packages feed)
 [ -z "$GITHUB_USERNAME" ] || [ -z "$GITHUB_TOKEN" ] && {
@@ -225,35 +271,48 @@ BACKEND_DIR="sources/{capability-name}/backend"
   exit 1
 }
 
-# Infrastructure (MongoDB + RabbitMQ) via the agent-generated docker-compose
-(cd "$BACKEND_DIR" && docker compose up -d)
+# 1) Stand-in platform (creates the external `reliever-platform` Docker
+#    network + RabbitMQ + the per-L2 database). Always brought up by the
+#    test agent — never relies on a host-installed platform.
+docker compose -f "${LOCAL_DIR}/platform.compose.yml" up -d
 
-# Wait for RabbitMQ management UI (proxy for broker readiness)
+# 2) The component image (joins the same `reliever-platform` network and
+#    reaches RabbitMQ + DB by service name).
+docker compose -f "${LOCAL_DIR}/docker-compose.yml" up -d --build
+
+# Wait for RabbitMQ management UI on the standard host port
 for i in $(seq 1 30); do
-  curl -sf "http://localhost:${RABBIT_MGMT_PORT}" >/dev/null 2>&1 && break
+  curl -sf "http://localhost:15672" >/dev/null 2>&1 && break
   sleep 1
 done
 
-# Start the service
-PRESENTATION=$(find "$BACKEND_DIR/src" -type d -name '*.Presentation' 2>/dev/null | head -1)
-if [ -z "$PRESENTATION" ]; then
-  echo "✗ No *.Presentation project found under $BACKEND_DIR/src"
-  exit 1
+# Wait for the database — pick the probe based on the TASK / TECH-TACT tag
+DB_KIND="<postgresql|mongodb from rlv-knowledge pack slices.tactical_stack[].tags>"
+if [ "$DB_KIND" = "postgresql" ]; then
+  for i in $(seq 1 30); do
+    pg_isready -h localhost -p 5432 >/dev/null 2>&1 && break
+    sleep 1
+  done
+else
+  # MongoDB — simple TCP probe on the standard host port
+  for i in $(seq 1 30); do
+    (echo > /dev/tcp/localhost/27017) >/dev/null 2>&1 && break
+    sleep 1
+  done
 fi
-dotnet run --project "$PRESENTATION" &
-BACKEND_PID=$!
 
-# Readiness probe
-for i in $(seq 1 30); do
-  curl -sf "http://localhost:${LOCAL_PORT}/health" >/dev/null 2>&1 && break
+# Wait for the component on its deterministic COMPONENT_PORT
+for i in $(seq 1 60); do
+  curl -sf "http://localhost:${COMPONENT_PORT}/health" >/dev/null 2>&1 && break
   sleep 1
 done
 ```
 
-Always teardown in `Step Z` (below) with `kill $BACKEND_PID 2>/dev/null`,
-`docker compose down -v` (from `$BACKEND_DIR`), and `rm -rf "$TEMP_DIR"`.
-Never leak processes or containers between runs — concurrent test runs
-on different branches share the host Docker daemon.
+Always teardown in `Step Z` (below) by bringing down both compose files in
+**reverse order** (component first, then platform stand-in), and removing
+any `$TEMP_DIR`. Never leak processes, containers, or the external
+`reliever-platform` network between runs — concurrent test runs on
+different branches share the host Docker daemon.
 
 ### Pattern 2 — Verify tooling availability
 
@@ -283,13 +342,17 @@ tests/{capability-id}/TASK-NNN-{slug}/
 ```
 
 **`conftest.py`** — Build:
-- A `rest_base_url` fixture: `http://localhost:{LOCAL_PORT}`.
+- A `rest_base_url` fixture: `http://localhost:{COMPONENT_PORT}`.
 - A `rest` fixture wrapping `requests.Session()` for the test process.
 - A `bus` fixture that opens a `pika.BlockingConnection` to
-  `localhost:{RABBIT_PORT}` and exposes a `wait_for_event(routing_key,
-  timeout=5)` helper that drains the management API or temporarily binds
-  a queue to the relevant exchange and asserts on payloads.
-- A `mongo` fixture: `pymongo.MongoClient(f"mongodb://localhost:{MONGO_PORT}")`.
+  `localhost:{RABBIT_HOST_PORT}` (5672 — the standard host port exposed
+  by the stand-in `platform.compose.yml`) and exposes a
+  `wait_for_event(routing_key, timeout=5)` helper that drains the
+  management API (`http://localhost:{RABBIT_MGMT_HOST_PORT}` — 15672)
+  or temporarily binds a queue to the relevant exchange and asserts on
+  payloads.
+- A `mongo` fixture: `pymongo.MongoClient(f"mongodb://localhost:{MONGO_HOST_PORT}")`
+  (27017 — the standard host port exposed by the stand-in).
 - A `seed_state` fixture for tests that need pre-existing aggregates —
   insert via the REST API (preferred) or directly into MongoDB when the
   task explicitly justifies it.
@@ -351,7 +414,8 @@ def test_otel_environment_tag(bus):
 def test_bus_topology(bus):
     """Branch-scoped exchange exists per FUNC ADR."""
     expected = f"{branch}-{ns}-{cap}-channel"
-    # Use RabbitMQ management API (port RABBIT_MGMT_PORT) to list exchanges
+    # Use RabbitMQ management API (http://localhost:{RABBIT_MGMT_HOST_PORT} — 15672)
+    # to list exchanges
     ...
 ```
 
@@ -377,8 +441,11 @@ business language. See "Final Report" template below.
 ### Pattern Z — Teardown (always run, even on failure)
 
 ```bash
-kill $BACKEND_PID 2>/dev/null
-(cd "$BACKEND_DIR" && docker compose down -v 2>/dev/null)
+# Bring down both compose stacks in reverse order — component first, then
+# the stand-in platform (which also removes the external `reliever-platform`
+# network).
+docker compose -f "${LOCAL_DIR}/docker-compose.yml" down -v 2>/dev/null
+docker compose -f "${LOCAL_DIR}/platform.compose.yml" down -v 2>/dev/null
 rm -rf "$TEMP_DIR"
 ```
 
@@ -395,12 +462,13 @@ generate `tests/{capability-id}/TASK-NNN-{slug}/manual-checklist.md`:
 # Manual Test Checklist — TASK-NNN
 
 ## Startup
-cd sources/{capability-name}/backend
-docker compose up -d                      # MongoDB + RabbitMQ
-dotnet run --project src/{Namespace}.{CapabilityName}.Presentation
+# Bring up the stand-in platform (external network + RabbitMQ + DB) and
+# the component image via the agent-generated `deployment/local/` stack.
+docker compose -f sources/{capability-name}/backend/deployment/local/platform.compose.yml up -d
+docker compose -f sources/{capability-name}/backend/deployment/local/docker-compose.yml up -d --build
 
-# Open Swagger: http://localhost:{LOCAL_PORT}/swagger
-# Open RabbitMQ: http://localhost:{RABBIT_MGMT_PORT}
+# Open Swagger: http://localhost:{COMPONENT_PORT}/swagger
+# Open RabbitMQ: http://localhost:{RABBIT_MGMT_HOST_PORT}   (15672 — standard host port)
 
 ## Definition of Done
 - [ ] [Criterion 1] — How to verify: [step-by-step]
@@ -485,10 +553,12 @@ Always return one of these two blocks — never finish silently. Callers like
 - **Never invent tests for criteria the TASK does not name.** If a critical
   behavior is missing from the DoD, surface it as a gap to the caller —
   never silently add it to your corpus.
-- **Never claim success when tooling failed.** If `dotnet run` fails, if
-  `docker compose up` fails, if RabbitMQ never reaches readiness — say so
-  and emit the manual checklist. A green report on a half-run corpus is
-  worse than no report.
+- **Never claim success when tooling failed.** If the component image fails
+  to build, if `docker compose -f deployment/local/...` (either the
+  component compose or the platform stand-in) fails, if RabbitMQ or the DB
+  never reaches readiness on its standard host port — say so and emit the
+  manual checklist. A green report on a half-run corpus is worse than no
+  report.
 - **Tests are scoped to one TASK at a time.** Do not cross-validate
   multiple tasks in a single run — each TASK-NNN gets its own tests
   directory and its own verdict.

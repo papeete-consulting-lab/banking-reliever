@@ -356,10 +356,10 @@ info:
   x-lineage: { ... see §1 ... }   # full top-level lineage block
 
 servers:
-  - url: http://localhost:{LOCAL_PORT}
-    description: Local dev (port allocated by implement-capability)
+  - url: http://localhost:{COMPONENT_PORT}
+    description: Local dev (deterministic port, kind=api, per CLAUDE.md Deployment contract)
     variables:
-      LOCAL_PORT: { default: "{LOCAL_PORT}" }
+      COMPONENT_PORT: { default: "{COMPONENT_PORT}" }
 
 tags:
   - name: commands
@@ -517,11 +517,11 @@ defaultContentType: application/json
 
 servers:
   rabbitmq:
-    url: amqp://localhost:{RABBIT_PORT}
+    url: amqp://localhost:5672
     protocol: amqp
-    description: Local RabbitMQ (port allocated by implement-capability)
-    variables:
-      RABBIT_PORT: { default: "{RABBIT_PORT}" }
+    description: Local RabbitMQ — reached via the external `reliever-platform`
+      Docker network (service name `rabbitmq:5672` from inside containers,
+      host port 5672 when the stand-in `platform.compose.yml` is up).
 
 channels:
   # ── Publish side — owned exchange (Rule 5 of ADR-TECH-STRAT-001) ──
@@ -997,7 +997,8 @@ Then return a concise summary to the caller (`/code` Path A or
 > OpenAPI 3.1 + AsyncAPI 2.6 regenerated under `contracts/specs/` with full
 > bidirectional lineage (process / bcm). Closure: <N> commands, <N>
 > queries, <N> publish, <N> subscribe — all green. Specs served at
-> `/openapi.yaml` and `/asyncapi.yaml` on `localhost:{LOCAL_PORT}`."
+> `/openapi.yaml` and `/asyncapi.yaml` on `localhost:{COMPONENT_PORT}`
+> (COMPONENT_PORT = deterministic, kind=api, per CLAUDE.md Deployment contract)."
 
 If any closure check fails, return a structured failure listing the gap and
 the most likely upstream fix (refresh `/process` in reliever-knowledge and

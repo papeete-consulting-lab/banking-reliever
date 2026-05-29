@@ -322,9 +322,10 @@ Once the agent completes, summarise its report:
 > Drift vs committed: 0 lines.
 >
 > The running service serves its own specs at:
->   GET http://localhost:{LOCAL_PORT}/openapi.yaml
->   GET http://localhost:{LOCAL_PORT}/asyncapi.yaml
->   GET http://localhost:{LOCAL_PORT}/contracts/lineage"
+>   GET http://localhost:{COMPONENT_PORT}/openapi.yaml
+>   GET http://localhost:{COMPONENT_PORT}/asyncapi.yaml
+>   GET http://localhost:{COMPONENT_PORT}/contracts/lineage"
+> (COMPONENT_PORT = deterministic, kind=api, per the Deployment contract in CLAUDE.md)
 
 If the agent returned a failure report, surface the gap exactly as it came
 back, and offer the right remediation:

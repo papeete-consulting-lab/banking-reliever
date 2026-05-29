@@ -141,8 +141,12 @@ conversation. Include:
   in `slices.capability_definition`; the tactical ADR is in
   `slices.tactical_stack`; vision narratives are in
   `slices.product_vision` / `slices.business_vision` / `slices.tech_vision`.
-- Local stack metadata if the implement-capability agent persisted it
-  (`LOCAL_PORT`, derived MongoDB / RabbitMQ ports)
+- Local stack metadata: the deterministic `COMPONENT_PORT` (kind=`api`)
+  per the Deployment contract in CLAUDE.md. RabbitMQ and the DB are not
+  on host ports for the component — they live on the external
+  `reliever-platform` network. When the stand-in `platform.compose.yml`
+  is up, RabbitMQ is reachable on host 5672/15672 and the DB on its
+  standard host port (27017/5432).
 
 Spawn:
 

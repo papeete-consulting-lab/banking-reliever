@@ -102,8 +102,9 @@ upstream artifacts — it consumes them.
         ↓ ends:    PR opened, status: in_review, loop_count tracked, stall on budget exhaust
 
 [4a] implement-capability agent    (.NET 10 microservice, Clean Architecture + DDD)
-         output: sources/{capability-name}/backend/
-         allocates LOCAL_PORT (10000-59999) + MongoDB / RabbitMQ ports
+         output: sources/{capability-name}/backend/ (+ backend/deployment/{local,dev}/)
+         deterministic COMPONENT_PORT (kind=api) per the Deployment contract in CLAUDE.md;
+           RabbitMQ + DB live on the external `reliever-platform` platform — not bundled
          creates Domain / Application / Infrastructure / Presentation / Contracts projects
          writes /health endpoint for readiness probing
          reserves Contracts.Harness/ + contracts/specs/ for the harness step
@@ -127,14 +128,16 @@ upstream artifacts — it consumes them.
          skipped for Path B (CHANNEL — create-bff owns its surface) and Path C (contract-stub)
 
 [4b] create-bff agent              (.NET 10 ASP.NET Core BFF — CHANNEL zone only)
-         output: sources/{CAP_ID}/bff/
-         allocates BFF_PORT + RabbitMQ ports, writes .env.local with branch slug
+         output: sources/{CAP_ID}/bff/ (+ bff/deployment/{local,dev}/)
+         deterministic COMPONENT_PORT (kind=bff) per the Deployment contract; writes
+           deployment/local/.env with COMPONENT_PORT + AMQP_URL + branch slug
          per L3: dedicated endpoints, ETag/304, Cache-Control: no-store
-         per consumed event: RabbitMQ consumer + state cache update
+         per consumed event: RabbitMQ consumer + state cache update (RabbitMQ external)
          OTel mandatory dimensions: capability_id, zone, deployable, environment={branch}
 
 [4c] code-web-frontend agent       (vanilla HTML5/CSS3/JS — CHANNEL zone only)
-         output: sources/{capability-id}/frontend/  (index.html, styles.css, api.js, app.js)
+         output: sources/{capability-id}/frontend/ (+ frontend/deployment/{local,dev}/)
+         nginx:alpine image serves the static files on COMPONENT_PORT (kind=frontend)
          follows frontend-baseline pattern; STUB_DATA in api.js is the test contract
          branch badge in header, dignity rule in DOM order, French vocabulary
          test injection points: ?beneficiaireId= and ?consentement=refuse
@@ -398,14 +401,17 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
      hexagonal package (FastAPI + uvicorn, motor or psycopg, aio-pika, pydantic
      v2, structlog, OpenTelemetry Day 0). Both share the same decision framework
      and port-allocation conventions:
-     - Allocates `LOCAL_PORT` from `shuf -i 10000-59999`; derives `MONGO_PORT = LOCAL_PORT+100`,
-       `RABBIT_PORT = +200`, `RABBIT_MGMT_PORT = +201`.
+     - **Deterministic** `COMPONENT_PORT` (kind=`api`) per the Deployment contract
+       in CLAUDE.md — formula `20000 + sha256("{capability_id}:api") % 9000`.
+       RabbitMQ + the DB live on the external `reliever-platform` Docker network
+       (the platform, or the opt-in `platform.compose.yml` stand-in); the component
+       compose under `backend/deployment/local/` runs **only the component image**.
      - Generates Domain / Application / Infrastructure / Presentation / Contracts projects
-       wired into a `.sln`, with `nuget.config`, `docker-compose.yml`, MongoDB repository,
+       wired into a `.sln`, with `nuget.config`, MongoDB or Postgres repository,
        command/read controllers, factory, DTO, and a `GET /health` endpoint required by
        the test-business-capability agent for readiness.
      - All bus channels and queues are scoped by `{branch}-{ns-kebab}-{cap-kebab}-channel`
-       to prevent cross-branch contamination.
+       to prevent cross-branch contamination (only *names* carry the branch — ports do not).
 
    - **Path B (CHANNEL)** — the `create-bff` agent (senior backend engineer, BFF
      specialist) and the `code-web-frontend` agent (senior frontend engineer,
@@ -413,9 +419,10 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
      - `create-bff` produces `sources/{CAP_ID}/bff/`: ASP.NET Core Minimal
        API, one endpoint file per L3, one consumer per consumed event, an in-memory state
        cache with ETag/`If-None-Match`/`Cache-Control: no-store`, OTel instrumentation
-       carrying `capability_id`, `zone`, `deployable`, `environment={branch}`. Allocates
-       `BFF_PORT` and writes `.env.local` (gitignored) so the test-app agent can
-       discover the port.
+       carrying `capability_id`, `zone`, `deployable`, `environment={branch}`. The
+       deterministic `COMPONENT_PORT` (kind=`bff`) is written to
+       `bff/deployment/local/.env` (committed — the value is stable per capability)
+       so the test-app agent can cross-check it against its own re-derivation.
      - `code-web-frontend` produces `sources/{capability-id}/frontend/`: vanilla HTML5 +
        CSS3 + JS following the `frontend-baseline` pattern. Branch badge in `<header>`,
        dignity rule expressed as DOM order, French business vocabulary, complete `STUB_DATA`
@@ -448,8 +455,10 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
     - Commit with Conventional Commits format (`feat(TASK-NNN): …`).
     - Push branch and `gh pr create` with a body that includes:
       DoD checklist, test report path, local stack instructions for backend / BFF /
-      frontend with the correct ports (`LOCAL_PORT`, `MONGO_PORT`, `RABBIT_PORT`,
-      `RABBIT_MGMT_PORT`, `BFF_PORT`), and the manual test plan.
+      frontend (one `COMPONENT_PORT` per component, derived from `capability_id`;
+      RabbitMQ + DB reached via the external `reliever-platform` network or the
+      `platform.compose.yml` stand-in on conventional host ports 5672/15672/27017/5432),
+      a pointer to `deployment/dev/{k8s,terraform}/`, and the manual test plan.
     - Report next available tasks (newly unblocked).
 
 ### Stage 5 — Test (zone-aware, invoked by code; can be invoked manually)
@@ -459,11 +468,16 @@ Two distinct skills, picked by the `/code` skill from the capability zone:
 **Path A — non-CHANNEL (`/test-business-capability`, agent: `test-business-capability`)**
 
 Runs in a **temporary, isolated `/tmp/test-{cap-id}-XXXXXX` directory**:
-1. Brings up MongoDB + RabbitMQ via the agent-generated `docker-compose.yml`,
-   then starts the .NET microservice on its `LOCAL_PORT` and probes `/health`.
+1. Brings up the stand-in platform (`deployment/local/platform.compose.yml` —
+   external `reliever-platform` network + RabbitMQ + DB on standard host ports
+   5672/15672/27017/5432) followed by the component compose
+   (`deployment/local/docker-compose.yml`), then probes `GET /health` on the
+   deterministic `COMPONENT_PORT` (kind=`api`). Tests never assume a
+   pre-existing real platform.
 2. Generates `tests/{capability-id}/TASK-NNN-{slug}/`:
    - `conftest.py` — `requests.Session`, `pika.BlockingConnection` to RabbitMQ
-     on `RABBIT_PORT`, `pymongo.MongoClient` on `MONGO_PORT`.
+     on host port 5672, `pymongo.MongoClient` on host port 27017 (or
+     `psycopg.connect` on 5432 for Postgres).
    - `test_dod.py` — one test per `[ ]` item in the task's "Definition of Done"
      (REST endpoint, persistence assertion, event emission).
    - `test_business_rules.py` — aggregate invariants and roadmap scoping rules.
@@ -476,9 +490,12 @@ Runs in a **temporary, isolated `/tmp/test-{cap-id}-XXXXXX` directory**:
 
 Runs in a **temporary, isolated `/tmp/test-app-{cap-id}-XXXXXX` directory**:
 1. Copies frontend artifacts (originals are never touched).
-2. Picks a free HTTP port and launches `python -m http.server` for the static frontend.
-3. If `sources/{CAP_ID}/bff/.env.local` exists, starts the BFF on its
-   recorded `BFF_PORT` and waits up to 15s for `/health` to return 200.
+2. Brings up the frontend's `deployment/local/docker-compose.yml` (nginx:alpine
+   image on the deterministic `COMPONENT_PORT`, kind=`frontend`).
+3. If `sources/{CAP_ID}/bff/deployment/local/` exists, brings up the BFF's
+   stand-in `platform.compose.yml` (RabbitMQ on host 5672/15672) then its
+   `docker-compose.yml`, and waits up to 15s for `GET /health` on the
+   deterministic `COMPONENT_PORT` (kind=`bff`) to return 200.
 4. Generates `tests/{capability-id}/TASK-NNN-{slug}/`:
    - `conftest.py` — Playwright fixtures, mocked routes derived from `STUB_DATA`,
      `?beneficiaireId=` and `?consentement=refuse` URL injection.
@@ -563,17 +580,19 @@ is nothing to guard locally.
 
 - **The `/sort-task` skill runs on every TASK file change** (via PostToolUse hook). It
   refreshes `/tasks/BOARD.md` automatically — do not regenerate it from this skill.
-- **Branch / environment isolation is end-to-end.** Every implementation component
-  (implement-capability agent, create-bff agent, code-web-frontend agent) reads the
-  current git branch slug and embeds it in artefact names: bus channels, RabbitMQ
-  exchanges/queues, OTel `environment` tag, frontend branch badge. The
-  test-app agent reads `.env.local` to find the BFF port for the active
-  branch. This guarantees that concurrent worktrees launched by `/launch-task auto` never
-  collide on infrastructure.
-- **Port allocation is per-component, not per-pipeline.** The implement-capability agent
-  allocates `LOCAL_PORT` 10000–59999 + 100/200/201 offsets. The create-bff agent allocates
-  `BFF_PORT` + 100/101 offsets. The PR body assembled by the code skill must include all relevant
-  ports in the local-test instructions.
+- **Branch / environment isolation is end-to-end for *names*, not for ports.**
+  Every implementation component embeds the branch slug in bus channels,
+  RabbitMQ exchanges/queues, OTel `environment` tag, and the frontend branch
+  badge — concurrent worktrees on the shared platform broker never cross-talk.
+  Ports are NOT branch-scoped: they are deterministic per `capability_id` +
+  kind (api/bff/frontend), and the *one active task per capability* invariant
+  guarantees no intra-capability conflict.
+- **Port allocation is deterministic, per (capability_id, kind).** Formula:
+  `COMPONENT_PORT = 20000 + sha256("{capability_id}:{kind}") % 9000`,
+  recorded in the audit ledger `/deployment/PORTS.md`. The PR body assembled by
+  the code skill includes the `COMPONENT_PORT` per component plus a pointer to
+  the `platform.compose.yml` stand-in (RabbitMQ on 5672/15672, DB on its
+  standard host port).
 - **Loop counters live on the TASK file**, not on the board. The code skill is the
   sole writer of `loop_count`, `max_loops`, `stalled_reason`, and `pr_url`. `/sort-task`
   reads them to render the board.

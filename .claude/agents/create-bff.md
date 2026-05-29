@@ -31,7 +31,7 @@ description: |
   <commentary>
   The agent reads the FUNC ADR for BNK.RLVR.CAP.CAN.001, derives the L3 endpoints
   (TAB, ACH, NOT…), the upstream events to consume from BSP/REF, the events
-  the BFF itself publishes, allocates a fresh BFF_PORT + RabbitMQ ports,
+  the BFF itself publishes, allocates a deterministic COMPONENT_PORT,
   and emits a runnable .NET 10 ASP.NET Core BFF under sources/BNK.RLVR.CAP.CAN.001/bff/.
   </commentary>
   </example>
@@ -218,7 +218,7 @@ Before scaffolding, output a single block to the caller:
 - ETag/304 endpoints:[list of GET endpoints with ETag support]
 - PII exclusions:    [list, sourced from tactical ADR — or "none stated"]
 - Branch slug:       [{branch}]
-- Ports:             BFF=[N] / RABBIT=[N+100] / RABBIT_MGMT=[N+101]
+- Ports:             COMPONENT_PORT=[N] (kind=bff, deterministic from capability_id) — FRONTEND_PORT=[N] (for CORS allowlist)
 
 Sources of truth used: [list of files read]
 Assumptions taken:     [list, or "none"]
@@ -266,20 +266,53 @@ If not in a git repo or the command fails, use `local`. Use `{branch}` as
 a placeholder threaded through every artefact: RabbitMQ exchanges, queue
 names, OTel `environment` tag.
 
-### Pattern 2 — Allocate ports
+### Pattern 2 — Allocate the deterministic component port
+
+Per the **Deployment contract** in `CLAUDE.md`, the component port is a pure
+function of `(capability_id, kind)` — `kind` is always `bff` for this agent.
+Same capability + same kind → same port across every branch and every laptop.
+The *one active task per capability* invariant guarantees no intra-capability
+conflict; cross-capability hash collisions are detected and salted via the
+shared audit ledger `/deployment/PORTS.md` at the repo root.
 
 ```bash
-BFF_PORT=$(shuf -i 10000-59999 -n 1)
-RABBIT_PORT=$((BFF_PORT + 100))
-RABBIT_MGMT_PORT=$((BFF_PORT + 101))
-echo "BFF: $BFF_PORT  RabbitMQ AMQP: $RABBIT_PORT  Management: $RABBIT_MGMT_PORT"
+# Helper — same formula used by every Stage-4 agent
+compute_port () {
+  local cap_id="$1" kind="$2" salt="${3:-}"
+  python3 - <<PY
+import hashlib
+h = hashlib.sha256(f"{"$cap_id"}:{"$kind"}{"$salt"}".encode()).hexdigest()[:8]
+print(20000 + (int(h, 16) % 9000))
+PY
+}
+
+CAP_ID="{CapabilityIdDot}"            # e.g. BNK.RLVR.CAP.CAN.001
+COMPONENT_PORT=$(compute_port "$CAP_ID" "bff")
+echo "BFF COMPONENT_PORT: $COMPONENT_PORT"
+
+# Sibling frontend's port — needed for the CORS allowlist.
+# code-web-frontend owns the allocation; we only re-compute it locally.
+FRONTEND_PORT=$(compute_port "$CAP_ID" "frontend")
+echo "Frontend port (for CORS): $FRONTEND_PORT"
 ```
 
-Each capability gets a fresh allocation — never hardcode. Derive
-infrastructure ports from the BFF base port so capabilities and branches
-never collide.
+**Audit ledger workflow** — `/deployment/PORTS.md` at the repo root:
 
-### Pattern 3 — Determine output directory + .env.local
+1. **Before writing**, grep the ledger for the `(capability_id, kind=bff)`
+   row. If it already exists, **reuse** the recorded port verbatim (do not
+   recompute — that row is the source of truth, including any salt).
+2. **If absent**, append a new row: `| BNK.RLVR.CAP.… | bff | <port> | <salt-or-empty> |`.
+3. **On collision** with an existing row for a different capability at the
+   same port, recompute with salt `:1`, `:2`, … until free, and record the
+   salt used.
+
+There are **no RabbitMQ port derivations any more.** RabbitMQ lives on the
+external platform (or on its `platform.compose.yml` stand-in), reachable
+by service name `rabbitmq` on the shared external Docker network
+`reliever-platform`. The BFF's `.env` references it as
+`amqp://guest:guest@rabbitmq:5672/`.
+
+### Pattern 3 — Determine output directory + `deployment/local/.env`
 
 Output path: `sources/{CAP_ID}/bff/` (e.g. `sources/BNK.RLVR.CAP.CAN.001/bff/`),
 where `{CAP_ID}` is the dotted capability identifier. If
@@ -287,18 +320,20 @@ where `{CAP_ID}` is the dotted capability identifier. If
 `frontend/` / `backend/` / `stub/` yet), create it. The `code-web-frontend`
 agent running in parallel will populate the sibling `frontend/` folder.
 
-After allocating ports, write `sources/{CAP_ID}/bff/.env.local`
-(gitignored — make sure `.gitignore` covers it):
+After allocating the deterministic port (Pattern 2), write
+`sources/{CAP_ID}/bff/deployment/local/.env` — this file is committed
+(not gitignored), because the port is deterministic and reproducible:
 
 ```
-BFF_PORT={BFF_PORT}
-RABBIT_PORT={RABBIT_PORT}
-RABBIT_MGMT_PORT={RABBIT_MGMT_PORT}
+COMPONENT_PORT={COMPONENT_PORT}
+AMQP_URL=amqp://guest:guest@rabbitmq:5672/
 BRANCH={branch}
 ```
 
-This file is what the `test-app` agent reads to discover
-the BFF port without re-running port allocation.
+This file is what the `test-app` agent reads to discover the BFF port
+without re-running the hash. `AMQP_URL` resolves on the shared external
+Docker network `reliever-platform` (service name `rabbitmq`) — there is
+no local broker port to inject.
 
 ### Pattern 4 — Generate the project tree
 
@@ -315,9 +350,8 @@ for every artefact. Substitute these placeholders consistently:
 | `{zone-abbrev}` | Zone prefix, lowercase | `can` |
 | `{Namespace}` | `Reliever.{ZoneFullName}.{CapId}Bff` | `Reliever.Canal.Can001Bff` |
 | `{branch}` | Slugified git branch | `feat-task-005-can001-bff` |
-| `{BFF_PORT}` | Generated BFF port | `42350` |
-| `{RABBIT_PORT}` | `{BFF_PORT} + 100` | `42450` |
-| `{RABBIT_MGMT_PORT}` | `{BFF_PORT} + 101` | `42451` |
+| `{COMPONENT_PORT}` | Deterministic BFF port (kind=`bff`) | `24350` |
+| `{FRONTEND_PORT}` | Deterministic frontend port (kind=`frontend`, for CORS) | `26871` |
 
 Per-L3 placeholders: `{L3Name}` (PascalCase), `{l3-id}` (lowercase),
 `{l3-path}` (URL segment).
@@ -337,9 +371,13 @@ Per-event placeholders: `{EventName}` (PascalCase), `{business-event-name}`
 9. `Consumers/{EventName}Consumer.cs` — **one file per unique consumed event type**
 10. `Publishers/{EventName}Publisher.cs` — **one file per published event**
 11. `Contracts/Events/{EventName}Event.cs` — one record per event (consumed and produced)
-12. `Dockerfile`
-13. `docker-compose.yml`
-14. `.env.local` (Pattern 3)
+12. `deployment/local/Dockerfile` — universal multi-stage build (`sdk:10.0` → `aspnet:10.0`)
+13. `deployment/local/docker-compose.yml` — **BFF service only**, joins external network `reliever-platform`
+14. `deployment/local/.env` (Pattern 3 — `COMPONENT_PORT`, `AMQP_URL`, `BRANCH`)
+15. `deployment/local/platform.compose.yml` — optional stand-in (ext net + RabbitMQ only, no DB — BFF has none)
+16. `deployment/local/README.md` — "platform is a prerequisite; use `platform.compose.yml` if you don't have it"
+17. `deployment/dev/k8s/{base,overlay/dev}/` — kustomize derived from `tech` (see `## Deployment artifacts (local + dev)`)
+18. `deployment/dev/terraform/{main.tf,variables.tf,versions.tf,outputs.tf,terraform.tfvars.dev,README.md}` — Terraform derived from `tech`
 
 For variables that depend on the FUNC ADR content (L3 list, events),
 generate code sections iteratively — one class per L3, one consumer per
@@ -421,6 +459,61 @@ The BFF must propagate the W3C `traceparent` header:
 
 ---
 
+## Deployment artifacts (local + dev)
+
+The canonical contract is **`## Deployment contract (local + dev)`** in
+`CLAUDE.md` at the repo root — read it first. This section only records the
+**BFF-specific delta**.
+
+- **`kind = bff`** for the port helper (`PORT = 20000 + sha256("{capability_id}:bff")[:8] % 9000`).
+  The audit ledger `/deployment/PORTS.md` is consulted for `(capability_id, bff)`
+  before writing — reuse the recorded row if present, append otherwise, salt
+  with `:1`, `:2`, … on collision.
+
+- **`Dockerfile`** (under `deployment/local/`) is the **universal build**, reused
+  unchanged by dev (CI pushes to ECR). Keep today's multi-stage layout:
+  `mcr.microsoft.com/dotnet/sdk:10.0` → `mcr.microsoft.com/dotnet/aspnet:10.0`,
+  `ASPNETCORE_URLS=http://+:8080`, `EXPOSE 8080`, and the existing OCI labels
+  (`capability_id`, `zone`, `deployable`).
+
+- **Dev kustomize** (`deployment/dev/k8s/{base,overlay/dev}/`) is derived via
+  the `tech` CLI from these platform modules — never invent paths:
+  - `runtime/bff` — the BFF runtime Deployment (the BFF-specific runtime
+    module, distinct from the API runtime).
+  - `runtime/api_ingress` — the ALB Ingress, including the
+    `https://k8s.<base>/{env}/<CAP_ID>/api/` URL contract from
+    ADR-TECH-STRAT-003.
+  - `runtime/deploy` — namespace + PodSecurityStandards + ResourceQuotas.
+  - `identity/secrets` + `identity/workload` — IRSA, ServiceAccount,
+    External Secrets wiring.
+
+- **Dev Terraform** (`deployment/dev/terraform/`) is typically a **thin
+  root** for the BFF — it is mostly compute, with no database of its own.
+  It references `runtime/bff` and `identity/*` modules. **RabbitMQ is not
+  provisioned here** — it is a platform-level concern (`data/broker`).
+
+- **Escape hatch — never improvise raw cloud.** When the component needs a
+  resource for which **no** `banking-tech` module exists, **STOP** that
+  resource and open (or find — idempotent: search first) a GitHub issue:
+
+  ```bash
+  gh issue create \
+    --repo Banking-PapeeteConsulting/banking-tech \
+    --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+    --body  "<need + caller + bcm_ref>"
+  ```
+
+  Record the issue URL in `deployment/dev/terraform/README.md` and surface
+  it as a blocker in the final report.
+
+- **Never read `banking-tech` directly** — no `gh`/git/`WebFetch` against
+  the `Banking-PapeeteConsulting/banking-tech` repo from this agent. The
+  derivation chain is always `rlv-knowledge pack <CAP_ID> --deep` →
+  `tech pack <PLATFORM_CAP_ID>`. The `gh` CLI is used **only** to file the
+  escape-hatch issue above.
+
+---
+
 ## Facilitation Notes
 
 - If the FUNC ADR lists events consumed but does not specify the emitting
@@ -453,9 +546,9 @@ When scaffolding succeeds:
   Capability:           [CAP.ID — L2 Name]
   Namespace:            [Namespace]
   Branch / Environment: {branch}
-  BFF HTTP port:        {BFF_PORT}
-  RabbitMQ AMQP:        {RABBIT_PORT}
-  RabbitMQ management:  {RABBIT_MGMT_PORT}
+  COMPONENT_PORT:       {COMPONENT_PORT}   (deterministic from sha256("{CapabilityIdDot}:bff"))
+  RabbitMQ:             external — reachable as `rabbitmq` on `reliever-platform` network
+  CORS allowlist:       http://localhost:{FRONTEND_PORT}  (sibling frontend, kind=frontend)
 
 Endpoints:
   [list each endpoint: METHOD /path — purpose]
@@ -466,13 +559,15 @@ Consumers (RabbitMQ):
 Publishers (RabbitMQ):
   [list each publisher: {EventName} → {capability-id}.exchange (key: {routing-key})]
 
-To start the local stack:
-  cd sources/{CAP_ID}/bff
-  docker compose up -d
-  dotnet run --urls http://localhost:{BFF_PORT}
+To start the local stack (platform required as a prerequisite):
+  cd sources/{CAP_ID}/bff/deployment/local
+  # If no real platform is running, bring up the stand-in once:
+  docker compose -f platform.compose.yml up -d
+  # Then bring up the BFF (joins the external `reliever-platform` network):
+  docker compose up -d --build
 
 Health check:
-  curl http://localhost:{BFF_PORT}/health
+  curl http://localhost:{COMPONENT_PORT}/health
 
 ⚠ Set GITHUB_USERNAME and GITHUB_TOKEN env vars before dotnet restore
   (required for the naive-unicorn GitHub Packages feed in nuget.config)

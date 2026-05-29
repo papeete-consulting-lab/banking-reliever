@@ -1,6 +1,8 @@
 # Code Templates
 
-All placeholders: `{Namespace}`, `{CapabilityName}`, `{AggregateName}`, `{capability-lower}`, `{LOCAL_PORT}`, `{MONGO_PORT}`, `{RABBIT_PORT}`, `{RABBIT_MGMT_PORT}`, `{channel}`.
+> **Layout note.** All deployment templates below — `Dockerfile`, `docker-compose.yml`, `.env`, `platform.compose.yml`, and the deployment `README.md` — render to `sources/{capability-lower}/backend/deployment/local/`, **not** to the component root. The `svc/config/*.json` (`appsettings*.json`) files stay at their current location under `Presentation/`.
+
+All placeholders: `{Namespace}`, `{CapabilityName}`, `{AggregateName}`, `{capability-lower}`, `{COMPONENT_PORT}`, `{channel}`.
 
 ---
 
@@ -25,76 +27,65 @@ All placeholders: `{Namespace}`, `{CapabilityName}`, `{AggregateName}`, `{capabi
 
 ---
 
-## docker-compose.yml
+## deployment/local/docker-compose.yml
+
+Component-only compose. RabbitMQ + MongoDB are NOT bundled here — they live
+on the external `reliever-platform` Docker network and are reached by service
+name (`rabbitmq`, `mongo`).
 
 ```yaml
 services:
-  mongodb:
-    image: mongo:7
-    container_name: {capability-lower}-mongodb
-    ports:
-      - "{MONGO_PORT}:27017"
-    volumes:
-      - mongodb_data:/data/db
-    command: ["--replSet", "rs0", "--bind_ip_all"]
+  {capability-lower}-api:
+    image: {capability-lower}-api:dev
+    build: .
+    env_file: .env
+    networks: [reliever-platform]
+    ports: ["${COMPONENT_PORT}:8080"]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 10s
-      retries: 10
-
-  mongodb-init:
-    image: mongo:7
-    container_name: {capability-lower}-mongodb-init
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    entrypoint: >
-      mongosh --host mongodb --eval "
-        try {
-          rs.status();
-          print('Replica set already initialized');
-        } catch (err) {
-          rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]});
-          print('Replica set initialized');
-        }
-      "
-    restart: "no"
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: {capability-lower}-rabbitmq
-    ports:
-      - "{RABBIT_PORT}:5672"
-      - "{RABBIT_MGMT_PORT}:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      test: ["CMD","curl","-fsS","http://localhost:8080/health"]
       interval: 10s
-      timeout: 10s
-      retries: 5
+      retries: 6
+networks:
+  reliever-platform: { external: true }
+```
 
-  rabbitmq-init:
-    image: rabbitmq:3-management
-    container_name: {capability-lower}-rabbitmq-init
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    entrypoint: >
-      bash -c "
-        rabbitmqadmin -H rabbitmq -u admin -p password declare vhost name={capability-lower} &&
-        rabbitmqadmin -H rabbitmq -u admin -p password declare permission vhost={capability-lower} user=admin configure='.*' write='.*' read='.*' &&
-        echo 'RabbitMQ virtual host configured successfully'
-      "
-    restart: "no"
+---
 
-volumes:
-  mongodb_data:
-  rabbitmq_data:
+## deployment/local/.env
+
+```
+COMPONENT_PORT={COMPONENT_PORT}
+ASPNETCORE_ENVIRONMENT=Development
+MongoDbConnection=mongodb://admin:password@mongo:27017/{capability-lower}?authSource=admin
+RabbitMQConnection=amqp://admin:password@rabbitmq:5672/{capability-lower}
+```
+
+---
+
+## deployment/local/platform.compose.yml
+
+Opt-in stand-in platform for local dev / tests. Creates the external
+`reliever-platform` network and stands up RabbitMQ + MongoDB on standard host
+ports. Explicitly **not** the real platform — the component's own compose
+never owns infra.
+
+```yaml
+# Stand-in platform for local dev / tests — NOT the real platform.
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports: ["5672:5672", "15672:15672"]
+    environment: { RABBITMQ_DEFAULT_USER: admin, RABBITMQ_DEFAULT_PASS: password }
+    healthcheck: { test: ["CMD","rabbitmq-diagnostics","-q","ping"], interval: 10s, retries: 6 }
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    environment: { MONGO_INITDB_ROOT_USERNAME: admin, MONGO_INITDB_ROOT_PASSWORD: password }
+    healthcheck: { test: ["CMD-SHELL","mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep 1"], interval: 10s, retries: 6 }
+networks:
+  default:
+    name: reliever-platform
+    external: true
 ```
 
 ---
@@ -103,10 +94,10 @@ volumes:
 
 ```json
 {
-  "MongoDbConnection": "mongodb://admin:password@localhost:{MONGO_PORT}/{capability-lower}?authSource=admin",
+  "MongoDbConnection": "mongodb://admin:password@mongo:27017/{capability-lower}?authSource=admin",
   "AzureServiceBusEnabled": false,
   "RabbitMQEnabled": true,
-  "RabbitMQConnection": "amqp://admin:password@localhost:{RABBIT_PORT}/{capability-lower}",
+  "RabbitMQConnection": "amqp://admin:password@rabbitmq:5672/{capability-lower}",
   "BusSerializationOptions": {
     "PropertyNamingPolicy": "CamelCase",
     "IncludeFields": false,
@@ -131,9 +122,9 @@ volumes:
     "ConnectionString": ""
   },
   "ServiceBusConnectionString": "",
-  "MongoDbConnection": "mongodb://admin:password@localhost:{MONGO_PORT}/{capability-lower}?authSource=admin",
-  "RabbitMQConnection": "amqp://admin:password@localhost:{RABBIT_PORT}/{capability-lower}",
-  "Port": {LOCAL_PORT}
+  "MongoDbConnection": "mongodb://admin:password@mongo:27017/{capability-lower}?authSource=admin",
+  "RabbitMQConnection": "amqp://admin:password@rabbitmq:5672/{capability-lower}",
+  "Port": 8080
 }
 ```
 
@@ -563,7 +554,7 @@ builder.Configuration.AddJsonFile("config/hot.json", true);
 var envSettings = builder.Configuration.Get<EnvironmentSettings>();
 
 if (envSettings?.Namespace == "Local")
-    builder.WebHost.UseUrls("http://localhost:{LOCAL_PORT}");
+    builder.WebHost.UseUrls("http://+:8080");
 else
     builder.WebHost.UseUrls("http://*:8080");
 

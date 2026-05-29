@@ -2,10 +2,16 @@
 
 Canonical layouts for the Python `implement-capability-python` agent.
 
+> **Layout note:** the Dockerfile, `docker-compose.yml`, `.env`, optional
+> `platform.compose.yml`, and `README.md` templates below all render to
+> `sources/{capability-kebab}/backend/deployment/local/` — NOT to the
+> component root. The Python settings module (`settings.py`) stays at its
+> current location under `src/{namespace}_{capability_module}/infrastructure/settings.py`.
+
 All placeholders: `{namespace}`, `{Namespace}`, `{capability_module}`,
 `{CapabilityName}`, `{aggregate_module}`, `{AggregateName}`,
-`{capability-kebab}`, `{LOCAL_PORT}`, `{DB_PORT}`, `{RABBIT_PORT}`,
-`{RABBIT_MGMT_PORT}`, `{branch}`, `{channel}`, `{exchange}`,
+`{capability-kebab}`, `{capability_snake}`, `{COMPONENT_PORT}`,
+`{branch}`, `{channel}`, `{exchange}`,
 `{capability_id_lower_dotted}` (e.g. `cap.sup.002.ben`).
 
 The templates below assume **MongoDB + motor** as the default
@@ -82,51 +88,88 @@ COPY --from=builder /app/src /app/src
 COPY config/ /app/config/
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
-EXPOSE {LOCAL_PORT}
-HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:{LOCAL_PORT}/health').read()" || exit 1
-CMD ["uvicorn", "{namespace}_{capability_module}.presentation.app:app", "--host", "0.0.0.0", "--port", "{LOCAL_PORT}"]
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --retries=6 \
+  CMD curl -fsS http://localhost:8000/health || exit 1
+CMD ["uvicorn", "{namespace}_{capability_module}.presentation.app:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ---
 
-## docker-compose.yml  (MongoDB default — see "PostgreSQL swap-in" below)
+## docker-compose.yml  (component-only — joins the external `reliever-platform` network)
+
+The component compose ships **only** the component service. RabbitMQ and the
+per-L2 database are provided by the platform (or by the stand-in
+`platform.compose.yml` below) on the external `reliever-platform` Docker
+network — services are reached by name (`rabbitmq`, `postgres`, `mongo`).
 
 ```yaml
 services:
-  mongodb:
-    image: mongo:7
-    container_name: {capability-kebab}-mongodb
-    ports:
-      - "{DB_PORT}:27017"
-    volumes:
-      - mongodb_data:/data/db
+  {capability-kebab}-api:
+    image: {capability-kebab}-api:dev
+    build: .
+    env_file: .env
+    networks: [reliever-platform]
+    ports: ["${COMPONENT_PORT}:8000"]
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 10s
-      retries: 10
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: {capability-kebab}-rabbitmq
-    ports:
-      - "{RABBIT_PORT}:5672"
-      - "{RABBIT_MGMT_PORT}:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      test: ["CMD","curl","-fsS","http://localhost:8000/health"]
       interval: 10s
-      timeout: 10s
-      retries: 5
+      retries: 6
+networks:
+  reliever-platform: { external: true }
+```
 
-volumes:
-  mongodb_data:
-  rabbitmq_data:
+---
+
+## .env  (deployment/local/.env)
+
+```
+COMPONENT_PORT={COMPONENT_PORT}
+RELIEVER_HTTP_HOST=0.0.0.0
+RELIEVER_HTTP_PORT=8000
+RELIEVER_AMQP_URL=amqp://admin:password@rabbitmq:5672/
+# Use one of the two below depending on the TECH-TACT tag:
+RELIEVER_PG_DSN=postgresql://reliever:reliever@postgres:5432/{capability_snake}
+# RELIEVER_MONGO_URL=mongodb://mongo:27017/{capability_snake}
+```
+
+---
+
+## platform.compose.yml  (OPTIONAL stand-in — NOT the real platform)
+
+Sibling of `docker-compose.yml` under `deployment/local/`. Opt-in convenience
+for devs without the real platform and for the test agents. It creates the
+external `reliever-platform` network plus RabbitMQ + the per-L2 DB on standard
+host ports. Pick the DB service that matches the TECH-TACT ADR tag
+(`postgresql` / `mongodb`) — keep one, drop the other.
+
+```yaml
+# Stand-in platform for local dev / tests — NOT the real platform.
+# Pick the DB service that matches the TECH-TACT ADR tag (postgresql / mongodb).
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports: ["5672:5672", "15672:15672"]
+    environment: { RABBITMQ_DEFAULT_USER: admin, RABBITMQ_DEFAULT_PASS: password }
+    healthcheck: { test: ["CMD","rabbitmq-diagnostics","-q","ping"], interval: 10s, retries: 6 }
+  # postgresql variant
+  postgres:
+    image: postgres:16-alpine
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_USER: reliever
+      POSTGRES_PASSWORD: reliever
+      POSTGRES_DB: {capability_snake}
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U reliever -d {capability_snake}"], interval: 5s, retries: 10 }
+  # mongodb variant (keep one of postgres / mongo, not both)
+  # mongo:
+  #   image: mongo:7
+  #   ports: ["27017:27017"]
+  #   healthcheck: { test: ["CMD-SHELL","mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep 1"], interval: 10s, retries: 6 }
+networks:
+  default:
+    name: reliever-platform
+    external: true
 ```
 
 ---
@@ -156,14 +199,14 @@ channel_slug = "{channel}"
 # Runtime-tunable configuration.
 [http]
 host = "0.0.0.0"
-port = {LOCAL_PORT}
+port = 8000
 
 [database]
-url = "mongodb://localhost:{DB_PORT}/?replicaSet=rs0"
+url = "mongodb://mongo:27017/{capability_module}"
 database_name = "{capability_module}"
 
 [bus]
-amqp_url = "amqp://admin:password@localhost:{RABBIT_PORT}/"
+amqp_url = "amqp://admin:password@rabbitmq:5672/"
 
 [logging]
 level = "INFO"
@@ -483,10 +526,10 @@ class AppSettings(BaseSettings):
     capability_id: str = "{CAP_ID}"
     capability_zone: str = "{ZONE}"
     http_host: str = "0.0.0.0"
-    http_port: int = {LOCAL_PORT}
-    database_url: str = "mongodb://localhost:{DB_PORT}/?replicaSet=rs0"
+    http_port: int = 8000
+    database_url: str = "mongodb://mongo:27017/{capability_module}"
     database_name: str = "{capability_module}"
-    amqp_url: str = "amqp://admin:password@localhost:{RABBIT_PORT}/"
+    amqp_url: str = "amqp://admin:password@rabbitmq:5672/"
     bus_exchange: str = "{exchange}"
     bus_channel_slug: str = "{channel}"
     log_level: str = "INFO"
@@ -712,32 +755,26 @@ Apply these substitutions on top of the MongoDB templates above.
   "psycopg[binary,pool]>=3.2",
 ```
 
-**docker-compose.yml** — replace the `mongodb` service block with:
+**docker-compose.yml** — no change. The component compose ships only the
+component service and joins the external `reliever-platform` network; the
+database is provided by the platform (or by the `platform.compose.yml`
+stand-in) and resolved by service name (`postgres`).
 
-```yaml
-  postgres:
-    image: postgres:16-alpine
-    container_name: {capability-kebab}-postgres
-    ports:
-      - "{DB_PORT}:5432"
-    environment:
-      POSTGRES_USER: {capability_module}
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: {capability_module}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U {capability_module}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+**platform.compose.yml** — keep the `postgres` service block (already
+templated above) and **delete the commented `mongo` variant**.
+
+**.env** — switch to the Postgres DSN line, comment out the Mongo URL:
+
+```
+RELIEVER_PG_DSN=postgresql://reliever:reliever@postgres:5432/{capability_snake}
+# RELIEVER_MONGO_URL=mongodb://mongo:27017/{capability_snake}
 ```
 
 **hot.toml** — replace `[database]` block:
 
 ```toml
 [database]
-url = "postgresql://{capability_module}:password@localhost:{DB_PORT}/{capability_module}"
+url = "postgresql://reliever:reliever@postgres:5432/{capability_snake}"
 ```
 
 **settings.py** — `database_url` default changes to the Postgres DSN above.

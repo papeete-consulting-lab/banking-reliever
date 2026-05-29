@@ -595,8 +595,10 @@ product/strategic vision.
 Pass to the test skill:
 - The task identifier (`TASK-NNN`)
 - The capability ID and zone
-- Any port or path information printed by the implementation skills (e.g.,
-  `LOCAL_PORT` for backend, `BFF_PORT` for CHANNEL)
+- Any port or path information printed by the implementation skills (the
+  deterministic `COMPONENT_PORT` per the Deployment contract in CLAUDE.md —
+  kind=`api` for backend, kind=`bff` for CHANNEL BFF, kind=`frontend` for
+  the frontend; same formula `20000 + sha256("{capability_id}:{kind}") % 9000`)
 
 Say (non-CHANNEL):
 > "Running test-business-capability for TASK-[NNN] (loop [loop_count+1]/[max_loops])..."
@@ -730,10 +732,21 @@ After all tests pass (or after the remediation loop concludes):
 
 5. **Push the branch** and open a PR:
 
-   Retrieve the `LOCAL_PORT` value that the implement-capability agent printed in its summary
-   (or the BFF port for CHANNEL zone).
-   Derive the infrastructure ports: `MONGO_PORT = LOCAL_PORT + 100`,
-   `RABBIT_PORT = LOCAL_PORT + 200`, `RABBIT_MGMT_PORT = LOCAL_PORT + 201`.
+   The component's `COMPONENT_PORT` is **deterministic** from `capability_id` +
+   kind (api/bff/frontend) per the Deployment contract in CLAUDE.md — recompute
+   it here rather than relying on the agent's stdout, so the PR body always
+   matches the `.env`:
+
+   ```bash
+   CAP_ID="$(grep -E '^capability_id:' tasks/*/TASK-NNN-*.md | head -1 | awk '{print $2}')"
+   KIND="api"   # bff for CHANNEL BFF, frontend for CHANNEL frontend
+   COMPONENT_PORT=$(python3 -c "import hashlib; print(20000 + int(hashlib.sha256(f'$CAP_ID:$KIND'.encode()).hexdigest()[:8],16) % 9000)")
+   ```
+
+   There are **no infrastructure ports to derive** — RabbitMQ and the per-L2
+   database live on the out-of-scope platform (or the optional
+   `deployment/local/platform.compose.yml` stand-in), reachable by service
+   name on the shared external Docker network `reliever-platform`.
 
    Build the PR body using this template, substituting all placeholders:
 
@@ -762,59 +775,80 @@ After all tests pass (or after the remediation loop concludes):
 
    ## Local Test Environment
 
-   > Start the local stack before running manual tests.
+   > Each component ships its own `deployment/local/` (Dockerfile + compose +
+   > `.env`). The compose runs **only the component image** and joins the
+   > shared external Docker network `reliever-platform`; RabbitMQ + the per-L2
+   > database live on the out-of-scope platform (use
+   > `deployment/local/platform.compose.yml` as a stand-in if the real platform
+   > is not installed).
 
-   ### Backend (.NET microservice) — non-CHANNEL only
+   ### One-time prerequisite (any component)
 
    \`\`\`bash
-   cd sources/{capability-name}/backend
-   docker-compose up -d          # MongoDB + RabbitMQ
-   dotnet run --project src/{Namespace}.{CapabilityName}.Presentation
+   # Either the real platform is up, or the stand-in:
+   docker compose -f sources/{CAP_ID}/{component}/deployment/local/platform.compose.yml up -d
+   \`\`\`
+
+   ### Backend (.NET or Python microservice) — non-CHANNEL only
+
+   \`\`\`bash
+   docker compose -f sources/{CAP_ID}/backend/deployment/local/docker-compose.yml up -d
    \`\`\`
 
    | Service | Local URL |
    |---------|-----------|
-   | REST API | http://localhost:{LOCAL_PORT} |
-   | Swagger UI | http://localhost:{LOCAL_PORT}/swagger |
-   | RabbitMQ Management | http://localhost:{RABBIT_MGMT_PORT} |
-   | MongoDB (port) | localhost:{MONGO_PORT} |
+   | REST API | http://localhost:{COMPONENT_PORT} |
+   | Health  | http://localhost:{COMPONENT_PORT}/health |
+   | Swagger / OpenAPI | http://localhost:{COMPONENT_PORT}/swagger (or /docs) |
 
-   > ⚠ Required environment variables: `GITHUB_USERNAME` and `GITHUB_TOKEN`
-   > (NuGet GitHub Packages feed).
+   > ⚠ For .NET only: `GITHUB_USERNAME` + `GITHUB_TOKEN` must be exported (NuGet
+   > GitHub Packages feed). Used only at image build time.
 
    ### BFF (.NET Minimal API) — CHANNEL zone
 
    \`\`\`bash
-   cd sources/{CAP_ID}/bff
-   docker compose up -d
-   dotnet run
+   docker compose -f sources/{CAP_ID}/bff/deployment/local/docker-compose.yml up -d
    \`\`\`
 
    | Service | Local URL |
    |---------|-----------|
-   | BFF REST | http://localhost:{BFF_PORT} |
-   | RabbitMQ Management | http://localhost:{RABBIT_MGMT_PORT} |
+   | BFF REST | http://localhost:{COMPONENT_PORT_BFF} |
+   | Health  | http://localhost:{COMPONENT_PORT_BFF}/health |
 
-   ### Frontend (vanilla HTML/CSS/JS) — CHANNEL zone
+   ### Frontend (vanilla HTML/CSS/JS, nginx image) — CHANNEL zone
 
    \`\`\`bash
-   cd sources/{capability-id}/frontend
-   python -m http.server 3000
+   docker compose -f sources/{CAP_ID}/frontend/deployment/local/docker-compose.yml up -d
    \`\`\`
 
    | Scenario | URL |
    |----------|-----|
-   | Nominal | http://localhost:3000?beneficiaireId=BEN-001 |
-   | Consent refusal | http://localhost:3000?beneficiaireId=BEN-001&consentement=refuse |
+   | Nominal | http://localhost:{COMPONENT_PORT_FRONTEND}?beneficiaireId=BEN-001 |
+   | Consent refusal | http://localhost:{COMPONENT_PORT_FRONTEND}?beneficiaireId=BEN-001&consentement=refuse |
+
+   ## Dev Environment Artifacts
+
+   Each component also ships `deployment/dev/k8s/` (kustomize) and
+   `deployment/dev/terraform/` (banking-tech modules only), derived via
+   `rlv-knowledge` → `tech` per the Deployment contract in CLAUDE.md.
+
+   - Resolved platform capabilities: see `deployment/dev/terraform/README.md`.
+   - Escape-hatch issues (when a needed banking-tech module is missing): {none |
+     <list of `gh` issue URLs>}.
 
    ## Manual Test Plan
 
-   - [ ] `docker-compose up -d` without errors
-   - [ ] Service starts on expected port
+   - [ ] Platform stand-in (or real platform) is up: `docker ps` shows
+         `rabbitmq` and the DB on the `reliever-platform` network.
+   - [ ] `docker compose -f deployment/local/docker-compose.yml up -d` without errors
+   - [ ] Service starts and binds the deterministic `COMPONENT_PORT`
    - [ ] `GET /health` returns 200
    - [ ] Nominal capability scenario works end-to-end
    - [ ] Business event visible in RabbitMQ Management (if applicable)
    - [ ] Frontend loads and displays stub data correctly (if applicable)
+   - [ ] `kubectl apply -k deployment/dev/k8s/overlay/dev/ --dry-run=client` is clean
+   - [ ] `terraform -chdir=deployment/dev/terraform init && terraform plan` is clean
+         (or the README records the open banking-tech issue blocking it)
 
    ---
    🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -831,9 +865,14 @@ After all tests pass (or after the remediation loop concludes):
    >
    > Test results: [N]/[Total] DoD criteria validated ✅
    >
-   > Local test environment:
-   > - Backend / BFF: http://localhost:{LOCAL_PORT}/swagger (or BFF endpoint)
-   > - Frontend: http://localhost:3000?beneficiaireId=BEN-001 (if generated)
+   > Deployment artifacts emitted under `sources/{CAP_ID}/{component}/deployment/`:
+   > - local: Dockerfile + docker-compose.yml + .env (COMPONENT_PORT=[port])
+   > - dev:   k8s/ (kustomize) + terraform/ (banking-tech modules)
+   > - Banking-tech issues opened (if any): [list or 'none']
+   >
+   > Local test environment (requires the platform or `platform.compose.yml` stand-in):
+   > - Backend / BFF: http://localhost:[COMPONENT_PORT]/health
+   > - Frontend: http://localhost:[COMPONENT_PORT_FRONTEND]?beneficiaireId=BEN-001 (if generated)
    >
    > Next available tasks for this capability:
    > - TASK-[NNN+1]: [title] (previously blocked on this task)

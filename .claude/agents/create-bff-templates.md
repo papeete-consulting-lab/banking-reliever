@@ -1,7 +1,16 @@
 # BFF Code Templates
 
+> **Layout note**: the deployment templates (`Dockerfile`, `docker-compose.yml`,
+> `.env`, `platform.compose.yml`, `README.md`) render to
+> `sources/{CAP_ID}/bff/deployment/local/` — NOT to the component root.
+> `appsettings*.json` stays at its current location (the component root).
+
 Placeholders: `{CapId}`, `{capability-id}`, `{CapabilityIdDot}`, `{ZoneAbbrev}`,
-`{zone-abbrev}`, `{Namespace}`, `{RABBIT_PORT}`, `{RABBIT_MGMT_PORT}`.
+`{zone-abbrev}`, `{Namespace}`, `{COMPONENT_PORT}`, `{FRONTEND_PORT}`, `{branch}`.
+
+`{COMPONENT_PORT}` is deterministic from `capability_id` (kind=`bff`) per the
+Deployment contract. `{FRONTEND_PORT}` is the same deterministic formula
+(kind=`frontend`) and is used ONLY for the CORS allowlist.
 
 Per-L3 placeholders: `{L3Name}` (PascalCase), `{l3-id}` (lowercase), `{l3-path}` (URL segment).
 Per-event placeholders: `{EventName}` (PascalCase), `{business-event-name}` (kebab),
@@ -85,6 +94,19 @@ Per-event placeholders: `{EventName}` (PascalCase), `{business-event-name}` (keb
     "LogLevel": {
       "Default": "Debug",
       "MassTransit": "Debug"
+    }
+  },
+  "RabbitMQ": {
+    "Host": "rabbitmq",
+    "VirtualHost": "{capability-id}",
+    "Username": "guest",
+    "Password": "guest"
+  },
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://+:8080"
+      }
     }
   }
 }
@@ -496,40 +518,50 @@ ENTRYPOINT ["dotnet", "{CapId}Bff.dll"]
 ## docker-compose.yml
 
 ```yaml
-# Local dev environment for {capability-id}-bff
-# Starts RabbitMQ only — the BFF is run via `dotnet run`
+# Component-only compose for {capability-id}-bff.
+# Joins the external `reliever-platform` Docker network — RabbitMQ (and any DB)
+# is provided by the platform installation, NOT bundled here.
+# Renders to: sources/{CAP_ID}/bff/deployment/local/docker-compose.yml
+services:
+  {capability-id}-bff:
+    image: {capability-id}-bff:dev
+    build: .
+    env_file: .env
+    networks: [reliever-platform]
+    ports: ["${COMPONENT_PORT}:8080"]
+    healthcheck:
+      test: ["CMD","curl","-fsS","http://localhost:8080/health"]
+      interval: 10s
+      retries: 6
+networks:
+  reliever-platform: { external: true }
+```
+
+---
+
+## .env
+
+```
+COMPONENT_PORT={COMPONENT_PORT}
+AMQP_URL=amqp://guest:guest@rabbitmq:5672/
+BRANCH={branch}
+CORS_ALLOWED_ORIGINS=http://localhost:{FRONTEND_PORT}
+```
+
+---
+
+## platform.compose.yml
+
+```yaml
+# Stand-in platform for local dev / tests — NOT the real platform.
 services:
   rabbitmq:
-    image: rabbitmq:3-management
-    container_name: {capability-id}-rabbitmq
-    ports:
-      - "{RABBIT_PORT}:5672"
-      - "{RABBIT_MGMT_PORT}:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    healthcheck:
-      test: rabbitmq-diagnostics -q ping
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
-  rabbitmq-init:
-    image: rabbitmq:3-management
-    container_name: {capability-id}-rabbitmq-init
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    entrypoint: >
-      bash -c "
-        rabbitmqadmin -H rabbitmq -u admin -p password declare vhost name={capability-id} &&
-        rabbitmqadmin -H rabbitmq -u admin -p password declare permission vhost={capability-id} user=admin configure='.*' write='.*' read='.*' &&
-        echo 'Virtual host {capability-id} ready'
-      "
-    restart: "no"
-
-volumes:
-  rabbitmq_data:
+    image: rabbitmq:3.13-management-alpine
+    ports: ["5672:5672", "15672:15672"]
+    environment: { RABBITMQ_DEFAULT_USER: guest, RABBITMQ_DEFAULT_PASS: guest }
+    healthcheck: { test: ["CMD","rabbitmq-diagnostics","-q","ping"], interval: 10s, retries: 6 }
+networks:
+  default:
+    name: reliever-platform
+    external: true
 ```

@@ -215,8 +215,10 @@ Look for the upstream API in this priority order:
 
 1. **BFF (CHANNEL parallel path)** — `sources/{CAP_ID}/bff/` (sibling of
    the frontend), produced by `create-bff`. Read
-   `Endpoints/{L3Name}Endpoints.cs` and `.env.local` (BFF_PORT). The BFF
-   is the canonical entry point for CHANNEL-zone capabilities.
+   `Endpoints/{L3Name}Endpoints.cs` and `deployment/local/.env`
+   (`COMPONENT_PORT`, kind=`bff` — deterministic, also derivable directly
+   from `capability_id`). The BFF is the canonical entry point for
+   CHANNEL-zone capabilities.
 
 2. **Microservice (direct path)** — `sources/{capability-name-kebab}/backend/src/`:
    ```
@@ -224,12 +226,14 @@ Look for the upstream API in this priority order:
      Controllers/
        {AggregateName}CmdController.cs   ← POST endpoints
        {AggregateName}ReadController.cs  ← GET endpoints
-     config/cold.json                    ← LOCAL_PORT
+     config/cold.json                    ← in-container port (8080 fixed)
    {Namespace}.{CapabilityName}.Contracts/
      Commands/                           ← POST request shapes
    {Namespace}.{CapabilityName}.Domain/
      Model/AR/{AggregateName}/DTO/       ← GET response shapes
    ```
+   The host-side `COMPONENT_PORT` (kind=`api`) lives in
+   `sources/{cap}/backend/deployment/local/.env`.
 
 3. **Inferred contract** — if neither BFF nor microservice exists yet:
    derive routes and DTOs from the events and business objects named in
@@ -320,13 +324,37 @@ adapt — guidelines, not blind steps.
 
 ```
 sources/{capability-id}/frontend/
-├── index.html      ← entry page, zones #loading / #consent-gate / #dashboard
-├── styles.css      ← vanilla CSS, complete :root variables, clean and functional design
-├── api.js          ← API_CONFIG, STUB_DATA, network layer, window.{CapabilityName}Api
-└── app.js          ← application IIFE, DOM helpers, init flow, window.App
+├── index.html              ← entry page, zones #loading / #consent-gate / #dashboard
+├── styles.css              ← vanilla CSS, complete :root variables, clean and functional design
+├── api.js                  ← API_CONFIG, STUB_DATA, network layer, window.{CapabilityName}Api
+├── app.js                  ← application IIFE, DOM helpers, init flow, window.App
+├── i18n.js                 ← French label dictionary (optional but emitted when copy is centralised)
+├── stub-data.js            ← extracted STUB_DATA block (Playwright override surface)
+├── dev.html                ← optional dev harness shell
+├── README.md               ← run / open / test invocation, deployment pointer
+└── deployment/             ← NEW — owned by this agent (see "Deployment artifacts" section)
+    ├── local/
+    │   ├── Dockerfile            ← multi-stage: copy static files → nginx:alpine
+    │   ├── nginx.conf            ← SPA-style try_files + cache headers
+    │   ├── docker-compose.yml    ← component-only on the external reliever-platform network
+    │   ├── .env                  ← COMPONENT_PORT=<computed>, BFF_ORIGIN=http://<cap-kebab>-bff:8080
+    │   ├── platform.compose.yml  ← OPTIONAL stand-in platform (creates external net; no infra for frontend)
+    │   └── README.md
+    └── dev/
+        ├── k8s/
+        │   ├── base/             ← kustomization.yaml + deployment.yaml (nginx) + service.yaml
+        │   └── overlay/dev/      ← kustomization.yaml + namespace + ingress + patches
+        └── terraform/
+            ├── main.tf variables.tf versions.tf outputs.tf
+            ├── terraform.tfvars.dev
+            └── README.md         ← platform caps resolved; any escape-hatch issue link
 ```
 
-No `js/` or `css/` subdirectories — flat structure.
+No `js/` or `css/` subdirectories at the static-files level — flat structure.
+The static files (`index.html`, `styles.css`, `api.js`, `app.js`, `i18n.js`,
+`stub-data.js`, `dev.html`, `README.md`) are described by Patterns 2–7 below.
+The `deployment/` subtree is described in the dedicated **Deployment artifacts
+(local + dev)** section further down.
 
 ### Pattern 2 — HTML principles (`index.html`)
 
@@ -726,13 +754,15 @@ DoD criteria covered:
   ✅ [criterion 1]
   ✅ [criterion 2]
 
-To run locally:
-  cd sources/{capability-id}/frontend
-  python -m http.server 3000
-  # then open http://localhost:3000?beneficiaireId=BEN-001
+To run locally (the canonical path — nginx image on the shared external
+network; supersedes the legacy `python -m http.server` story):
+  cd sources/{capability-id}/frontend/deployment/local
+  docker compose up -d
+  # then open http://localhost:${COMPONENT_PORT}?beneficiaireId=BEN-001
+  # (COMPONENT_PORT is recorded in .env and /deployment/PORTS.md)
 
 To test consent refusal:
-  http://localhost:3000?beneficiaireId=BEN-001&consentement=refuse
+  http://localhost:${COMPONENT_PORT}?beneficiaireId=BEN-001&consentement=refuse
 
 Assumptions documented:           [list, or "none"]
 Deviations from naming conventions: [list, or "none"]
@@ -753,16 +783,119 @@ Always return one of these two blocks — never finish silently.
 
 ---
 
+## Deployment artifacts (local + dev)
+
+This agent also owns the deployment of the frontend component it scaffolds.
+**The canonical source of truth is the `## Deployment contract (local + dev)`
+section in `CLAUDE.md` — read it first.** This section only documents the
+**frontend-specific delta**.
+
+- **`kind = frontend`** for this agent — always. No backend/bff/api duties.
+- **Image**: `nginx:alpine` serving the static files. The multi-stage
+  `Dockerfile` under `deployment/local/`:
+  - stage 1 — copies the static files (`index.html`, `styles.css`, `api.js`,
+    `app.js`, `i18n.js`, `stub-data.js`) from the build context;
+  - stage 2 — `FROM nginx:alpine`, copies the static files to
+    `/usr/share/nginx/html`, copies `nginx.conf` to
+    `/etc/nginx/conf.d/default.conf`, `EXPOSE 80`.
+  The `nginx.conf` is SPA-style: `try_files $uri $uri/ /index.html;` with
+  appropriate cache headers (long for hashed/static assets, `no-cache` for
+  `index.html`).
+- **Deterministic port (kind = `frontend`)**:
+
+  ```
+  COMPONENT_PORT = 20000 + ( int(sha256(f"{capability_id}:frontend").hexdigest()[:8], 16) % 9000 )
+  ```
+
+  Before writing, consult the audit ledger **`/deployment/PORTS.md`** at the
+  repo root and check for a `(capability_id, frontend)` row. Reuse the
+  recorded port if present; otherwise append a new row with the freshly
+  computed port. On hash collision with another `(capability_id, kind)`
+  row, salt the hash input with `:1`, `:2`, … and record the salt in the
+  ledger so the derivation stays reproducible.
+- **BFF wiring**: the BFF runs on a sibling deterministic port derived with
+  the same helper but with `kind = bff` (i.e. the `create-bff` agent's
+  output for the same `capability_id`). **Do not invent the BFF port** —
+  re-run the same SHA-256 computation with `kind = bff` and write it
+  verbatim into `.env` as `BFF_ORIGIN`:
+  - inside compose / on the platform network: `BFF_ORIGIN=http://<cap-kebab>-bff:8080`
+  - in `api.js` for browser-side calls in local mode: target
+    `http://localhost:<bff COMPONENT_PORT>` (re-derived, not invented).
+- **Local compose** (`deployment/local/docker-compose.yml`) declares
+  **only the frontend container** and joins the shared external Docker
+  network `reliever-platform`:
+
+  ```yaml
+  services:
+    <cap-kebab>-frontend:
+      image: <cap-kebab>-frontend:dev
+      build: .
+      env_file: .env
+      networks: [reliever-platform]
+      ports: ["${COMPONENT_PORT}:80"]
+      healthcheck:
+        test: ["CMD","wget","-qO-","http://localhost/"]
+        interval: 10s
+        retries: 6
+  networks:
+    reliever-platform:
+      external: true
+  ```
+
+  The optional `platform.compose.yml` only **creates the external
+  `reliever-platform` network** for devs without a running platform — no
+  infra (RabbitMQ, DB) is bundled for a frontend.
+- **Dev environment** is derived via the **two-CLI chain** described in
+  CLAUDE.md (`rlv-knowledge pack` → `tech pack`) — never read the
+  `banking-tech` repo directly (no `gh`/git/`WebFetch` against it).
+  - **kustomize** (`deployment/dev/k8s/`) derived from `runtime/static_hosting`
+    (frontend hosting), `runtime/deploy` (namespace + PodSecurityStandards
+    + ResourceQuotas), `runtime/api_ingress` (Ingress — URL contract for
+    the frontend is `https://k8s.<base>/{env}/<CAP_ID>/`), plus
+    `identity/secrets` + `identity/workload`. `base/` = nginx Deployment +
+    Service; `overlay/dev/` = namespace + Ingress + dev-specific patches.
+  - **terraform** (`deployment/dev/terraform/`) typically resolves to
+    `runtime/static_hosting` (S3 + CloudFront) for the frontend kind.
+    Inputs limited to `project_name`, `environment="dev"`, `tenant`, `tags`.
+- **Escape hatch (identical to all other Stage-4 agents)**: when a required
+  need has **no** matching `banking-tech` module, **stop that resource**,
+  do **not** improvise raw cloud, and file (or find — search first to stay
+  idempotent) an issue:
+
+  ```bash
+  gh issue create \
+    --repo Banking-PapeeteConsulting/banking-tech \
+    --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+    --body  "<need + caller + bcm_ref>"
+  ```
+
+  Record the issue URL in `deployment/dev/terraform/README.md` and surface
+  it as a blocker in the final report. `gh` is used **only** for this
+  escape-hatch issue — never to read the `banking-tech` repo.
+
+---
+
 ## Boundaries (what this agent does NOT do)
 
 - Does **not** scaffold a backend — non-CHANNEL or backend-only work
-  goes through `implement-capability`.
+  goes through `implement-capability` / `implement-capability-python`.
 - Does **not** scaffold a BFF — that is the role of `create-bff`, which
-  runs in parallel for CHANNEL tasks.
+  runs in parallel for CHANNEL tasks. The frontend only **consumes** the
+  BFF's deterministic port (re-derived with `kind = bff`).
 - Does **not** modify .NET files, ADRs, or BCM YAML.
 - Does **not** run automated DoD validation — that is delegated to
   `test-app`, which the `/code` skill invokes
   immediately after this agent.
+- Does **not** read the `banking-tech` repo directly — derivation goes
+  through `tech pack <PLATFORM_CAP_ID>`. `gh` against
+  `Banking-PapeeteConsulting/banking-tech` is restricted to the
+  escape-hatch `gh issue create` flow described above.
 - If multiple frontend tasks for the same capability depend on each
   other (e.g. TASK-003 → TASK-004), expect the caller to invoke this
   agent **sequentially** (one TASK-NNN per spawn, not batched).
+
+Note — what this agent **does** scaffold now (vs. the previous "no
+Docker" boundary): a real deployable frontend image (`nginx:alpine`
+serving the static files) plus the full `deployment/{local,dev}/`
+subtree per the **Deployment contract** above. The legacy `python -m
+http.server` dev story is **superseded** by the nginx image.
