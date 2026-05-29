@@ -25,9 +25,9 @@ platform). The **organisation-wide governance** substrate — enterprise-level
 GOV ADRs that sit above any single product or platform — lives in a third
 separate repo, **`banking-governance`**
 (`Banking-PapeeteConsulting/banking-governance`), consumed **read-only**
-through the `gov` CLI. So governance is layered across three scopes and three
-sources: org-wide via `gov`, Reliever-product-scoped via `rlv-knowledge`,
-tech-platform-scoped via `tech`. This repo never authors or edits
+through the `gov-pack` CLI. So governance is layered across three scopes and
+three sources: org-wide via `gov-pack`, Reliever-product-scoped via
+`rlv-knowledge`, tech-platform-scoped via `tech`. This repo never authors or edits
 upstream artifacts. There is no `bcm/`, `adr/`, `func-adr/`, `process/`,
 `tools/`, `build.sh`, or EventCatalog build here anymore.
 
@@ -320,8 +320,8 @@ always **two CLIs in sequence**:
   `/strategic-vision/`, `/product-vision/`, `/tech-vision/`, `/tech-adr/`
   from disk — they don't live here. Use `rlv-knowledge pack <CAP_ID> [--deep] [--compact]`
   for knowledge (`BNK.RLVR.…`), `tech pack <CAP_ID> …` for the platform
-  substrate (`BNK.TECH.…`), and the `gov` CLI for organisation-wide governance
-  ADRs (`banking-governance`). `<CAP_ID>` is always the **full source-context-prefixed
+  substrate (`BNK.TECH.…`), and the `gov-pack` CLI for organisation-wide
+  governance ADRs (`banking-governance`). `<CAP_ID>` is always the **full source-context-prefixed
   ID**; the short `CAP.…` form is rejected (exit 2) by the v2.0.0 CLIs.
 - **Provenance is recorded; drift is detected.** The `knowledge_base` block of
   `rlv-knowledge pack`/`version`/`process` (git ref + commit + date) is stamped by
@@ -349,7 +349,7 @@ always **two CLIs in sequence**:
   derivation is `rlv-knowledge pack` (what the component needs) → `tech pack`
   (how the platform provides it). Agents never read the `banking-tech` repo
   directly (no `gh`/git/`WebFetch` against it). The `tech` CLI is a runtime
-  prerequisite for the dev layer, alongside `rlv-knowledge` and `gov`.
+  prerequisite for the dev layer, alongside `rlv-knowledge` and `gov-pack`.
 - **Every artifact traces back** to a TASK → roadmap epic → process model →
   BCM capability (`BNK.RLVR.CAP.…`) → FUNC ADR → URBA constraints, pinned to a
   knowledge-base `bcm_ref`. The chain is unbreakable and version-anchored.
