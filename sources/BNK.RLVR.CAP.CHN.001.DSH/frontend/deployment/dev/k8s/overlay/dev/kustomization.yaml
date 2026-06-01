@@ -1,0 +1,25 @@
+# Deployment contract — dev overlay (CLAUDE.md § "Deployment contract").
+#
+# Adds the dev namespace, the Ingress per ADR-TECH-STRAT-003 URL contract,
+# and the ResourceQuota per BNK.TECH.CAP.RUNTIME.001.DEPLOY. The frontend
+# needs no secret binding (no broker / DB credentials).
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: reliever-chn-dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - ingress.yaml
+  - resourcequota.yaml
+
+commonAnnotations:
+  reliever.io/environment: dev
+  reliever.io/branch: task-008-scaffold-frontend-deployment-contract
+
+images:
+  - name: reliever/chn-001-dsh-frontend
+    newName: ${ECR_REGISTRY}/reliever/chn-001-dsh-frontend
+    newTag: dev-latest

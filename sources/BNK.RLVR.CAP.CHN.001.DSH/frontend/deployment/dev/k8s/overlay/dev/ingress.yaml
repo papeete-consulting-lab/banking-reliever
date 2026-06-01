@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chn-001-dsh-frontend
+  annotations:
+    # ALB controller, derived per BNK.TECH.CAP.RUNTIME.002.API_INGRESS.
+    # `group.name` lets multiple capabilities share one ALB per environment,
+    # per ADR-TECH-STRAT-003. The frontend lives at the SPA root URL contract:
+    #   https://k8s.<base>/{env}/<CAP_ID>/
+    # while the sibling BFF lives at the API URL contract:
+    #   https://k8s.<base>/{env}/<CAP_ID>/api/  (TASK-007)
+    # Both paths land on the same ALB group, so the ALB routes by path
+    # without the frontend's nginx having to do the reverse proxy in cluster.
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/group.name: reliever-dev
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    reliever.io/derived-from: BNK.TECH.CAP.RUNTIME.002.API_INGRESS
+    reliever.io/strategic-anchor: ADR-TECH-STRAT-003
+spec:
+  rules:
+    # URL contract from ADR-TECH-STRAT-003 — SPA root:
+    #   https://k8s.<base>/{env}/<CAP_ID>/
+    # Host is patched per institutional client by the train-release process.
+    - http:
+        paths:
+          # SPA root (and any nested path that's not the API surface).
+          - path: /dev/BNK.RLVR.CAP.CHN.001.DSH
+            pathType: Prefix
+            backend:
+              service:
+                name: chn-001-dsh-frontend
+                port:
+                  name: http

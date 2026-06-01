@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chn-001-dsh-frontend
+  annotations:
+    # Anchors per the Deployment contract — agents NEVER read banking-tech
+    # directly; every choice traces back to a `tech pack` consumption.
+    reliever.io/derived-from: BNK.TECH.CAP.RUNTIME.001.DEPLOY
+    reliever.io/strategic-anchor: ADR-TECH-STRAT-002
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: chn-001-dsh-frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: chn-001-dsh-frontend
+    spec:
+      serviceAccountName: chn-001-dsh-frontend
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101              # nginx:alpine ships with the `nginx` user (101)
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          # Image tag is replaced by the overlay (per environment / train).
+          image: reliever/chn-001-dsh-frontend:placeholder
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          # nginx config in the image already serves on :80 and reverse-proxies
+          # /capabilities/ to the BFF; in dev/prod the ALB terminates
+          # /{env}/<CAP>/api/ → BFF directly per ADR-TECH-STRAT-003, so the
+          # reverse-proxy rule is harmless (the ALB beats it to the punch).
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # nginx needs writable /var/cache/nginx and /var/run for PID/temp
+            # when readOnlyRootFilesystem is on.
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

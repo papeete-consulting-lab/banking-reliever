@@ -1,0 +1,39 @@
+# Deployment contract — dev/k8s/base (CLAUDE.md § "Deployment contract").
+#
+# Derived from platform packs (consumed via `tech pack` — NEVER directly
+# reading the banking-tech repo):
+#   - BNK.TECH.CAP.RUNTIME.001.DEPLOY        → Modular-Monolith Packaging
+#                                              (Deployment + Service)
+#   - BNK.TECH.CAP.RUNTIME.002.STATIC_HOSTING → Static-bundle distribution
+#                                               (target for ECR-side CDN or
+#                                                in-cluster nginx serving
+#                                                static files)
+#   - BNK.TECH.CAP.IDENTITY.001.WORKLOAD     → ServiceAccount + IRSA annotation
+# Strategic anchors:
+#   - ADR-TECH-STRAT-002  — EKS / Modular-Monolith Packaging per Zone
+#   - ADR-TECH-STRAT-003  — URL contract:
+#       https://k8s.<base>/{env}/<CAP_ID>/                ← SPA root
+#       https://k8s.<base>/{env}/<CAP_ID>/api/...         ← BFF (TASK-007 owns)
+#       https://k8s.<base>/{env}/<CAP_ID>/spa/...         ← static_hosting variant
+#   - ADR-TECH-TACT-001   — Frontend = vanilla HTML/CSS/JS served by nginx.
+#
+# This base ships environment-agnostic resources. The overlay/dev/ adds the
+# namespace, ingress, ResourceQuotas, and dev-specific patches.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: chn-001-dsh-frontend
+      app.kubernetes.io/component: frontend
+      app.kubernetes.io/part-of: reliever-chn
+      reliever.io/capability-id: BNK.RLVR.CAP.CHN.001.DSH
+      reliever.io/zone: CHANNEL
+      reliever.io/kind: frontend
+
+resources:
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml

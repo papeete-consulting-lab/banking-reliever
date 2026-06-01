@@ -1,0 +1,47 @@
+# Deployment contract — OPTIONAL stand-in platform (CLAUDE.md §
+# "Deployment contract").
+#
+# The frontend itself needs NO infrastructure — no broker, no database. This
+# compose exists for two reasons only:
+#
+#   1. Bring up the shared external Docker network `reliever-platform` if
+#      the real laptop-platform install isn't running. The frontend's own
+#      compose joins this network so its nginx can reverse-proxy
+#      `/capabilities/...` to the sibling BFF by service name.
+#
+#   2. Bring up a RabbitMQ-class broker on the well-known ports 5672/15672
+#      so the SIBLING BFF can connect when devs run the full chain locally
+#      without the real platform install. Mirrors the sibling BFF's own
+#      `platform.compose.yml` — duplicated by design so either component
+#      can be brought up standalone.
+#
+# This is NOT the platform itself. The frontend's own compose never owns
+# infra.
+#
+# Run BEFORE `docker-compose.yml`:
+#   docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/frontend/deployment/local/platform.compose.yml up -d
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: reliever-platform-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - reliever-platform
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+networks:
+  reliever-platform:
+    name: reliever-platform
+    driver: bridge
