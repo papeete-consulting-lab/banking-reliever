@@ -1,0 +1,32 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — kustomize BASE.
+#
+# Stack: Python 3.12 + aio-pika (RabbitMQ publisher only — no HTTP server,
+# no DB, no Kafka). Derived from:
+#   - rlv-knowledge pack BNK.RLVR.CAP.BSP.001.SCO --deep  (component needs)
+#   - tech pack BNK.TECH.CAP.RUNTIME.001.DEPLOY           (deployment surface)
+#   - tech pack BNK.TECH.CAP.IDENTITY.001.WORKLOAD        (IRSA / SA)
+#   - tech pack BNK.TECH.CAP.IDENTITY.001.SECRETS         (External Secrets)
+#   - tech pack BNK.TECH.CAP.DATA.001.BROKER              (RabbitMQ topology)
+#
+# Per CLAUDE.md: NEVER reads the banking-tech repo directly — uses `tech` CLI.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: bsp-sco-stub
+      app.kubernetes.io/component: api
+      app.kubernetes.io/part-of: bnk-rlvr-cap-bsp-001-sco
+      capability.bnk/id: bnk-rlvr-cap-bsp-001-sco
+      capability.bnk/zone: business-service-production
+      capability.bnk/mode: stub
+
+commonAnnotations:
+  bnk.bcm/capability-id: BNK.RLVR.CAP.BSP.001.SCO
+  bnk.bcm/component-kind: api
+  bnk.bcm/component-port: "23074"
+
+resources:
+  - deployment.yaml
+  - service.yaml

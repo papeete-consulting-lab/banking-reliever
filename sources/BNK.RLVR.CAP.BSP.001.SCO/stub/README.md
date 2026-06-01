@@ -57,25 +57,45 @@ batch** and share:
 This is exercised by `tests/test_atomicity.py` end-to-end (fixture builder
 + publisher with a mocked exchange).
 
-## Run locally
+## Run locally — Deployment-contract layout
+
+Per the **Deployment contract** in `CLAUDE.md` (TASK-007), the runtime
+artefacts live under `deployment/local/`. The platform (RabbitMQ) is
+out-of-scope; the stub joins the shared external Docker network
+`reliever-platform` and reaches the broker by service name `rabbitmq`.
+
+### Container mode (recommended)
 
 ```bash
-# 1) RabbitMQ
-docker compose up -d                               # ports 47656 / 47657
+# 1) Stand up RabbitMQ (real platform OR the in-folder stand-in)
+docker compose -f deployment/local/platform.compose.yml up -d
 
-# 2) Install the stub (editable install — preferred for dev)
+# 2) Build + run the stub
+docker compose -f deployment/local/docker-compose.yml up -d --build
+docker compose -f deployment/local/docker-compose.yml logs -f bsp-sco-stub
+```
+
+### Editable Python install (dev iteration)
+
+```bash
+# 1) RabbitMQ (same as above)
+docker compose -f deployment/local/platform.compose.yml up -d
+
+# 2) Editable install
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .                                   # exposes the bsp-sco-stub CLI
 
-# 3) Run with publication ENABLED
+# 3) Run with publication ENABLED — point the stub at the stand-in broker
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/ \
 STUB_ACTIVE=true python -m bsp_sco_stub
 ```
 
 | Service | Local URL |
 |---|---|
-| RabbitMQ AMQP | `amqp://guest:guest@localhost:47656/` |
-| RabbitMQ Management UI | http://localhost:47657 (guest / guest) |
+| RabbitMQ AMQP | `amqp://guest:guest@localhost:5672/` (stand-in) |
+| RabbitMQ Management UI | http://localhost:15672 (guest / guest) |
+| Component `COMPONENT_PORT` (api kind) | `23074` (no HTTP server — reserved for the Mode-A backend) |
 
 To observe published messages, in the management UI bind a queue to
 exchange `bsp.001.sco-events` with routing key `BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.#`
@@ -97,7 +117,7 @@ exchange `bsp.001.sco-events` with routing key `BNK.RLVR.EVT.BSP.001.SCORE_RECOM
 | `STUB_EXCHANGE_NAME` | `bsp.001.sco-events` | Owned topic exchange — override only for testing. |
 | `STUB_SCHEMAS_DIR` | _(resolved relative to repo root)_ | Override location of canonical schemas (CI / container scenarios). |
 | `STUB_LOG_LEVEL` | `INFO` | Python logging level. |
-| `RABBITMQ_URL` | `amqp://guest:guest@localhost:47656/` | Broker URL. |
+| `RABBITMQ_URL` | `amqp://guest:guest@localhost:47656/` (legacy default — overridden by `deployment/local/.env` to `amqp://guest:guest@rabbitmq:5672/`) | Broker URL. |
 
 ## Tests — offline, no broker
 
@@ -134,8 +154,17 @@ sources/BNK.RLVR.CAP.BSP.001.SCO/stub/
 ├── pyproject.toml                  ← package + pytest config
 ├── requirements.txt                ← runtime pins
 ├── requirements-test.txt           ← test pins
-├── docker-compose.yml              ← RabbitMQ only (ports 47656 / 47657)
 ├── .gitignore
+├── deployment/                     ← Deployment contract artefacts (TASK-007)
+│   ├── local/
+│   │   ├── Dockerfile              ← universal build (consumed by dev too)
+│   │   ├── docker-compose.yml      ← component-only; joins reliever-platform
+│   │   ├── .env                    ← COMPONENT_PORT=23074 + RABBITMQ_URL
+│   │   ├── platform.compose.yml    ← optional stand-in (RabbitMQ only)
+│   │   └── README.md               ← local-run instructions
+│   └── dev/
+│       ├── k8s/                    ← kustomize base + overlay/dev
+│       └── terraform/              ← banking-tech modules (empty for stub)
 ├── src/bsp_sco_stub/
 │   ├── __init__.py
 │   ├── __main__.py                 ← `python -m bsp_sco_stub` entry point

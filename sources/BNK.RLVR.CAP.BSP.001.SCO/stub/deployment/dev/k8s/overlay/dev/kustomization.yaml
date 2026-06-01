@@ -1,0 +1,45 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — kustomize OVERLAY (dev).
+#
+# Overlay duties derived via `tech`:
+#   - tech pack BNK.TECH.CAP.RUNTIME.001.DEPLOY → namespace per zone
+#     + PodSecurityStandards + ResourceQuotas
+#   - tech pack BNK.TECH.CAP.IDENTITY.001.WORKLOAD → ServiceAccount + IRSA
+#   - tech pack BNK.TECH.CAP.IDENTITY.001.SECRETS → External Secrets binding
+#
+# Namespace: one per CAPABILITY ZONE per ADR-TECH-STRAT-002 (modular monolith
+# per TOGAF zone). The stub lives in the BUSINESS_SERVICE_PRODUCTION zone, so
+# it ends up under the shared `bnk-rlvr-bsp-dev` namespace alongside its
+# sibling L2 stubs (BSP.001.TIE, …).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: bnk-rlvr-bsp-dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - serviceaccount.yaml
+
+# Pull the image tag from CI via `kustomize edit set image`. Local default
+# preserves a recognisable name so dry-runs succeed without ECR auth.
+images:
+  - name: bnk-rlvr-cap-bsp-001-sco-stub
+    newTag: dev
+
+# Environment-specific env injection. Note: RABBITMQ_URL stays sourced from
+# the External-Secrets-managed Secret in the base; only knobs that differ
+# per environment are patched here.
+patches:
+  - target:
+      kind: Deployment
+      name: bsp-sco-stub
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/annotations/bnk.observability~1otel-environment
+        value: dev
+      - op: replace
+        path: /spec/replicas
+        value: 1
+
+commonAnnotations:
+  bnk.bcm/environment: dev
