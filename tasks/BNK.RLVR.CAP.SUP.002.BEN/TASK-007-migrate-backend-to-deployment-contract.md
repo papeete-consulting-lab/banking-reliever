@@ -9,6 +9,7 @@ priority: medium
 depends_on: []
 loop_count: 1
 max_loops: 10
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/35
 ---
 
 # TASK-007 — Migrate backend to the Deployment contract
