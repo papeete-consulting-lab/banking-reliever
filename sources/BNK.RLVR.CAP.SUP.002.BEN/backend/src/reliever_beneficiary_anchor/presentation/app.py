@@ -15,6 +15,7 @@ from psycopg_pool import AsyncConnectionPool
 from ..application.handlers import (
     EXCHANGE_NAME,
     GetAnchorHandler,
+    GetAnchorHistoryHandler,
     MintAnchorHandler,
     PseudonymiseAnchorHandler,
     ROUTING_KEY,
@@ -23,11 +24,17 @@ from ..application.handlers import (
 from ..infrastructure.messaging.outbox_relay import OutboxRelay
 from ..infrastructure.messaging.projection_consumer import ProjectionConsumer
 from ..infrastructure.messaging.publisher import AioPikaPublisher
+from ..infrastructure.persistence.history import (
+    PostgresAnchorHistoryReader,
+    PostgresAnchorHistoryWriter,
+    PostgresRetentionPurger,
+)
 from ..infrastructure.persistence.migrations import apply_migrations
 from ..infrastructure.persistence.projection import (
     PostgresAnchorDirectoryReader,
     PostgresAnchorDirectoryWriter,
 )
+from ..infrastructure.persistence.retention import RetentionPurgeJob
 from ..infrastructure.persistence.unit_of_work import PostgresUnitOfWorkFactory
 from ..infrastructure.schema_validation.loader import build_validators_bundle
 from .dependencies import AppState
@@ -97,22 +104,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             await outbox_relay.start()
 
-        # 6. Projection consumer.
+        # 6. Projection consumer — dual-writes to ANCHOR_DIRECTORY +
+        #    ANCHOR_HISTORY (TASK-006).
         projection_consumer: ProjectionConsumer | None = None
         if settings.run_projection_consumer:
             writer = PostgresAnchorDirectoryWriter(pool)
+            history_writer = PostgresAnchorHistoryWriter(pool)
             projection_consumer = ProjectionConsumer(
                 connection=amqp_conn,
                 exchange_name=settings.exchange_name,
                 routing_key=settings.routing_key,
                 queue_name=settings.projection_queue,
                 writer=writer,
+                history_writer=history_writer,
                 validator=rvt_validator,
             )
             await projection_consumer.start()
 
+        # 6b. Retention purge job for anchor_history (TASK-006).
+        retention_job: RetentionPurgeJob | None = None
+        if settings.run_retention_purge:
+            retention_job = RetentionPurgeJob(
+                purger=PostgresRetentionPurger(pool),
+                retention_days=settings.history_retention_days,
+                interval_seconds=settings.history_retention_purge_interval_seconds,
+            )
+            await retention_job.start()
+
         # 7. Application services.
         reader = PostgresAnchorDirectoryReader(pool)
+        history_reader = PostgresAnchorHistoryReader(pool)
         uow_factory = PostgresUnitOfWorkFactory(pool)
         mint_handler = MintAnchorHandler(
             uow_factory=uow_factory,
@@ -127,6 +148,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             rvt_validator=rvt_validator,
         )
         get_handler = GetAnchorHandler(reader=reader)
+        get_history_handler = GetAnchorHistoryHandler(reader=history_reader)
 
         app.state.runtime = AppState(
             pg_pool=pool,
@@ -134,6 +156,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             publisher=publisher,
             outbox_relay=outbox_relay,
             projection_consumer=projection_consumer,
+            retention_job=retention_job,
             mint_validator=mint_validator,
             update_validator=update_validator,
             pseudonymise_validator=pseudonymise_validator,
@@ -143,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             update_handler=update_handler,
             pseudonymise_handler=pseudonymise_handler,
             get_handler=get_handler,
+            get_history_handler=get_history_handler,
         )
         log.info("startup.ready")
 
@@ -154,6 +178,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await outbox_relay.stop()
             if projection_consumer is not None:
                 await projection_consumer.stop()
+            if retention_job is not None:
+                await retention_job.stop()
             try:
                 await amqp_conn.close()
             except Exception:  # noqa: BLE001
@@ -163,11 +189,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title="BNK.RLVR.CAP.SUP.002.BEN — Beneficiary Identity Anchor",
-        version="0.1.0",
+        version="0.2.0",
         description=(
             "The canonical anchor for beneficiary identity in Reliever "
             "(TASK-002 MINT + GET / TASK-003 UPDATE / TASK-005 GDPR Art. 17 "
-            "pseudonymisation)."
+            "pseudonymisation / TASK-006 PII-free audit-trail history)."
         ),
         lifespan=lifespan,
     )
