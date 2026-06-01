@@ -9,7 +9,7 @@ priority: medium
 depends_on: []
 loop_count: 1
 max_loops: 10
-pr_url: PENDING
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/30
 ---
 
 # TASK-007 — Migrate stub to the Deployment contract
