@@ -1,0 +1,41 @@
+# BNK.RLVR.CAP.SUP.002.BEN — backend — kustomize BASE.
+#
+# Derived from platform packs (consumed via `tech pack` — NEVER directly
+# reading the banking-tech repo):
+#   - BNK.TECH.CAP.RUNTIME.001.DEPLOY     → Modular-Monolith Packaging (Deployment + Service)
+#   - BNK.TECH.CAP.IDENTITY.001.WORKLOAD  → ServiceAccount + IRSA annotation
+#   - BNK.TECH.CAP.IDENTITY.001.SECRETS   → External Secrets binding (annotation hook)
+#   - BNK.TECH.CAP.DATA.001.BROKER        → RabbitMQ credentials (External Secrets)
+#   - BNK.TECH.CAP.DATA.003.DB            → Per-L2 Postgres DSN (External Secrets)
+# Strategic anchors:
+#   - ADR-TECH-STRAT-002  — EKS / Modular-Monolith Packaging per Zone
+#   - ADR-TECH-STRAT-003  — API URL contract: https://k8s.<base>/{env}/<CAP_ID>/api/
+#   - ADR-TECH-STRAT-004  — Per-L2 RDS Postgres (Rule 2)
+#   - ADR-TECH-TACT-002   — backend tactical stack (python/fastapi/postgresql/…)
+#
+# The base ships environment-agnostic resources. The overlay/dev/ adds the
+# namespace, ingress, ResourceQuota, External-Secrets bindings, and
+# dev-specific patches.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: sup-002-ben-backend
+      app.kubernetes.io/component: api
+      app.kubernetes.io/part-of: reliever-sup
+      reliever.io/capability-id: BNK.RLVR.CAP.SUP.002.BEN
+      reliever.io/zone: SUPPORT
+      reliever.io/kind: api
+
+commonAnnotations:
+  reliever.bcm/capability-id: BNK.RLVR.CAP.SUP.002.BEN
+  reliever.bcm/component-kind: api
+  reliever.bcm/component-port: "26835"
+
+resources:
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml

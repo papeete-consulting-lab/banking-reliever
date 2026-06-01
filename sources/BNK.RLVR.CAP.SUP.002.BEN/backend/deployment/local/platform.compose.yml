@@ -1,0 +1,83 @@
+# Deployment contract — OPTIONAL stand-in platform (CLAUDE.md §
+# "Deployment contract" / "Local environment").
+#
+#   "An optional deployment/local/platform.compose.yml stands up an ext-net
+#    + RabbitMQ + DB stand-in for devs without the real platform and for
+#    the test agents. It is explicitly NOT the platform — the component's
+#    own compose never owns infra."
+#
+# This stand-in provides BOTH the broker AND the per-L2 Postgres because
+# the Beneficiary Identity Anchor backend is a Mode-A microservice with
+# persistence. The default credentials and the `beneficiary_anchor` DB
+# name match the values baked into `.env` so the backend container talks
+# to the platform service names with zero further configuration.
+#
+# Run BEFORE `docker-compose.yml`:
+#
+#   docker compose -f deployment/local/platform.compose.yml up -d
+#   docker compose -f deployment/local/docker-compose.yml      up -d --build
+#
+# Tear down (incl. data volumes):
+#
+#   docker compose -f deployment/local/docker-compose.yml      down
+#   docker compose -f deployment/local/platform.compose.yml down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: reliever-platform-postgres
+    hostname: postgres
+    environment:
+      POSTGRES_USER: reliever
+      POSTGRES_PASSWORD: reliever
+      POSTGRES_DB: beneficiary_anchor
+    ports:
+      # Host bindings ONLY for developer convenience (psql client,
+      # ad-hoc tooling). Container-to-container traffic uses the
+      # service name `postgres` on the reliever-platform network.
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - reliever-platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reliever -d beneficiary_anchor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: reliever-platform-rabbitmq
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      # Host bindings ONLY for developer convenience (browser → Management
+      # UI at http://localhost:15672 admin/password; ad-hoc CLI clients).
+      # Container-to-container traffic uses the service name `rabbitmq`.
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - reliever-platform
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  reliever-platform:
+    name: reliever-platform
+    driver: bridge

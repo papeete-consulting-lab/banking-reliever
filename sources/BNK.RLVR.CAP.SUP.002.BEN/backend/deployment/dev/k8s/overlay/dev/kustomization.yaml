@@ -1,0 +1,48 @@
+# BNK.RLVR.CAP.SUP.002.BEN — backend — kustomize OVERLAY (dev).
+#
+# Adds the dev namespace, the Ingress per ADR-TECH-STRAT-003 URL contract,
+# PodSecurity + ResourceQuota per BNK.TECH.CAP.RUNTIME.001.DEPLOY, and the
+# External-Secrets bindings per BNK.TECH.CAP.IDENTITY.001.SECRETS.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: reliever-sup-dev
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - ingress.yaml
+  - resourcequota.yaml
+  - externalsecret.yaml
+
+commonAnnotations:
+  reliever.io/environment: dev
+  reliever.io/branch: task-007-migrate-backend-to-deployment-contract
+
+# Image tag is set by CI via `kustomize edit set image`. The newName
+# placeholder remains symbolic until the platform's ECR registry surfaces
+# through `tech pack BNK.TECH.CAP.DELIVERY.001.REGISTRY`.
+images:
+  - name: reliever/sup-002-ben-backend
+    newName: reliever/sup-002-ben-backend
+    newTag: dev-latest
+
+# Strategic patches: serviceaccount.yaml is a STRATEGIC MERGE PATCH of the
+# base ServiceAccount (adds the IRSA role-arn annotation) — NOT a fresh
+# resource, hence it lives in `patches:` and not `resources:`.
+patches:
+  - path: serviceaccount.yaml
+    target:
+      kind: ServiceAccount
+      name: sup-002-ben-backend
+  - target:
+      kind: Deployment
+      name: sup-002-ben-backend
+    patch: |-
+      - op: add
+        path: /spec/template/metadata/annotations/reliever.io~1otel-environment
+        value: dev
+      - op: replace
+        path: /spec/replicas
+        value: 1

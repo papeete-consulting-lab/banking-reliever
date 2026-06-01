@@ -1,0 +1,23 @@
+# BNK.RLVR.CAP.SUP.002.BEN — backend — dev namespace.
+#
+# One namespace per CAPABILITY ZONE per ADR-TECH-STRAT-002 (modular monolith
+# per TOGAF zone). All L2 components of the SUPPORT zone share this
+# namespace; their Deployments are isolated by labels, RBAC, and per-L2
+# NetworkPolicy (rendered by GitOps from the cluster-side overlay).
+#
+# PodSecurityStandards: enforce restricted at namespace level — derived from
+# `tech pack BNK.TECH.CAP.RUNTIME.001.DEPLOY`. The backend already runs
+# unprivileged, read-only-fs, with caps dropped (see base/deployment.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: reliever-sup-dev
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    reliever.io/zone: SUPPORT
+    reliever.io/environment: dev
+  annotations:
+    reliever.bcm/zone-owner: IT Security / Identity & DPO (joint custody)
