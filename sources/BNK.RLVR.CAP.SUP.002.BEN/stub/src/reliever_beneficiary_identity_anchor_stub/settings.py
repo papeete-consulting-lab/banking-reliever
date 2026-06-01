@@ -66,7 +66,10 @@ class StubSettings(BaseSettings):
 
     # ── bus
     amqp_url: str = Field(
-        default=_toml("bus", "amqp_url", default="amqp://admin:password@localhost:54879/")
+        # Default routes to the platform broker by service name on the shared
+        # `reliever-platform` network (Deployment contract). Override via the
+        # `RELIEVER_AMQP_URL` env var when running outside Docker.
+        default=_toml("bus", "amqp_url", default="amqp://admin:password@rabbitmq:5672/")
     )
     bus_exchange: str = Field(default=_toml("bus", "exchange", default="sup.002.ben-events"))
     bus_resource_event: str = Field(

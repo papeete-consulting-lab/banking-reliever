@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: reliever-sup-dev-stub-quota
+  namespace: reliever-sup-dev
+spec:
+  hard:
+    # Sized per BNK.TECH.CAP.RUNTIME.001.DEPLOY guidance — modest because
+    # the stub is fixture-backed (no DB pool, no projection consumer, no
+    # outbox relay) and is decommissioned once the matching backend tasks
+    # ship. Distinct quota name (`-stub-quota`) so it composes with the
+    # backend's `reliever-sup-dev-quota` without conflict.
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    pods: "5"

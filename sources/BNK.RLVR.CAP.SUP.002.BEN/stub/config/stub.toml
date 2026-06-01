@@ -12,7 +12,11 @@ host = "0.0.0.0"
 port = 54679
 
 [bus]
-amqp_url = "amqp://admin:password@localhost:54879/"
+# Service-name form per the Deployment contract (CLAUDE.md). The platform
+# RabbitMQ is reached on the shared external `reliever-platform` Docker
+# network by service name. Local-dev override (host networking) can still
+# set `RELIEVER_AMQP_URL=amqp://admin:password@localhost:5672/` via env.
+amqp_url = "amqp://admin:password@rabbitmq:5672/"
 exchange = "sup.002.ben-events"
 # RVT family — single resource event family per process/BNK.RLVR.CAP.SUP.002.BEN/bus.yaml
 resource_event = "BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED"

@@ -1,0 +1,17 @@
+# BNK.RLVR.CAP.SUP.002.BEN — stub — Service (BASE).
+#
+# ClusterIP exposing the FastAPI HTTP port. The Ingress (overlay/dev/) maps
+# the URL contract (https://k8s.<base>/{env}/<CAP_ID>/stub/) to this Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sup-002-ben-stub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: sup-002-ben-stub
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

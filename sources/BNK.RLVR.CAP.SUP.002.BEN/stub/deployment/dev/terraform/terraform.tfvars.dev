@@ -1,0 +1,6 @@
+environment   = "dev"
+project_name  = "reliever"
+# The tenant slug is per-client and must be passed at apply time.
+# Example: tenant = "demo-tenant"
+region        = "eu-west-3"
+capability_id = "BNK.RLVR.CAP.SUP.002.BEN"

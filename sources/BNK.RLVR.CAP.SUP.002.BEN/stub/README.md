@@ -14,6 +14,21 @@
 > service for MINT + GET and continue using this stub for the lifecycle
 > verbs they need before the corresponding task ships.
 
+> **🛠 Deployment-contract migrated (TASK-008).** The canonical run path now
+> lives under [`deployment/local/`](./deployment/local/README.md) per the
+> Deployment contract (CLAUDE.md). The host port is the deterministic
+> **`21595`** (`kind=api`, salt=`:1` — see `/deployment/PORTS.md`), the
+> broker is reached by service name (`rabbitmq:5672`) on the shared
+> `reliever-platform` Docker network, and the platform RabbitMQ is brought
+> up via the optional in-folder `platform.compose.yml` stand-in for devs
+> without the real platform. The legacy root-level `stub/Dockerfile` and
+> `stub/docker-compose.yml` (bundled RabbitMQ on host ports `54879/54880`,
+> stub on `54679`) have been removed. The historical port references that
+> remain below in **Run it / Local — query half only** describe the
+> outside-Docker `uvicorn` workflow — to align them with the new Deployment
+> contract, point uvicorn at port `21595` and `RELIEVER_AMQP_URL` at the
+> platform stand-in's host-bound AMQP port (`5672`).
+
 This is a **development stub** — it materialises the consumer-facing surface
 of `BNK.RLVR.CAP.SUP.002.BEN` (the canonical Beneficiary Identity Anchor) so that
 downstream consumer capabilities (SCO, ENR, ENV, DSH, VIE, B2B.FLW, AUD, RET,
