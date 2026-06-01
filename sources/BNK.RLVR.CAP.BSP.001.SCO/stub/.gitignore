@@ -26,3 +26,15 @@ htmlcov/
 # Env files
 .env
 .env.local
+
+# Deployment contract whitelist — keep tracked (matches root /.gitignore).
+# These carry only the deterministic COMPONENT_PORT + platform service-name
+# URLs (no secrets) and are stable per capability.
+!deployment/local/.env
+!deployment/local/.env.example
+
+# Terraform local artefacts
+deployment/dev/terraform/.terraform/
+deployment/dev/terraform/.terraform.lock.hcl
+deployment/dev/terraform/*.tfstate
+deployment/dev/terraform/*.tfstate.backup

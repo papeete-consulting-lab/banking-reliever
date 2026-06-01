@@ -1,0 +1,41 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — dev namespace.
+#
+# One namespace per CAPABILITY ZONE per ADR-TECH-STRAT-002 (modular monolith
+# per TOGAF zone). All L2 stubs/microservices of the BSP zone share this
+# namespace; their Deployments are isolated by labels, RBAC, and per-L2
+# NetworkPolicy (rendered by GitOps from the cluster-side overlay, not here).
+#
+# PodSecurityStandards: enforce baseline+restricted at namespace level —
+# derived from `tech pack BNK.TECH.CAP.RUNTIME.001.DEPLOY`.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bnk-rlvr-bsp-dev
+  labels:
+    capability.bnk/zone: business-service-production
+    capability.bnk/environment: dev
+    # PodSecurityStandards — the standard "restricted" profile is enforced
+    # because the stub already runs unprivileged, read-only-fs, with caps
+    # dropped (see base/deployment.yaml).
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    bnk.bcm/zone-owner: Behavioural Scoring Pizza Team
+---
+# ResourceQuota — derived from tech BNK.TECH.CAP.RUNTIME.001.DEPLOY's
+# "modular-monolith per zone" sizing. Generous defaults so the BSP zone can
+# host multiple L2 components without re-applying the quota.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: bnk-rlvr-bsp-dev-quota
+  namespace: bnk-rlvr-bsp-dev
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 4Gi
+    limits.cpu: "8"
+    limits.memory: 8Gi
+    pods: "20"

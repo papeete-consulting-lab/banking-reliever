@@ -1,0 +1,13 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — dev tfvars.
+project_name = "bnk-rlvr-cap-bsp-001-sco-stub"
+environment  = "dev"
+tenant       = "reliever-dev"
+
+tags = {
+  "bnk.bcm/capability-id"  = "BNK.RLVR.CAP.BSP.001.SCO"
+  "bnk.bcm/component"      = "stub"
+  "bnk.bcm/component-kind" = "api"
+  "bnk.bcm/zone"           = "BUSINESS_SERVICE_PRODUCTION"
+  "bnk.bcm/environment"    = "dev"
+  "bnk.bcm/owner"          = "Behavioural Scoring Pizza Team"
+}

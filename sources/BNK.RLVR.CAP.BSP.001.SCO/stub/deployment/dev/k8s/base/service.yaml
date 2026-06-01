@@ -1,0 +1,28 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — Service (BASE).
+#
+# The stub is a pure RabbitMQ publisher with NO HTTP server. The Service
+# object exists for two reasons:
+#   1) keep the deterministic COMPONENT_PORT (23074) addressable inside the
+#      cluster so future probes / introspection tools can dial it once an
+#      HTTP surface is added (Epic 2 backend swap);
+#   2) honour the Deployment-contract convention that every component
+#      ships a Service alongside its Deployment.
+#
+# No Ingress is rendered for this stub — there is no north-south traffic to
+# expose. The URL contract per ADR-TECH-STRAT-003
+# (https://k8s.<base>/{env}/BNK.RLVR.CAP.BSP.001.SCO/api/) is reintroduced
+# when the real microservice replaces this stub under
+# sources/BNK.RLVR.CAP.BSP.001.SCO/backend/.
+apiVersion: v1
+kind: Service
+metadata:
+  name: bsp-sco-stub
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: bsp-sco-stub
+  ports:
+    - name: api
+      port: 23074
+      targetPort: 23074
+      protocol: TCP

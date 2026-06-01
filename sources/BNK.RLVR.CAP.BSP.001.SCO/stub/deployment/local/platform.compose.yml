@@ -1,0 +1,49 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — local PLATFORM STAND-IN.
+#
+# Per CLAUDE.md § "Deployment contract" / "Local environment":
+#
+#   "An optional deployment/local/platform.compose.yml stands up an ext-net
+#    + RabbitMQ + DB stand-in for devs without the real platform and for the
+#    test agents. It is explicitly NOT the platform — the component's own
+#    compose never owns infra."
+#
+# This stub does NOT need a database (Mode-B contract+stub, no persistence)
+# so only RabbitMQ is provisioned, alongside the shared external network.
+#
+# Bring it up ONCE before bringing up docker-compose.yml:
+#
+#   docker compose -f platform.compose.yml up -d
+#   docker compose -f docker-compose.yml      up -d --build
+#
+# The RabbitMQ service name "rabbitmq" matches the URL in .env; credentials
+# (guest/guest) preserve the stub's legacy defaults so no source change is
+# required to swap from localhost:47656 to the platform service.
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: reliever-platform-rabbitmq
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      # Host bindings ONLY for developer convenience (browser → Mgmt UI,
+      # ad-hoc CLI clients). Container-to-container traffic uses the service
+      # name on the reliever-platform network.
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - reliever-platform
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+networks:
+  reliever-platform:
+    name: reliever-platform
+    driver: bridge

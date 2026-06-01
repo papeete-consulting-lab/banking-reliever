@@ -1,0 +1,43 @@
+# BNK.RLVR.CAP.BSP.001.SCO contract+stub — local component compose.
+#
+# Per CLAUDE.md § "Deployment contract": this file declares ONLY the component
+# service. RabbitMQ + the per-L2 database live on the out-of-scope platform
+# (or the optional platform.compose.yml stand-in). All platform endpoints are
+# reached by SERVICE NAME on the shared external Docker network
+# "reliever-platform" — never via localhost or host-port mapping.
+#
+# Build context is the stub root (`../..`) so the Dockerfile sees pyproject.toml,
+# requirements.txt and src/ at the expected paths.
+
+services:
+  bsp-sco-stub:
+    build:
+      context: ../..              # = sources/BNK.RLVR.CAP.BSP.001.SCO/stub/
+      dockerfile: deployment/local/Dockerfile
+    image: bnk-rlvr-cap-bsp-001-sco-stub:local
+    container_name: bnk-rlvr-cap-bsp-001-sco-stub
+    env_file:
+      - .env
+    # Pure background publisher — no HTTP server, hence no port mapping.
+    # COMPONENT_PORT (23074) is documented in .env for cross-component
+    # uniformity and matches the deterministic ledger in /deployment/PORTS.md.
+    networks:
+      - reliever-platform
+    restart: unless-stopped
+    # Liveness probe — the stub has no HTTP /health (it's a pure RabbitMQ
+    # publisher). We probe the Python runtime + AMQP socket reachability
+    # instead. This honours the Deployment-contract DoD intent ("the
+    # container is alive and reachable") without forcing a code change.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import socket,os,urllib.parse as u; p=u.urlparse(os.environ['RABBITMQ_URL']); s=socket.create_connection((p.hostname,p.port or 5672),timeout=2); s.close()"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  reliever-platform:
+    external: true
+    name: reliever-platform
