@@ -174,6 +174,63 @@ class AnchorDirectoryWriter(ABC):
         """
 
 
+class AnchorHistoryWriter(ABC):
+    """Read-side port — backs the projection consumer for
+    ``PRJ.SUP.002.BEN.ANCHOR_HISTORY`` (TASK-006).
+
+    Append-only. One row per received RVT, keyed by
+    ``(internal_id, revision)``. Idempotent on the composite key — a
+    duplicate RVT delivery (at-least-once semantics) does NOT produce a
+    duplicate row.
+
+    The PII-free invariant is structural: the row shape carries
+    transition metadata only (transition_kind, command_id,
+    right_exercise_id, actor, occurred_at) — no last_name / first_name /
+    date_of_birth / contact_details. The PSEUDONYMISED row, with its
+    ``right_exercise_id``, is the durable GDPR-fulfilment proof.
+    """
+
+    @abstractmethod
+    async def append(self, row: dict[str, Any]) -> bool:
+        """Insert a single anchor-history row. Returns True if the row was
+        applied, False if a row with the same (internal_id, revision)
+        already existed (idempotent drop).
+        """
+
+
+class AnchorHistoryReader(ABC):
+    """Read-side port — backs ``QRY.SUP.002.BEN.GET_ANCHOR_HISTORY``
+    (TASK-006).
+    """
+
+    @abstractmethod
+    async def list(
+        self,
+        *,
+        internal_id: str,
+        since_revision: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return the rows for ``internal_id`` strictly greater than
+        ``since_revision`` (or all rows when ``since_revision`` is None),
+        ordered by ``revision`` ascending. Returns an empty list when no
+        row matches — the presentation layer maps that to 404.
+        """
+
+
+class RetentionPurger(ABC):
+    """Read-side port — backs the 7-year retention purge job for
+    ``anchor_history`` (TASK-006). The cutoff is computed externally
+    (settings + ``now()``) and passed in so the implementation can be
+    swapped for an in-memory store under unit test.
+    """
+
+    @abstractmethod
+    async def purge_older_than(self, cutoff: datetime) -> int:
+        """Delete every ``anchor_history`` row with
+        ``occurred_at < cutoff``. Returns the number of rows deleted.
+        """
+
+
 class SchemaValidator(ABC):
     @abstractmethod
     def validate_payload(self, payload: dict[str, Any]) -> None:

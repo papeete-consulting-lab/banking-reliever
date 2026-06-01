@@ -60,7 +60,14 @@ class Settings(BaseSettings):
     process_schemas_dir: Path = Field(default=_DEFAULT_SCHEMAS_DIR)
     migrations_dir: Path = Field(default=_DEFAULT_MIGRATIONS_DIR)
 
+    # Anchor-history retention (TASK-006) — GDPR + AML 7-year floor.
+    # Default = 2557 days (7 * 365 + 2 leap days), matching the
+    # read-models.yaml retention contract.
+    history_retention_days: int = 2557
+    history_retention_purge_interval_seconds: float = 3600.0  # hourly
+
     # Toggles — useful for tests and remote-development deployments.
     run_outbox_relay: bool = True
     run_projection_consumer: bool = True
+    run_retention_purge: bool = True
     run_migrations_on_startup: bool = True

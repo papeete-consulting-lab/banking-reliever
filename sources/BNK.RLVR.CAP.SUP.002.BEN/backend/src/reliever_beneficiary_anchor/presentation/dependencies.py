@@ -13,12 +13,14 @@ if TYPE_CHECKING:
 
     from ..application.handlers import (
         GetAnchorHandler,
+        GetAnchorHistoryHandler,
         MintAnchorHandler,
         PseudonymiseAnchorHandler,
         UpdateAnchorHandler,
     )
     from ..application.ports import SchemaValidator
     from ..infrastructure.persistence.unit_of_work import PostgresUnitOfWorkFactory
+    from ..infrastructure.persistence.retention import RetentionPurgeJob
     from ..infrastructure.messaging.publisher import AioPikaPublisher
     from ..infrastructure.messaging.outbox_relay import OutboxRelay
     from ..infrastructure.messaging.projection_consumer import ProjectionConsumer
@@ -31,6 +33,7 @@ class AppState:
     publisher: "AioPikaPublisher"
     outbox_relay: "OutboxRelay | None"
     projection_consumer: "ProjectionConsumer | None"
+    retention_job: "RetentionPurgeJob | None"
     mint_validator: "SchemaValidator"
     update_validator: "SchemaValidator"
     pseudonymise_validator: "SchemaValidator"
@@ -40,6 +43,7 @@ class AppState:
     update_handler: "UpdateAnchorHandler"
     pseudonymise_handler: "PseudonymiseAnchorHandler"
     get_handler: "GetAnchorHandler"
+    get_history_handler: "GetAnchorHistoryHandler"
 
 
 def get_state(request: Request) -> AppState:

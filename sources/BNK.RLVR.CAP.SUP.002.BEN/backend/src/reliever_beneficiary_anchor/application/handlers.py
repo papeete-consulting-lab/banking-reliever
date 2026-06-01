@@ -39,6 +39,7 @@ from .dto import (
 )
 from .ports import (
     AnchorDirectoryReader,
+    AnchorHistoryReader,
     SchemaValidator,
     UnitOfWorkFactory,
 )
@@ -599,6 +600,114 @@ class GetAnchorHandler:
         return _row_to_dto(row)
 
 
+# ─── QRY.GET_ANCHOR_HISTORY (TASK-006) ─────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class AnchorHistoryRow:
+    """One transition entry in the audit-trail response.
+
+    Mirrors the seven fields declared in
+    ``read-models.yaml.PRJ.ANCHOR_HISTORY.fields``. PII-free by
+    construction — no last_name / first_name / date_of_birth /
+    contact_details.
+    """
+
+    internal_id: str
+    revision: int
+    transition_kind: str
+    command_id: str | None
+    right_exercise_id: str | None
+    actor: dict[str, Any]
+    occurred_at: datetime
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "internal_id": self.internal_id,
+            "revision": self.revision,
+            "transition_kind": self.transition_kind,
+            "command_id": self.command_id,
+            "right_exercise_id": self.right_exercise_id,
+            "actor": self.actor,
+            "occurred_at": self.occurred_at.isoformat()
+            if isinstance(self.occurred_at, datetime)
+            else self.occurred_at,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class AnchorHistoryResult:
+    """Wraps the ordered rows of the projection lookup. The presentation
+    layer derives the ETag from the underlying raw rows so the
+    bytes-on-the-wire are stable across calls.
+    """
+
+    rows: list[AnchorHistoryRow]
+    raw_rows: list[dict[str, Any]]
+
+
+class GetAnchorHistoryHandler:
+    """Use-case handler for ``QRY.GET_ANCHOR_HISTORY`` —
+    ``GET /anchors/{internal_id}/history`` per api.yaml.
+
+    Returns rows ordered by ``revision`` ascending (the order in which
+    they were emitted by the aggregate). The ``since_revision`` filter
+    is strict — rows with ``revision > since_revision`` only.
+    """
+
+    def __init__(self, *, reader: AnchorHistoryReader) -> None:
+        self._reader = reader
+
+    async def handle(
+        self,
+        *,
+        internal_id: str,
+        since_revision: int | None = None,
+    ) -> AnchorHistoryResult:
+        # Defensive UUIDv7 parse — the presentation layer already vets
+        # the format; reject obviously malformed ids here too.
+        try:
+            uuid.UUID(internal_id)
+        except ValueError as exc:
+            raise AnchorNotFound(internal_id) from exc
+
+        rows = await self._reader.list(
+            internal_id=internal_id, since_revision=since_revision
+        )
+        # 404 ONLY when the anchor itself has zero history. A non-empty
+        # history with ``since_revision`` filtering down to zero rows
+        # returns 200 with an empty list (the caller polled past the
+        # tail).
+        if since_revision is None and not rows:
+            raise AnchorNotFound(internal_id)
+        if since_revision is not None:
+            # Confirm the anchor exists at all — we re-query without the
+            # filter only when the filter yielded nothing.
+            if not rows:
+                # One extra round-trip is cheap (audit traffic is tiny)
+                # and keeps the 404 invariant exact.
+                base = await self._reader.list(internal_id=internal_id)
+                if not base:
+                    raise AnchorNotFound(internal_id)
+
+        typed = [
+            AnchorHistoryRow(
+                internal_id=str(r["internal_id"]),
+                revision=int(r["revision"]),
+                transition_kind=str(r["transition_kind"]),
+                command_id=str(r["command_id"]) if r.get("command_id") else None,
+                right_exercise_id=str(r["right_exercise_id"])
+                if r.get("right_exercise_id")
+                else None,
+                actor=r["actor"] if isinstance(r["actor"], dict)
+                else json.loads(r["actor"]),
+                occurred_at=r["occurred_at"],
+            )
+            for r in rows
+        ]
+        return AnchorHistoryResult(rows=typed, raw_rows=rows)
+
+
 def _row_to_dto(row: dict[str, Any]) -> BeneficiaryAnchorDto:
     cd = row.get("contact_details")
     if isinstance(cd, str):
@@ -621,6 +730,9 @@ __all__ = [
     "UpdateAnchorHandler",
     "PseudonymiseAnchorHandler",
     "GetAnchorHandler",
+    "GetAnchorHistoryHandler",
+    "AnchorHistoryRow",
+    "AnchorHistoryResult",
     "MintResult",
     "UpdateResult",
     "PseudonymiseResult",

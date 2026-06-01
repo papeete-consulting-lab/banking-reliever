@@ -126,3 +126,45 @@ class ErrorResponse(BaseModel):
     error_code: str
     message: str
     anchor: BeneficiaryAnchorResponse | None = None  # populated for idempotent replay
+
+
+# ─── QRY.GET_ANCHOR_HISTORY (TASK-006) ─────────────────────────────────
+
+
+class ActorResponse(BaseModel):
+    """Envelope.actor shape per ADR-TECH-STRAT-003. Carried verbatim from
+    the RVT envelope at projection time — NEVER re-captured at read time.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    kind: str
+    subject: str
+    on_behalf_of: str | None = None
+
+
+class AnchorHistoryEntryResponse(BaseModel):
+    """One PII-free transition entry. Mirrors the seven fields declared in
+    ``read-models.yaml.PRJ.ANCHOR_HISTORY.fields``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    internal_id: str
+    revision: int
+    transition_kind: str
+    command_id: str | None = None
+    right_exercise_id: str | None = None
+    actor: ActorResponse
+    occurred_at: datetime
+
+
+class AnchorHistoryResponse(BaseModel):
+    """``GET /anchors/{internal_id}/history`` response — the ``AnchorHistory``
+    shape from ``api.yaml.getAnchorHistory``. PII-free by construction.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    internal_id: str
+    entries: list[AnchorHistoryEntryResponse]

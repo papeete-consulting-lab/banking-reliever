@@ -4,12 +4,13 @@ capability_id: BNK.RLVR.CAP.SUP.002.BEN
 bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 6 — Anchor history projection (audit trail)
-status: todo
+status: in_review
 priority: medium
 depends_on: [TASK-002, TASK-003, TASK-004, TASK-005]
 task_type: full-microservice
-loop_count: 0
+loop_count: 1
 max_loops: 10
+pr_url: pending
 ---
 
 # TASK-006 — PII-free anchor history projection and audit-trail query

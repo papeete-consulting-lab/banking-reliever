@@ -27,7 +27,9 @@ from ..application.dto import (
     UpdateFields,
 )
 from ..application.handlers import (
+    AnchorHistoryResult,
     GetAnchorHandler,
+    GetAnchorHistoryHandler,
     MintAnchorHandler,
     MintResult,
     PseudonymiseAnchorHandler,
@@ -48,10 +50,12 @@ from ..domain.errors import (
     RightExerciseIdInvalid,
 )
 from ..domain.value_objects import ContactDetails, PostalAddress
+from ..infrastructure.persistence.history import compute_history_etag
 from ..infrastructure.persistence.projection import compute_etag
 from ..infrastructure.security.jwt import actor_from_bearer
 from .dependencies import AppState, get_state
 from .dto import (
+    AnchorHistoryResponse,
     BeneficiaryAnchorResponse,
     ContactDetailsModel,
     ErrorResponse,
@@ -571,6 +575,86 @@ async def get_anchor(
         status_code=200,
         content=dto.to_dict(),
         headers={"ETag": etag, "Cache-Control": "max-age=60"},
+    )
+
+
+# ─── QRY.GET_ANCHOR_HISTORY (TASK-006) ─────────────────────────────────
+
+
+@router.get(
+    "/anchors/{internal_id}/history",
+    tags=["queries"],
+    summary="Get the transition history of an anchor (audit trail, PII-free)",
+    response_model=None,
+    responses={
+        200: {
+            "model": AnchorHistoryResponse,
+            "description": (
+                "Ordered list of anchor transitions (PII-free). The PSEUDONYMISED "
+                "row, when present, carries the right_exercise_id and is the "
+                "durable GDPR-fulfilment proof for that anchor."
+            ),
+        },
+        304: {"description": "ETag match — body omitted."},
+        404: {"model": ErrorResponse, "description": "ANCHOR_NOT_FOUND — no row matches the path parameter."},
+    },
+)
+async def get_anchor_history(
+    internal_id: str,
+    since_revision: int | None = None,
+    if_none_match: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> Response:
+    # Ill-formed id → 404 ANCHOR_NOT_FOUND, matching the convention used by
+    # GET /anchors/{internal_id}.
+    if not _UUIDV7_RE.match(internal_id):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error_code": "ANCHOR_NOT_FOUND",
+                "message": f"No anchor found for internal_id={internal_id}.",
+            },
+        )
+
+    # Reject negative since_revision early — the projection guarantees
+    # revision >= 1, so negative values are ill-formed.
+    if since_revision is not None and since_revision < 0:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error_code": "INVALID_PAYLOAD",
+                "message": "since_revision must be a non-negative integer.",
+            },
+        )
+
+    try:
+        result: AnchorHistoryResult = await state.get_history_handler.handle(
+            internal_id=internal_id, since_revision=since_revision
+        )
+    except AnchorNotFound as exc:
+        return JSONResponse(
+            status_code=404,
+            content={"error_code": exc.code, "message": exc.message},
+        )
+
+    # ETag is computed over the raw rows so it is stable across calls and
+    # bumps on every new history entry. The contract is
+    # ``Cache-Control: max-age=0`` — re-validation on every request (audit
+    # consumers need read-after-write semantics).
+    etag = compute_history_etag(result.raw_rows)
+    if if_none_match is not None and _etag_matches(if_none_match, etag):
+        return Response(
+            status_code=304,
+            headers={"ETag": etag, "Cache-Control": "max-age=0"},
+        )
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "internal_id": internal_id,
+            "entries": [r.to_dict() for r in result.rows],
+        },
+        headers={"ETag": etag, "Cache-Control": "max-age=0"},
     )
 
 
