@@ -10,7 +10,7 @@ depends_on: [TASK-002, TASK-003, TASK-004, TASK-005]
 task_type: full-microservice
 loop_count: 1
 max_loops: 10
-pr_url: pending
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/37
 ---
 
 # TASK-006 — PII-free anchor history projection and audit-trail query
