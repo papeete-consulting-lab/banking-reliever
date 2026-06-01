@@ -28,10 +28,14 @@ duplicate kind (e.g. both a Mode-A `backend/` and a Mode-B `stub/` claim
 
 ## Ledger
 
-| Capability                        | Kind | Salt | Port  | Added by         | Date       |
-|-----------------------------------|------|------|-------|------------------|------------|
-| BNK.RLVR.CAP.SUP.002.BEN (backend) | api  | —    | 26835 | TASK-007 (PR #35, in_review) | 2026-06-01 |
-| BNK.RLVR.CAP.SUP.002.BEN (stub)    | api  | `:1` | 21595 | TASK-008         | 2026-06-01 |
+| Capability                          | Kind     | Salt | Port  | Added by          | Date       |
+|-------------------------------------|----------|------|-------|-------------------|------------|
+| BNK.RLVR.CAP.SUP.002.BEN (backend)  | api      | —    | 26835 | TASK-007 (PR #35) | 2026-06-01 |
+| BNK.RLVR.CAP.SUP.002.BEN (stub)     | api      | `:1` | 21595 | TASK-008          | 2026-06-01 |
+| BNK.RLVR.CAP.BSP.001.SCO (stub)     | api      | —    | 23074 | TASK-007 (PR #30) | 2026-06-01 |
+| BNK.RLVR.CAP.BSP.001.TIE (stub)     | api      | —    | 20393 | TASK-002 (PR #32) | 2026-06-01 |
+| BNK.RLVR.CAP.CHN.001.DSH            | bff      | —    | 22328 | TASK-007 (PR #31) | 2026-06-01 |
+| BNK.RLVR.CAP.CHN.001.DSH            | frontend | —    | 22695 | TASK-008 (PR #34) | 2026-06-01 |
 
 ## Notes
 

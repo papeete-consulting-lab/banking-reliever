@@ -1,0 +1,6 @@
+# Append-only audit ledger: deterministic component ports.
+# Each branch appends its own row(s); branches never edit each other's rows.
+# Use git's built-in `union` merge driver so concurrent appends from
+# different feature branches auto-combine instead of raising an add/add
+# conflict on every merge. (See CLAUDE.md § "Deployment contract".)
+deployment/PORTS.md merge=union
