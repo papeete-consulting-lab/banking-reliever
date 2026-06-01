@@ -14,31 +14,40 @@ Process contract: read-only at `process/BNK.RLVR.CAP.CHN.001.DSH/`. Tactical anc
 ## Run locally
 
 ```bash
-# 1. Start RabbitMQ (branch-isolated host ports — see "Ports" below).
-docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/docker-compose.yml up -d
+# 1. Start the platform stand-in (network + RabbitMQ) — skip if the real
+#    platform install is already up on this laptop.
+docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/platform.compose.yml up -d
 
-# 2. Run the BFF.
-cd sources/BNK.RLVR.CAP.CHN.001.DSH/bff
-dotnet run --project src/Reliever.BeneficiaryDashboard.Bff
+# 2. Start the BFF (build context is the repo root).
+docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/docker-compose.yml \
+               --env-file sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/.env \
+               up -d --build
 
 # 3. Health probe.
-curl -s http://localhost:6155/health | jq .
+curl -s http://localhost:22328/health | jq .
 # Expected:
-# { "status": "ok", "capability": "BNK.RLVR.CAP.CHN.001.DSH", "branch_slug": "task-002-bff-foundation-subscriptions-aggregate", ... }
+# { "status": "ok", "capability": "BNK.RLVR.CAP.CHN.001.DSH", "branch_slug": "task-007-migrate-bff-to-deployment-contract", ... }
 ```
 
-## Ports (branch-deterministic)
+## Ports (deterministic — Deployment contract)
 
-This BFF is scaffolded inside the worktree of branch `feat/TASK-002-bff-foundation-subscriptions-aggregate`. Ports are derived deterministically from the branch slug so concurrent worktrees never collide:
+Per CLAUDE.md § "Deployment contract", the component port is deterministic per `(capability_id, kind)` and stable across branches and laptops:
 
 ```
-BFF_PORT          = 6080 + sha256(slug)[0..8] % 100   = 6155
-RABBIT_PORT       = BFF_PORT + 100                    = 6255
-RABBIT_MGMT_PORT  = BFF_PORT + 101                    = 6256
-FRONT_DEV_PORT    = BFF_PORT + 200                    = 6355  (reserved for sibling code-web-frontend agent)
+COMPONENT_PORT = 20000 + (int(sha256("BNK.RLVR.CAP.CHN.001.DSH:bff").hexdigest()[:8], 16) % 9000)
+              = 22328  (the BFF)
+
+# Sibling frontend (TASK-008 owner — re-derived locally with kind=frontend):
+FRONTEND_PORT  = 20000 + (int(sha256("BNK.RLVR.CAP.CHN.001.DSH:frontend").hexdigest()[:8], 16) % 9000)
+              = 22695  (allowlisted in the BFF's CORS_ALLOWED_ORIGINS)
 ```
 
-The slug is the part of the branch name after `feat/`, lowercased. The base offset `6080` is chosen above the OS ephemeral-port range floor and below 6500 to avoid the upstream stub allocations (`bsp.001.tie-stub` uses 45381/45382; `bsp.001.sco-stub` uses its own range; `bsp.004.env-stub` uses its own range). All four values are captured in `.env.local` (gitignored) for `test-app` to discover.
+The bus URL is now `amqp://guest:guest@rabbitmq:5672/` — the platform broker
+is resolved by SERVICE NAME on the shared external Docker network
+`reliever-platform`. No bundled RabbitMQ inside the component compose.
+Bus isolation across worktrees is preserved via queue NAMES (which still
+carry the branch slug); only host ports collapse to a single deterministic value.
+Audit ledger: `/deployment/PORTS.md`.
 
 ## Subscription topology
 
@@ -67,10 +76,10 @@ Bearer token handling is *dev-permissive* for TASK-002 (any well-formed JWT is a
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `ASPNETCORE_URLS` | `http://localhost:6155` | Bind address (set by `launchSettings.json`). |
+| `ASPNETCORE_URLS` | `http://+:8080` | Container bind address (host port = `COMPONENT_PORT=22328`). |
 | `ASPNETCORE_ENVIRONMENT` | `Development` | Drives `appsettings.{env}.json`. |
-| `RabbitMQ__Host` | `localhost` | RabbitMQ host. |
-| `RabbitMQ__Port` | `6255` (dev) / `5672` (prod) | AMQP port. |
+| `RabbitMQ__Host` | `rabbitmq` | Platform broker service name on `reliever-platform` Docker network. |
+| `RabbitMQ__Port` | `5672` | Standard AMQP port (no per-branch derivation). |
 | `RabbitMQ__VirtualHost` | `/` | See assumption A6. |
 | `Bff__BranchSlug` | branch tail | Used to suffix queue names AND `environment` OTel tag. |
 | `Telemetry__OtlpEndpoint` | unset in dev → console exporter; `http://localhost:4317` in prod | OTLP exporter. |

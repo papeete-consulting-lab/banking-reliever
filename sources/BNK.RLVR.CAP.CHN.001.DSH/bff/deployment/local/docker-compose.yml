@@ -1,0 +1,73 @@
+# Deployment contract — local environment (CLAUDE.md § "Deployment contract").
+#
+# This compose owns the COMPONENT ONLY. Platform infrastructure (RabbitMQ,
+# per-L2 databases) is a prerequisite, owned by the laptop platform install
+# and resolved by service name on the SHARED external Docker network
+# `reliever-platform`. For a self-contained run without the real platform,
+# bring up `platform.compose.yml` first — it stands up the network and a
+# RabbitMQ stand-in.
+#
+# Component:  BFF for BNK.RLVR.CAP.CHN.001.DSH (Beneficiary Dashboard)
+# Kind:       bff
+# Host port:  ${COMPONENT_PORT} (deterministic, set in `.env`)
+# Image:      reliever/chn-001-dsh-bff:local
+#
+# Usage:
+#   # Optional stand-in platform (network + RabbitMQ) for devs without the real one:
+#   docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/platform.compose.yml up -d
+#
+#   # The BFF itself (build context is the repo root):
+#   docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/docker-compose.yml \
+#                  --env-file sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/.env \
+#                  up -d --build
+#
+#   curl -s http://localhost:${COMPONENT_PORT}/health | jq .
+
+services:
+  bff:
+    image: reliever/chn-001-dsh-bff:local
+    container_name: chn-001-dsh-bff
+    hostname: chn-001-dsh-bff
+    build:
+      context: ../../../../..        # repo root (5 levels up)
+      dockerfile: sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      # Bus URL points to the platform broker by SERVICE NAME (no host port).
+      RabbitMQ__Host: rabbitmq
+      RabbitMQ__Port: "5672"
+      RabbitMQ__VirtualHost: /
+      RabbitMQ__Username: guest
+      RabbitMQ__Password: guest
+      # Capability identity + branch isolation tags carried into telemetry,
+      # queue NAMES, and the /health payload. Branch isolation of bus topology
+      # (queue names) is preserved per the Deployment contract — only host
+      # ports collapse to a single deterministic value per capability+kind.
+      Bff__CapabilityId: BNK.RLVR.CAP.CHN.001.DSH
+      Bff__BranchSlug: ${BRANCH}
+      Telemetry__ServiceName: chn.001.dsh-bff
+      Telemetry__Environment: ${BRANCH}
+      # CORS allowlist for the sibling frontend (deterministic kind=frontend port).
+      Cors__AllowedOrigins: ${CORS_ALLOWED_ORIGINS}
+    ports:
+      - "${COMPONENT_PORT}:8080"
+    networks:
+      - reliever-platform
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    labels:
+      capability_id: BNK.RLVR.CAP.CHN.001.DSH
+      kind: bff
+      zone: CHANNEL
+
+networks:
+  # SHARED external network owned by the platform. Components only join it.
+  reliever-platform:
+    external: true
+    name: reliever-platform

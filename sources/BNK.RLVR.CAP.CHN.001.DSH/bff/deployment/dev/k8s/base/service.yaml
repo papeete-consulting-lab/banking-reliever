@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chn-001-dsh-bff
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: chn-001-dsh-bff
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

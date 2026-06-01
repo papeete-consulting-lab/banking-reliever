@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: reliever-chn-dev
+  labels:
+    # PodSecurityStandards per BNK.TECH.CAP.RUNTIME.001.DEPLOY governance.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    reliever.io/zone: CHANNEL
+    reliever.io/environment: dev

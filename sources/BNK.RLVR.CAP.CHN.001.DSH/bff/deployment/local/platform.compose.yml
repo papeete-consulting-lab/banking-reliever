@@ -1,0 +1,37 @@
+# Deployment contract — OPTIONAL stand-in platform (CLAUDE.md §
+# "Deployment contract").
+#
+# Stands up the shared external Docker network `reliever-platform` and a
+# RabbitMQ-class broker on the well-known ports 5672/15672, FOR DEVS WITHOUT
+# THE REAL PLATFORM INSTALL and for the test agents. This is NOT the platform
+# itself — the BFF's own compose never owns infra.
+#
+# Run BEFORE `docker-compose.yml`:
+#   docker compose -f sources/BNK.RLVR.CAP.CHN.001.DSH/bff/deployment/local/platform.compose.yml up -d
+#
+# The BFF has no database → only RabbitMQ is provided here.
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: reliever-platform-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI (guest/guest)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - reliever-platform
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+networks:
+  reliever-platform:
+    name: reliever-platform
+    driver: bridge

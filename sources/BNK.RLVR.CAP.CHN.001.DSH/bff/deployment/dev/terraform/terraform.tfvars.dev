@@ -1,0 +1,13 @@
+project_name  = "reliever"
+environment   = "dev"
+tenant        = "papeete-pilot"
+capability_id = "BNK.RLVR.CAP.CHN.001.DSH"
+component_kind = "bff"
+
+tags = {
+  "reliever.io/capability-id" = "BNK.RLVR.CAP.CHN.001.DSH"
+  "reliever.io/zone"          = "CHANNEL"
+  "reliever.io/kind"          = "bff"
+  "reliever.io/environment"   = "dev"
+  "reliever.io/managed-by"    = "deployment-contract"
+}
