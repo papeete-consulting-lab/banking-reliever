@@ -4,7 +4,7 @@ obj/
 out/
 publish/
 
-# Local env
+# Local env (legacy; replaced by deployment/local/.env which is committed-by-design)
 .env.local
 
 # IDE / editors
