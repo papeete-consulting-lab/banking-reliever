@@ -1,0 +1,118 @@
+# BNK.RLVR.CAP.SUP.002.BEN — stub — Deployment manifest (BASE).
+#
+# Mode-B contract+stub — FastAPI HTTP query half + aio-pika synthetic
+# publisher of RVT events. No persistence (fixture-backed). One replica is
+# enough for dev; the stub is decommissioned once the matching backend tasks
+# ship. The image tag is patched by the overlay (`overlay/dev/`); base pins
+# `:dev` so a stand-alone `kubectl apply -k base/` still resolves.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sup-002-ben-stub
+  annotations:
+    # Anchors per the Deployment contract — agents NEVER read banking-tech
+    # directly; every choice traces back to a `tech pack` consumption.
+    reliever.io/derived-from: BNK.TECH.CAP.RUNTIME.001.DEPLOY
+    reliever.io/strategic-anchor: ADR-TECH-STRAT-002
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sup-002-ben-stub
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sup-002-ben-stub
+      annotations:
+        # OTel resource hint — environment is patched by the overlay.
+        reliever.io/otel-service-name: sup.002.ben-stub
+    spec:
+      # ServiceAccount issued by BNK.TECH.CAP.IDENTITY.001.WORKLOAD (IRSA);
+      # name + role-arn annotation are environment-specific so they live
+      # in overlay/dev/serviceaccount.yaml.
+      serviceAccountName: sup-002-ben-stub
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: stub
+          # Image tag is replaced by the overlay (per environment / train).
+          image: reliever/sup-002-ben-stub:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: RELIEVER_HTTP_HOST
+              value: "0.0.0.0"
+            - name: RELIEVER_HTTP_PORT
+              value: "8000"
+            # Capability + telemetry identity (carried into queue names + OTel).
+            - name: RELIEVER_CAPABILITY_ID
+              value: BNK.RLVR.CAP.SUP.002.BEN
+            - name: RELIEVER_OTEL_SERVICE_NAME
+              value: sup.002.ben-stub
+            # Stub-specific toggles. Default in dev: publisher + HTTP both on.
+            - name: RELIEVER_STUB_ACTIVE
+              value: "true"
+            - name: RELIEVER_STUB_HTTP_ACTIVE
+              value: "true"
+            - name: RELIEVER_CADENCE_MIN_PER_MINUTE
+              value: "1"
+            - name: RELIEVER_CADENCE_MAX_PER_MINUTE
+              value: "10"
+            # Bus credentials — sourced from External Secrets per
+            # BNK.TECH.CAP.IDENTITY.001.SECRETS (binding emitted by overlay/dev).
+            - name: RELIEVER_AMQP_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sup-002-ben-stub-broker
+                  key: amqp_url
+          # HTTP /health probes — exposed by the FastAPI router. /health
+          # returns 200 once the lifespan has loaded fixtures (independent
+          # of STUB_ACTIVE — see the stub README DoD note).
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
