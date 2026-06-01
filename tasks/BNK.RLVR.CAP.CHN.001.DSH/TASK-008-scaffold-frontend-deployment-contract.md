@@ -4,11 +4,12 @@ capability_id: BNK.RLVR.CAP.CHN.001.DSH
 bcm_ref: 9be9fe9
 capability_name: Beneficiary Dashboard
 epic: Epic — Deployment Contract Migration
-status: todo
+status: in_review
 priority: medium
 depends_on: []
 loop_count: 0
 max_loops: 10
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/34
 ---
 
 # TASK-008 — Scaffold frontend deployment under the Deployment contract

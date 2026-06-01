@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chn-001-dsh-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: chn-001-dsh-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

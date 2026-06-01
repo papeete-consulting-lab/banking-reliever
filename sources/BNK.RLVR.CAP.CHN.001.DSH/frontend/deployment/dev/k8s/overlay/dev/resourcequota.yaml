@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: reliever-chn-dev-frontend-quota
+  namespace: reliever-chn-dev
+spec:
+  hard:
+    # Sized per BNK.TECH.CAP.RUNTIME.001.DEPLOY guidance for a CHANNEL-zone
+    # static-bundle nginx (low CPU, low memory, two replicas).
+    # The sibling BFF quota lives in its own overlay/dev/resourcequota.yaml
+    # (named `reliever-chn-dev-quota`) and applies to a different label set.
+    requests.cpu: "500m"
+    requests.memory: 256Mi
+    limits.cpu: "1"
+    limits.memory: 512Mi
+    pods: "6"
