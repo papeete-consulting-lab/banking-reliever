@@ -1,0 +1,9 @@
+# Terraform provider plugin cache and local state — must NOT be tracked.
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
