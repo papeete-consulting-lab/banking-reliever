@@ -1,0 +1,52 @@
+# BNK.RLVR.CAP.BSP.001.TIE — Tier Management stub — local compose.
+#
+# Per the Deployment contract (CLAUDE.md): this file declares ONLY the
+# component image. RabbitMQ + the per-L2 databases live on the external
+# `reliever-platform` network (real platform installation, or the
+# `platform.compose.yml` stand-in sibling for laptops without it).
+#
+# Bus isolation: queue/exchange names already carry the capability prefix
+# (`bsp.001.pal-events`); concurrent worktrees that point at the same
+# platform broker do not cross-talk.
+#
+# Component port (kind=api) is deterministic from the capability id per
+# CLAUDE.md formula:
+#   PORT = 20000 + (sha256("BNK.RLVR.CAP.BSP.001.TIE:api")[:8] mod 9000)
+#        = 20393
+# Recorded in /deployment/PORTS.md.
+
+services:
+  stub:
+    build:
+      # Build context is the component root so the Dockerfile can copy
+      # nuget.config + src/ via relative paths.
+      context: ../..
+      dockerfile: deployment/local/Dockerfile
+    image: reliever/bsp-001-tie-stub:local
+    container_name: bsp-001-tie-stub
+    env_file:
+      - .env
+    ports:
+      # Host port == container port == deterministic COMPONENT_PORT.
+      - "20393:20393"
+    networks:
+      - reliever-platform
+    restart: unless-stopped
+    healthcheck:
+      # Send a real HTTP/1.0 GET via socat and look for a 200 status line
+      # in the response. Confirms the shim is wired AND the worker is alive.
+      test:
+        - "CMD-SHELL"
+        - "printf 'GET /health HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' | socat -T2 - TCP:127.0.0.1:${COMPONENT_PORT:-20393} | head -1 | grep -q '200'"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+networks:
+  reliever-platform:
+    # Joined as an external network so the stub resolves `rabbitmq` (and
+    # other platform services) by name. Use `platform.compose.yml` to bring
+    # the network + RabbitMQ up if the real platform is not installed.
+    external: true
+    name: reliever-platform

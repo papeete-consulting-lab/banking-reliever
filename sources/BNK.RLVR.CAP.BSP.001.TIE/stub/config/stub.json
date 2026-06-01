@@ -12,8 +12,8 @@
     ],
     "TierProgression": [ "T0", "T1", "T2", "T3" ],
     "RabbitMq": {
-      "HostName": "localhost",
-      "Port": 45381,
+      "HostName": "rabbitmq",
+      "Port": 5672,
       "UserName": "guest",
       "Password": "guest",
       "VirtualHost": "/"

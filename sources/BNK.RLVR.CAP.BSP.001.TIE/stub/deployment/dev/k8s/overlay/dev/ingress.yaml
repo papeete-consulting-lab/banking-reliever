@@ -1,0 +1,32 @@
+# BNK.RLVR.CAP.BSP.001.TIE — dev Ingress.
+#
+# URL contract per ADR-TECH-STRAT-003 (consumed via
+# BNK.TECH.CAP.RUNTIME.002.API_INGRESS):
+#   https://k8s.<base>/dev/BNK.RLVR.CAP.BSP.001.TIE/api/...
+#
+# ALB group annotation — one ALB per zone, fronted by all L2 capabilities
+# in that zone — comes from `alb.ingress.kubernetes.io/group.name`.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bsp-001-tie-stub
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/group.name: reliever-bsp-dev
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+spec:
+  rules:
+    - host: k8s.<DEV-BASE-DOMAIN>
+      http:
+        paths:
+          - path: /dev/BNK.RLVR.CAP.BSP.001.TIE/api/
+            pathType: Prefix
+            backend:
+              service:
+                name: bsp-001-tie-stub
+                port:
+                  name: http

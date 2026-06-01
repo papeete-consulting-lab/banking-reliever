@@ -1,0 +1,45 @@
+# BNK.RLVR.CAP.BSP.001.TIE — dev overlay.
+#
+# Derivation:
+#   - Namespace: per BNK.TECH.CAP.RUNTIME.001.DEPLOY — 1 namespace per
+#     consumer zone. The BUSINESS_SERVICE_PRODUCTION zone is namespaced
+#     `rlvr-bsp` in dev.
+#   - Ingress: per BNK.TECH.CAP.RUNTIME.002.API_INGRESS + ADR-TECH-STRAT-003
+#     URL contract — `https://k8s.<base>/dev/BNK.RLVR.CAP.BSP.001.TIE/api/`.
+#     ALB group annotation lets one ALB front the whole zone.
+#   - IRSA role ARN: synthesised by the dev cluster bootstrap; placeholder
+#     here until the dev account id is wired in via External Secrets / Helm
+#     values (overlay-time patch).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rlvr-bsp
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - ingress.yaml
+
+images:
+  - name: bsp-001-tie-stub
+    newName: <ECR-REGISTRY>/reliever/bsp-001-tie-stub
+    newTag: dev
+
+patches:
+  - target:
+      kind: ServiceAccount
+      name: bsp-001-tie-stub
+    patch: |
+      - op: replace
+        path: /metadata/annotations/eks.amazonaws.com~1role-arn
+        value: arn:aws:iam::<DEV-ACCOUNT-ID>:role/dev-bsp-001-tie-stub
+  - target:
+      kind: Deployment
+      name: bsp-001-tie-stub
+    patch: |
+      - op: add
+        path: /spec/template/metadata/annotations
+        value:
+          # External Secrets Operator injects the RabbitMQ password from
+          # BNK.TECH.CAP.IDENTITY.001.SECRETS — picked up by appsettings via env.
+          reloader.stakater.com/auto: "true"

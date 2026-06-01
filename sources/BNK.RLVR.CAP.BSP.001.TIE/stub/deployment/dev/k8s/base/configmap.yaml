@@ -1,0 +1,17 @@
+# BNK.RLVR.CAP.BSP.001.TIE — non-secret runtime config.
+# Bus credentials come from a Secret synced by External Secrets Operator
+# (BNK.TECH.CAP.IDENTITY.001.SECRETS) — patched in via the env overlay.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bsp-001-tie-stub-config
+data:
+  # Stub stays INACTIVE in any non-local environment — DoD requirement.
+  STUB_Stub__Active: "false"
+  STUB_Stub__EventsPerMinute: "6"
+  # Bus URL in platform service-name form. The broker hostname
+  # (`reliever-platform-rabbitmq.platform.svc.cluster.local`) and vhost
+  # come from BNK.TECH.CAP.DATA.001.BROKER and are resolved cluster-side.
+  STUB_Stub__RabbitMq__HostName: "reliever-platform-rabbitmq.platform.svc.cluster.local"
+  STUB_Stub__RabbitMq__Port: "5672"
+  STUB_Stub__RabbitMq__VirtualHost: "/"

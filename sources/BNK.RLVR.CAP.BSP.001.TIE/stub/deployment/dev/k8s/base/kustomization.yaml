@@ -1,0 +1,24 @@
+# BNK.RLVR.CAP.BSP.001.TIE — Tier Management stub — k8s base.
+#
+# Per CLAUDE.md Deployment contract:
+#   base/    — Deployment + Service + ServiceAccount + ConfigMap, all
+#              capability-scoped, env-agnostic.
+#   overlay/dev/ — namespace + Ingress + patches per BNK.TECH.CAP.RUNTIME.001.DEPLOY
+#                  (modular monolith packaging) and BNK.TECH.CAP.RUNTIME.002.API_INGRESS
+#                  (ALB group + URL contract from ADR-TECH-STRAT-003).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app.kubernetes.io/name: bsp-001-tie-stub
+  app.kubernetes.io/component: api
+  app.kubernetes.io/part-of: bnk-rlvr-cap-bsp-001-tie
+  reliever.capability-id: bnk-rlvr-cap-bsp-001-tie
+  reliever.zone: BUSINESS_SERVICE_PRODUCTION
+  reliever.mode: contract-stub
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - serviceaccount.yaml
+  - configmap.yaml

@@ -1,0 +1,82 @@
+# BNK.RLVR.CAP.BSP.001.TIE — stub Deployment.
+#
+# Derived from BNK.TECH.CAP.RUNTIME.001.DEPLOY (Modular-Monolith Packaging,
+# ADR-PCM-FUNC-0002): one deployable per consumer zone, L2 as module
+# boundary. /health is the canonical liveness/readiness contract.
+#
+# Image tag is patched per environment by `overlay/{env}/`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bsp-001-tie-stub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bsp-001-tie-stub
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bsp-001-tie-stub
+    spec:
+      serviceAccountName: bsp-001-tie-stub
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: stub
+          # Tag is overlaid per env (dev overlay sets `:dev` from ECR).
+          image: bsp-001-tie-stub:placeholder
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 20393
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: bsp-001-tie-stub-config
+          # Bus URL — platform service-name form. RabbitMQ is a platform
+          # capability (BNK.TECH.CAP.DATA.001.BROKER); the broker hostname is
+          # resolved on the cluster DNS.
+          env:
+            - name: COMPONENT_PORT
+              value: "20393"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

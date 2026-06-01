@@ -1,0 +1,11 @@
+# Per BNK.TECH.CAP.RUNTIME.001.DEPLOY: 1 namespace per consumer zone.
+# Restricted PodSecurityStandards baseline (per the zone's deploy contract).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rlvr-bsp
+  labels:
+    reliever.zone: BUSINESS_SERVICE_PRODUCTION
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
