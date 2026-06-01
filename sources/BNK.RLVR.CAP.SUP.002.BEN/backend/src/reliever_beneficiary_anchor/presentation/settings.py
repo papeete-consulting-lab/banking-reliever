@@ -38,14 +38,14 @@ class Settings(BaseSettings):
 
     # PostgreSQL
     pg_dsn: str = Field(
-        default="postgresql://reliever:reliever@localhost:9043/beneficiary_anchor",
+        default="postgresql://reliever:reliever@postgres:5432/beneficiary_anchor",
         description="Postgres DSN — psycopg-compatible.",
     )
     pg_min_pool: int = 1
     pg_max_pool: int = 10
 
     # RabbitMQ
-    amqp_url: str = "amqp://admin:password@localhost:9054/"
+    amqp_url: str = "amqp://admin:password@rabbitmq:5672/"
     exchange_name: str = "sup.002.ben-events"
 
     # Projection consumer

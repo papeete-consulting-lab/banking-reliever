@@ -83,36 +83,51 @@ JWT `Authorization: Bearer …` header.
 - `uv` (recommended) or `pip`
 - Docker (for PostgreSQL + RabbitMQ)
 
-### Local — docker-compose (full stack)
+### Local — Deployment contract (component-only compose + platform stand-in)
+
+Per CLAUDE.md § "Deployment contract", the backend ships under
+`deployment/local/` with a component-only compose that joins the shared
+external Docker network `reliever-platform` (RabbitMQ + Postgres are
+platform-owned). A `platform.compose.yml` stand-in is provided for devs
+without the real platform install.
 
 ```bash
 cd sources/BNK.RLVR.CAP.SUP.002.BEN/backend
-docker compose up -d --build
+
+# 1) Stand up the platform stand-in (RabbitMQ + Postgres + ext-net).
+docker compose -f deployment/local/platform.compose.yml up -d
+
+# 2) Stand up the backend (component-only, joins reliever-platform).
+docker compose --env-file deployment/local/.env \
+               -f deployment/local/docker-compose.yml up -d --build
 ```
 
 | Service | Host URL |
 |---|---|
-| HTTP API | http://localhost:9080 |
-| Swagger UI | http://localhost:9080/docs |
-| OpenAPI JSON | http://localhost:9080/openapi.json |
-| PostgreSQL | postgresql://reliever:reliever@localhost:9043/beneficiary_anchor |
-| RabbitMQ AMQP | amqp://admin:password@localhost:9054/ |
-| RabbitMQ Mgmt | http://localhost:9055 (admin / password) |
+| HTTP API | http://localhost:26835 *(deterministic — see `/deployment/PORTS.md`)* |
+| Swagger UI | http://localhost:26835/docs |
+| OpenAPI JSON | http://localhost:26835/openapi.json |
+| PostgreSQL *(stand-in)* | postgresql://reliever:reliever@localhost:5432/beneficiary_anchor |
+| RabbitMQ AMQP *(stand-in)* | amqp://admin:password@localhost:5672/ |
+| RabbitMQ Mgmt *(stand-in)* | http://localhost:15672 (admin / password) |
 
-### Local — dev loop (uvicorn + compose for infra only)
+The container-internal port stays `8000`; only the host binding is the
+deterministic `26835`. See `deployment/local/README.md` for full details.
+
+### Local — dev loop (uvicorn + platform stand-in for infra only)
 
 ```bash
 cd sources/BNK.RLVR.CAP.SUP.002.BEN/backend
-docker compose up -d postgres rabbitmq
+docker compose -f deployment/local/platform.compose.yml up -d
 uv sync --extra dev
-uv run uvicorn reliever_beneficiary_anchor.presentation.app:app --reload --port 9080
+uv run uvicorn reliever_beneficiary_anchor.presentation.app:app --reload --port 8000
 ```
 
 ### Smoke test
 
 ```bash
 # Mint an anchor.
-curl -i -X POST http://localhost:9080/anchors \
+curl -i -X POST http://localhost:26835/anchors \
   -H 'Content-Type: application/json' \
   -d '{
     "client_request_id": "018f8e10-aaaa-7000-8000-000000000001",
@@ -123,12 +138,12 @@ curl -i -X POST http://localhost:9080/anchors \
   }'
 
 # Capture the internal_id and GET — wait ~1s for the projection to catch up.
-INTERNAL_ID=$(curl -s http://localhost:9080/anchors \
+INTERNAL_ID=$(curl -s http://localhost:26835/anchors \
   -H 'Content-Type: application/json' \
   -d '{"client_request_id":"018f8e10-bbbb-7000-8000-000000000001",
        "last_name":"Doe","first_name":"Jane","date_of_birth":"1990-01-15"}' | jq -r .internal_id)
 sleep 1
-curl -i http://localhost:9080/anchors/$INTERNAL_ID
+curl -i http://localhost:26835/anchors/$INTERNAL_ID
 ```
 
 ---
@@ -140,10 +155,10 @@ Env-var prefix: `RELIEVER_`.
 | Env var | Default | Effect |
 |---|---|---|
 | `RELIEVER_HTTP_HOST` | `0.0.0.0` | Bind host. |
-| `RELIEVER_HTTP_PORT` | `8000` (container) / `9080` (host) | Uvicorn port. |
-| `RELIEVER_PG_DSN` | `postgresql://reliever:reliever@localhost:9043/beneficiary_anchor` | Postgres DSN (psycopg-compatible). |
+| `RELIEVER_HTTP_PORT` | `8000` (container) / `26835` (host — deterministic per Deployment contract) | Uvicorn port. |
+| `RELIEVER_PG_DSN` | `postgresql://reliever:reliever@postgres:5432/beneficiary_anchor` | Postgres DSN (psycopg-compatible). Service name `postgres` resolves on the `reliever-platform` external network. |
 | `RELIEVER_PG_MIN_POOL` / `RELIEVER_PG_MAX_POOL` | `1` / `10` | Connection-pool bounds. |
-| `RELIEVER_AMQP_URL` | `amqp://admin:password@localhost:9054/` | RabbitMQ URL. |
+| `RELIEVER_AMQP_URL` | `amqp://admin:password@rabbitmq:5672/` | RabbitMQ URL. Service name `rabbitmq` resolves on the `reliever-platform` external network. |
 | `RELIEVER_EXCHANGE_NAME` | `sup.002.ben-events` | Topic exchange owned by this capability. |
 | `RELIEVER_PROJECTION_QUEUE` | `sup.002.ben.anchor-directory` | Queue feeding `PRJ.ANCHOR_DIRECTORY`. |
 | `RELIEVER_ROUTING_KEY` | `BNK.RLVR.EVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED` | Binding key. |
@@ -165,8 +180,8 @@ uv sync --extra dev
 # Unit tests — broker-free, no docker required.
 uv run pytest tests/unit -q
 
-# Integration tests — require docker compose up (postgres + rabbitmq).
-docker compose up -d postgres rabbitmq
+# Integration tests — require platform stand-in up (postgres + rabbitmq).
+docker compose -f deployment/local/platform.compose.yml up -d
 uv run pytest tests/integration -q
 ```
 
@@ -180,7 +195,7 @@ gracefully** (see `tests/integration/conftest.py`).
 | Item | Status |
 |---|---|
 | Layered package layout | ✅ — see *Architecture* above |
-| `docker compose up` starts service + Postgres + Rabbit | ✅ — `docker-compose.yml` |
+| `docker compose up` starts service + Postgres + Rabbit | ✅ — `deployment/local/docker-compose.yml` (component) + `deployment/local/platform.compose.yml` (stand-in) per the Deployment contract |
 | Migrations create `anchor`, `anchor_directory`, `outbox`, `idempotency_keys` | ✅ — `migrations/001_init.sql` |
 | POST /anchors validates body against canonical schema; rejects caller-supplied `internal_id`; mints UUIDv7; persists row; returns 201 | ✅ — `presentation/routers.py`, `application/handlers.py`, `domain/aggregate.py` |
 | Idempotent re-post → 200 with `REQUEST_ALREADY_PROCESSED` | ✅ — `application/handlers.py::MintAnchorHandler.handle` + `idempotency_keys` table |
@@ -193,7 +208,7 @@ gracefully** (see `tests/integration/conftest.py`).
 | Eventual-consistency contract: integration test exercises post-catchup window | ✅ — `tests/integration/test_mint_get.py::test_get_anchor_after_projection_catches_up_returns_200` |
 | No write to `process/BNK.RLVR.CAP.SUP.002.BEN/` | ✅ — every read is via `RELIEVER_PROCESS_SCHEMAS_DIR` (RO mount in compose) |
 | TASK-001 stub README updated | ✅ — see `sources/BNK.RLVR.CAP.SUP.002.BEN/stub/README.md` (decommissioning note added) |
-| `pytest` unit + integration pass | ⏳ — `pytest tests/unit` runs offline; `pytest tests/integration` requires docker compose |
+| `pytest` unit + integration pass | ⏳ — `pytest tests/unit` runs offline; `pytest tests/integration` requires the platform stand-in (`deployment/local/platform.compose.yml`) |
 
 ---
 

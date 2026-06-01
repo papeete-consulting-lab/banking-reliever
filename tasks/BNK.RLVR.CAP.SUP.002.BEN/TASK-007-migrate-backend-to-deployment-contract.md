@@ -4,11 +4,12 @@ capability_id: BNK.RLVR.CAP.SUP.002.BEN
 bcm_ref: 9be9fe9
 capability_name: Beneficiary Identity Anchor
 epic: Epic — Deployment Contract Migration
-status: todo
+status: in_review
 priority: medium
 depends_on: []
-loop_count: 0
+loop_count: 1
 max_loops: 10
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/35
 ---
 
 # TASK-007 — Migrate backend to the Deployment contract

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: reliever-sup-dev-quota
+  namespace: reliever-sup-dev
+spec:
+  hard:
+    # Sized per BNK.TECH.CAP.RUNTIME.001.DEPLOY guidance for a SUPPORT-zone
+    # modular monolith (one Deployment per L2 component, low density in dev).
+    # SUPPORT zone hosts the identity/governance L2s (SUP.002.BEN among
+    # others); the quota is generous enough to host the GDPR back-office
+    # tooling alongside.
+    requests.cpu: "4"
+    requests.memory: 4Gi
+    limits.cpu: "8"
+    limits.memory: 8Gi
+    pods: "20"

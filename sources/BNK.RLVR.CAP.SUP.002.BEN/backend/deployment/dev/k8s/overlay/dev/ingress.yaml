@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sup-002-ben-backend
+  annotations:
+    # ALB controller, derived per BNK.TECH.CAP.RUNTIME.002.API_INGRESS.
+    # `group.name` lets multiple capabilities share one ALB per environment,
+    # per ADR-TECH-STRAT-003 (URL contract: https://k8s.<base>/{env}/<CAP>/api/).
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/group.name: reliever-dev
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    reliever.io/derived-from: BNK.TECH.CAP.RUNTIME.002.API_INGRESS
+    reliever.io/strategic-anchor: ADR-TECH-STRAT-003
+spec:
+  rules:
+    # URL contract from ADR-TECH-STRAT-003:
+    #   https://k8s.<base>/{env}/<CAP_ID>/api/...
+    # Host is patched per institutional client by the train-release process.
+    - http:
+        paths:
+          - path: /dev/BNK.RLVR.CAP.SUP.002.BEN/api
+            pathType: Prefix
+            backend:
+              service:
+                name: sup-002-ben-backend
+                port:
+                  name: http

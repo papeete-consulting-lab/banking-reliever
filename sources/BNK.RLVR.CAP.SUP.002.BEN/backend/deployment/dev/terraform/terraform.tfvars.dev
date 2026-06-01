@@ -1,0 +1,14 @@
+# BNK.RLVR.CAP.SUP.002.BEN — backend — dev tfvars.
+project_name  = "bnk-rlvr-cap-sup-002-ben-backend"
+environment   = "dev"
+tenant        = "reliever-dev"
+capability_id = "BNK.RLVR.CAP.SUP.002.BEN"
+
+tags = {
+  "reliever.bcm/capability-id"  = "BNK.RLVR.CAP.SUP.002.BEN"
+  "reliever.bcm/component"      = "backend"
+  "reliever.bcm/component-kind" = "api"
+  "reliever.bcm/zone"           = "SUPPORT"
+  "reliever.bcm/environment"    = "dev"
+  "reliever.bcm/owner"          = "IT Security / Identity & DPO"
+}
