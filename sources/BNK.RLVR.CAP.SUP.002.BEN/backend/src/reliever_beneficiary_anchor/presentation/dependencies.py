@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..application.handlers import (
         GetAnchorHandler,
         MintAnchorHandler,
+        PseudonymiseAnchorHandler,
         UpdateAnchorHandler,
     )
     from ..application.ports import SchemaValidator
@@ -32,10 +33,12 @@ class AppState:
     projection_consumer: "ProjectionConsumer | None"
     mint_validator: "SchemaValidator"
     update_validator: "SchemaValidator"
+    pseudonymise_validator: "SchemaValidator"
     rvt_validator: "SchemaValidator"
     uow_factory: "PostgresUnitOfWorkFactory"
     mint_handler: "MintAnchorHandler"
     update_handler: "UpdateAnchorHandler"
+    pseudonymise_handler: "PseudonymiseAnchorHandler"
     get_handler: "GetAnchorHandler"
 
 

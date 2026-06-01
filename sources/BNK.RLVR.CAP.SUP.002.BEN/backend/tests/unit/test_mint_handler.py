@@ -110,11 +110,30 @@ class _InMemoryIdempotencyRepo(IdempotencyRepository):
         )
 
 
+class _InMemoryCryptoKeyRepo:
+    """In-memory DEK ledger. ``provision`` inserts, ``shred`` deletes,
+    ``exists`` audits.
+    """
+
+    def __init__(self) -> None:
+        self.keys: set[str] = set()
+
+    async def provision(self, *, crypto_key_id: str) -> None:
+        self.keys.add(crypto_key_id)
+
+    async def shred(self, *, crypto_key_id: str) -> None:
+        self.keys.discard(crypto_key_id)
+
+    async def exists(self, *, crypto_key_id: str) -> bool:
+        return crypto_key_id in self.keys
+
+
 class _InMemoryUoW(UnitOfWork):
-    def __init__(self, anchors, outbox, idem):
+    def __init__(self, anchors, outbox, idem, crypto_keys):
         self.anchors = anchors
         self.outbox = outbox
         self.idempotency = idem
+        self.crypto_keys = crypto_keys
         self.committed = False
         self.rolled_back = False
 
@@ -136,10 +155,11 @@ class _InMemoryUoWFactory(UnitOfWorkFactory):
         self.anchors = _InMemoryAnchorRepo()
         self.outbox = _InMemoryOutboxRepo()
         self.idem = _InMemoryIdempotencyRepo()
+        self.crypto_keys = _InMemoryCryptoKeyRepo()
         self.uows: list[_InMemoryUoW] = []
 
     def __call__(self) -> _InMemoryUoW:
-        u = _InMemoryUoW(self.anchors, self.outbox, self.idem)
+        u = _InMemoryUoW(self.anchors, self.outbox, self.idem, self.crypto_keys)
         self.uows.append(u)
         return u
 

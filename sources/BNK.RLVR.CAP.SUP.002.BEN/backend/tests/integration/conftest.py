@@ -87,7 +87,8 @@ async def reset_db(pg_dsn):
             for path in sorted(migrations_dir.glob("*.sql")):
                 await cur.execute(path.read_text())  # type: ignore[arg-type]
             await cur.execute(
-                "TRUNCATE anchor, anchor_directory, outbox, idempotency_keys RESTART IDENTITY"
+                "TRUNCATE anchor, anchor_directory, outbox, idempotency_keys, "
+                "anchor_crypto_keys RESTART IDENTITY CASCADE"
             )
         await conn.commit()
     yield

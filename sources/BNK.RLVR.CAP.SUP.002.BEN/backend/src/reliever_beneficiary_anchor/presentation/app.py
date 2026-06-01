@@ -16,6 +16,7 @@ from ..application.handlers import (
     EXCHANGE_NAME,
     GetAnchorHandler,
     MintAnchorHandler,
+    PseudonymiseAnchorHandler,
     ROUTING_KEY,
     UpdateAnchorHandler,
 )
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         validators = build_validators_bundle(settings.process_schemas_dir)
         mint_validator = validators.mint
         update_validator = validators.update
+        pseudonymise_validator = validators.pseudonymise
         rvt_validator = validators.rvt
         log.info("schemas.loaded", dir=str(settings.process_schemas_dir))
 
@@ -120,6 +122,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             uow_factory=uow_factory,
             rvt_validator=rvt_validator,
         )
+        pseudonymise_handler = PseudonymiseAnchorHandler(
+            uow_factory=uow_factory,
+            rvt_validator=rvt_validator,
+        )
         get_handler = GetAnchorHandler(reader=reader)
 
         app.state.runtime = AppState(
@@ -130,10 +136,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             projection_consumer=projection_consumer,
             mint_validator=mint_validator,
             update_validator=update_validator,
+            pseudonymise_validator=pseudonymise_validator,
             rvt_validator=rvt_validator,
             uow_factory=uow_factory,
             mint_handler=mint_handler,
             update_handler=update_handler,
+            pseudonymise_handler=pseudonymise_handler,
             get_handler=get_handler,
         )
         log.info("startup.ready")
@@ -156,7 +164,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="BNK.RLVR.CAP.SUP.002.BEN — Beneficiary Identity Anchor",
         version="0.1.0",
-        description="The canonical anchor for beneficiary identity in Reliever (TASK-002 MINT + GET / TASK-003 UPDATE).",
+        description=(
+            "The canonical anchor for beneficiary identity in Reliever "
+            "(TASK-002 MINT + GET / TASK-003 UPDATE / TASK-005 GDPR Art. 17 "
+            "pseudonymisation)."
+        ),
         lifespan=lifespan,
     )
     app.include_router(anchors_router)

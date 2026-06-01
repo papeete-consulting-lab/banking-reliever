@@ -19,6 +19,7 @@ _UUIDV7_RE = re.compile(
 ActorKind = Literal["human", "service", "system"]
 AnchorStatus = Literal["ACTIVE", "ARCHIVED", "PSEUDONYMISED"]
 TransitionKind = Literal["MINTED", "UPDATED", "ARCHIVED", "RESTORED", "PSEUDONYMISED"]
+PseudonymiseReason = Literal["GDPR_ART17_REQUEST", "REGULATORY_ORDER", "DPO_INITIATED"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +48,26 @@ class ClientRequestId:
         if not _UUIDV7_RE.match(self.value):
             raise ValueError(
                 f"client_request_id is not a RFC-9562 UUIDv7: {self.value!r}"
+            )
+
+    def __str__(self) -> str:
+        return self.value
+
+
+@dataclass(frozen=True, slots=True)
+class RightExerciseId:
+    """Caller-supplied UUIDv7 of the upstream right-to-be-forgotten request
+    from BNK.RLVR.CAP.SUP.001.RET. Carried verbatim in the RVT payload so
+    consumers can correlate the pseudonymisation back to the data-subject
+    exercise that triggered it (per ADR-TECH-STRAT-004).
+    """
+
+    value: str
+
+    def __post_init__(self) -> None:
+        if not _UUIDV7_RE.match(self.value):
+            raise ValueError(
+                f"right_exercise_id is not a RFC-9562 UUIDv7: {self.value!r}"
             )
 
     def __str__(self) -> str:

@@ -118,3 +118,44 @@ class InternalIdImmutable(DomainError):
                 "(INV.BEN.002)."
             ),
         )
+
+
+class AnchorAlreadyPseudonymised(DomainError):
+    """INV.BEN.006 — PSEUDONYMISE rejected when anchor is already in the
+    terminal PSEUDONYMISED state. The operation is irreversible and cannot
+    be re-applied.
+
+    Per commands.yaml::CMD.PSEUDONYMISE_ANCHOR.errors.ANCHOR_ALREADY_PSEUDONYMISED —
+    distinct from ``AnchorPseudonymised`` (which fires on UPDATE / ARCHIVE
+    / RESTORE against a pseudonymised anchor). This one fires when a caller
+    explicitly issues a second PSEUDONYMISE against an already-shredded
+    anchor.
+    """
+
+    def __init__(self, internal_id: str) -> None:
+        super().__init__(
+            code="ANCHOR_ALREADY_PSEUDONYMISED",
+            message=(
+                f"Anchor {internal_id} is already PSEUDONYMISED; the "
+                "operation is irreversible and cannot be re-applied."
+            ),
+        )
+
+
+class RightExerciseIdInvalid(DomainError):
+    """PRE.004 of CMD.PSEUDONYMISE_ANCHOR — right_exercise_id is missing or
+    not a UUIDv7.
+
+    This is a defence-in-depth guard at the aggregate boundary; the JSON
+    Schema rejects the payload first, but the aggregate refuses to apply
+    a pseudonymisation without a sound right-to-be-forgotten reference.
+    """
+
+    def __init__(self, value: str | None) -> None:
+        super().__init__(
+            code="RIGHT_EXERCISE_ID_INVALID",
+            message=(
+                f"right_exercise_id is missing or not a valid UUIDv7: "
+                f"{value!r}."
+            ),
+        )

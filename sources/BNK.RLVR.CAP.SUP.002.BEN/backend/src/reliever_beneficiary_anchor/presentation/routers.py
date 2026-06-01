@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 from ..application.dto import (
     ContactDetailsUpdate,
     MintAnchorCommandDto,
+    PseudonymiseAnchorCommandDto,
     UNSET,
     UpdateAnchorCommandDto,
     UpdateFields,
@@ -29,10 +30,13 @@ from ..application.handlers import (
     GetAnchorHandler,
     MintAnchorHandler,
     MintResult,
+    PseudonymiseAnchorHandler,
+    PseudonymiseResult,
     UpdateAnchorHandler,
     UpdateResult,
 )
 from ..domain.errors import (
+    AnchorAlreadyPseudonymised,
     AnchorArchived,
     AnchorNotFound,
     AnchorPseudonymised,
@@ -41,6 +45,7 @@ from ..domain.errors import (
     IdentityFieldsMissing,
     InternalIdImmutable,
     NoFieldsToUpdate,
+    RightExerciseIdInvalid,
 )
 from ..domain.value_objects import ContactDetails, PostalAddress
 from ..infrastructure.persistence.projection import compute_etag
@@ -51,6 +56,7 @@ from .dto import (
     ContactDetailsModel,
     ErrorResponse,
     MintAnchorRequest,
+    PseudonymiseAnchorRequest,
     UpdateAnchorRequest,
 )
 
@@ -314,6 +320,141 @@ async def update_anchor(  # noqa: PLR0911 — explicit error-mapping branches
     )
 
 
+# ─── CMD.PSEUDONYMISE_ANCHOR ───────────────────────────────────────────
+
+
+@router.post(
+    "/anchors/{internal_id}/pseudonymise",
+    tags=["commands"],
+    summary="Pseudonymise an anchor — GDPR Art. 17 right-to-be-forgotten",
+    response_model=None,
+    responses={
+        200: {
+            "model": BeneficiaryAnchorResponse,
+            "description": (
+                "Pseudonymisation applied (or idempotent COMMAND_ALREADY_PROCESSED) — "
+                "returns the post-transition anchor with PII fields nulled. On an "
+                "idempotent re-call the body wraps the prior anchor: "
+                "`{\"error_code\": \"COMMAND_ALREADY_PROCESSED\", \"anchor\": {...}}`."
+            ),
+        },
+        400: {"model": ErrorResponse, "description": "RIGHT_EXERCISE_ID_INVALID or schema violation."},
+        404: {"model": ErrorResponse, "description": "ANCHOR_NOT_FOUND."},
+        409: {"model": ErrorResponse, "description": "ANCHOR_ALREADY_PSEUDONYMISED — terminal state, irreversible."},
+    },
+)
+async def pseudonymise_anchor(  # noqa: PLR0911 — explicit error-mapping branches
+    internal_id: str,
+    body: dict[str, Any],
+    request: Request,
+    authorization: str | None = Header(default=None),
+    state: AppState = Depends(get_state),
+) -> Response:
+    # ─── Reject ill-formed internal_id (404 per api.yaml policy) ───────
+    if not _UUIDV7_RE.match(internal_id):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error_code": "ANCHOR_NOT_FOUND",
+                "message": f"No anchor found for internal_id={internal_id}.",
+            },
+        )
+
+    # ─── INV.BEN.002 — body must NOT carry internal_id ─────────────────
+    if "internal_id" in body:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error_code": "INTERNAL_ID_IMMUTABLE",
+                "message": (
+                    "internal_id is the path parameter and is immutable; do "
+                    "not carry it in the request body (INV.BEN.002)."
+                ),
+            },
+        )
+
+    # ─── JSON Schema validation (canonical contract) ───────────────────
+    try:
+        state.pseudonymise_validator.validate_payload(body)
+    except jsonschema.ValidationError as exc:
+        msg = exc.message
+        # The schema's required clause on right_exercise_id + format/pattern
+        # on UUIDv7 all map to the canonical RIGHT_EXERCISE_ID_INVALID
+        # code (per the FUNC ADR error catalog). Use it when the
+        # failing path is on right_exercise_id; fall through to
+        # INVALID_PAYLOAD otherwise.
+        path = [str(p) for p in exc.path]
+        absolute = list(exc.absolute_path)
+        is_right_exercise_id = (
+            "right_exercise_id" in path
+            or "right_exercise_id" in [str(p) for p in absolute]
+            or (exc.validator == "required" and "right_exercise_id" in msg)
+        )
+        if is_right_exercise_id:
+            err = RightExerciseIdInvalid(body.get("right_exercise_id"))
+            return JSONResponse(
+                status_code=400,
+                content={"error_code": err.code, "message": err.message},
+            )
+        return JSONResponse(
+            status_code=400,
+            content={"error_code": "INVALID_PAYLOAD", "message": msg},
+        )
+
+    # Pydantic provides typed access (OpenAPI doc + lighter parsing).
+    try:
+        req = PseudonymiseAnchorRequest.model_validate(body)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(
+            status_code=400,
+            content={"error_code": "INVALID_PAYLOAD", "message": str(exc)},
+        )
+
+    actor = actor_from_bearer(authorization)
+    cmd = PseudonymiseAnchorCommandDto(
+        internal_id=internal_id,
+        command_id=req.command_id,
+        right_exercise_id=req.right_exercise_id,
+        reason=req.reason,  # type: ignore[arg-type]  — schema enum guards
+        comment=req.comment,
+        actor=actor,
+    )
+
+    # ─── Handle ────────────────────────────────────────────────────────
+    try:
+        result: PseudonymiseResult = await state.pseudonymise_handler.handle(cmd)
+    except AnchorNotFound as exc:
+        return JSONResponse(
+            status_code=404,
+            content={"error_code": exc.code, "message": exc.message},
+        )
+    except AnchorAlreadyPseudonymised as exc:
+        return JSONResponse(
+            status_code=409,
+            content={"error_code": exc.code, "message": exc.message},
+        )
+    except RightExerciseIdInvalid as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error_code": exc.code, "message": exc.message},
+        )
+
+    anchor_payload = result.anchor.to_dict()
+    etag = compute_etag(result.anchor.internal_id, result.anchor.revision)
+    if result.idempotent_replay:
+        body_out = {"error_code": result.error_code, "anchor": anchor_payload}
+        return JSONResponse(
+            status_code=200,
+            content=body_out,
+            headers={"ETag": etag},
+        )
+    return JSONResponse(
+        status_code=200,
+        content=anchor_payload,
+        headers={"ETag": etag, "Cache-Control": "max-age=60"},
+    )
+
+
 def _parse_update_fields(body: dict[str, Any]) -> UpdateFields:
     """Turn the raw request dict into an ``UpdateFields`` carrying the
     sticky-PII semantics.
@@ -467,6 +608,11 @@ def install_exception_handlers(app) -> None:  # noqa: ANN001
         )
 
 
-# ``UpdateAnchorRequest`` is re-exported for OpenAPI tooling (the harness
-# generator inspects the routers' imports).
-__all__ = ["router", "install_exception_handlers", "UpdateAnchorRequest"]
+# ``UpdateAnchorRequest`` / ``PseudonymiseAnchorRequest`` are re-exported for
+# OpenAPI tooling (the harness generator inspects the routers' imports).
+__all__ = [
+    "router",
+    "install_exception_handlers",
+    "UpdateAnchorRequest",
+    "PseudonymiseAnchorRequest",
+]

@@ -78,6 +78,36 @@ class UpdateAnchorRequest(BaseModel):
     contact_details: _ContactDetailsUpdateModel | None = None
 
 
+class PseudonymiseAnchorRequest(BaseModel):
+    """OpenAPI documentation for POST /anchors/{internal_id}/pseudonymise.
+
+    The wire schema is the source of truth (additionalProperties=false,
+    required = [command_id, right_exercise_id, reason]); Pydantic mirrors
+    it for FastAPI's OpenAPI doc only.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    command_id: str = Field(
+        ..., description="UUIDv7 — caller-supplied command id (30-day idempotency window)."
+    )
+    right_exercise_id: str = Field(
+        ...,
+        description=(
+            "UUIDv7 of the upstream right-to-be-forgotten request from "
+            "BNK.RLVR.CAP.SUP.001.RET. Carried on the emitted RVT."
+        ),
+    )
+    reason: str = Field(
+        ...,
+        description=(
+            "One of GDPR_ART17_REQUEST | REGULATORY_ORDER | DPO_INITIATED — "
+            "audit-only annotation captured in PRJ.ANCHOR_HISTORY."
+        ),
+    )
+    comment: str | None = Field(default=None, max_length=1000)
+
+
 class BeneficiaryAnchorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

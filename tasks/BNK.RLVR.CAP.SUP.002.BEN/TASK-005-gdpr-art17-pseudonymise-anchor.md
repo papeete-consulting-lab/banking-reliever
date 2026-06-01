@@ -4,7 +4,7 @@ capability_id: BNK.RLVR.CAP.SUP.002.BEN
 bcm_ref: v1.0.0-1-gb06a4af
 capability_name: Beneficiary Identity Anchor
 epic: Epic 5 — GDPR Art. 17 pseudonymisation
-status: todo
+status: in_review
 priority: high
 depends_on: [TASK-002, TASK-003, TASK-004]
 task_type: full-microservice
@@ -109,59 +109,59 @@ in `policies.yaml` as a deferred Epic 7 (see OQ.BEN.001) and is OUT OF
 SCOPE for this task.
 
 ## Definition of Done
-- [ ] `POST /anchors/{internal_id}/pseudonymise` accepts requests,
+- [x] `POST /anchors/{internal_id}/pseudonymise` accepts requests,
       validates against
       `schemas/CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR.schema.json`
-- [ ] Accepts from ACTIVE or ARCHIVED; rejects with `409
+- [x] Accepts from ACTIVE or ARCHIVED; rejects with `409
       ANCHOR_ALREADY_PSEUDONYMISED` from PSEUDONYMISED
-- [ ] `404 ANCHOR_NOT_FOUND` for unknown `internal_id`
-- [ ] `400 RIGHT_EXERCISE_ID_INVALID` when `right_exercise_id` is
+- [x] `404 ANCHOR_NOT_FOUND` for unknown `internal_id`
+- [x] `400 RIGHT_EXERCISE_ID_INVALID` when `right_exercise_id` is
       missing or not a UUIDv7
-- [ ] Crypto-shredding observable post-condition: a direct SQL
+- [x] Crypto-shredding observable post-condition: a direct SQL
       inspection of the anchor's row (separate from the running
       service) shows the four PII columns as NULL or as
       cryptographically-unrecoverable ciphertext — verifiable by a
       DBA-style audit query in the test suite
-- [ ] `internal_id` is unchanged before / after (`INV.BEN.002`) —
+- [x] `internal_id` is unchanged before / after (`INV.BEN.002`) —
       verified by SQL inspection
-- [ ] `anchor_status = PSEUDONYMISED`, `pseudonymized_at` set to a
+- [x] `anchor_status = PSEUDONYMISED`, `pseudonymized_at` set to a
       timestamp within the request window
-- [ ] Operation is irreversible: no API endpoint exists to undo
+- [x] Operation is irreversible: no API endpoint exists to undo
       pseudonymisation
-- [ ] Idempotency on `command_id`: a duplicate `command_id` returns
+- [x] Idempotency on `command_id`: a duplicate `command_id` returns
       `200 OK` with the prior PSEUDONYMISED snapshot and
       `COMMAND_ALREADY_PROCESSED` WITHOUT re-running crypto-shredding
       (verifiable: Vault transit / `pgcrypto` calls happen exactly
       once across the duplicate calls)
-- [ ] Outbox emits exactly one RVT per successful pseudonymisation;
+- [x] Outbox emits exactly one RVT per successful pseudonymisation;
       payload's PII fields are null; `right_exercise_id` is set;
       `pseudonymized_at` is set; `transition_kind: PSEUDONYMISED`;
       `revision = N+1`
-- [ ] Emitted payload validates against
+- [x] Emitted payload validates against
       `schemas/BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json`,
       including the conditional `if/then` block (PSEUDONYMISED ⇒ PII
       null + `right_exercise_id` set)
-- [ ] `PRJ.ANCHOR_DIRECTORY` ingests the event and overwrites the row
+- [x] `PRJ.ANCHOR_DIRECTORY` ingests the event and overwrites the row
       — PII columns become NULL in the projection too (consumers
       should not see stale PII anywhere)
-- [ ] `GET /anchors/{internal_id}` returns the row with PII fields as
+- [x] `GET /anchors/{internal_id}` returns the row with PII fields as
       null and `anchor_status: PSEUDONYMISED`; `internal_id` is still
       resolvable so historical references work; ETag flips immediately
-- [ ] UPDATE / ARCHIVE / RESTORE issued against the now-pseudonymised
+- [x] UPDATE / ARCHIVE / RESTORE issued against the now-pseudonymised
       anchor return `409` with the right code (regression tests against
       TASK-003 / TASK-004 paths)
-- [ ] Crypto-shredding key strategy (per-anchor / per-zone / per-IS) is
+- [x] Crypto-shredding key strategy (per-anchor / per-zone / per-IS) is
       chosen by the implementer per `ADR-TECH-TACT-002` and documented
       inline in the service README — surface the decision as a
       TECH-TACT delta to OQ.BEN.002 (key strategy) referenced in the
       roadmap OQ-2
-- [ ] No write to `process/BNK.RLVR.CAP.SUP.002.BEN/`
-- [ ] `pytest` integration suite covers: ACTIVE→PSEUDONYMISED happy
+- [x] No write to `process/BNK.RLVR.CAP.SUP.002.BEN/`
+- [x] `pytest` integration suite covers: ACTIVE→PSEUDONYMISED happy
       path, ARCHIVED→PSEUDONYMISED happy path, terminality
       (PSEUDONYMISED→{UPDATE,ARCHIVE,RESTORE,PSEUDONYMISE} all reject),
       idempotency (no double crypto-shred), DB-level PII destruction
       audit, RVT schema conditional validation
-- [ ] DPO + IT Security sign-off captured in the PR description for
+- [x] DPO + IT Security sign-off captured in the PR description for
       the PII-touching DoD items (joint-custody governance)
 
 ## Acceptance Criteria (Business)

@@ -263,8 +263,24 @@ async def test_patch_pseudonymised_anchor_returns_409_anchor_pseudonymised(
 ):
     internal_id = await _mint(client)
     async with await psycopg.AsyncConnection.connect(pg_dsn) as conn, conn.cursor() as cur:
+        # TASK-005 introduced a CHECK constraint
+        # (chk_anchor_pseudonymised_pii_null) that makes the
+        # (PSEUDONYMISED + non-null PII) state unforgeable at the DB layer.
+        # To exercise the UPDATE-vs-PSEUDONYMISED lifecycle guard via the
+        # manual back-door we must satisfy the constraint too — null the
+        # PII fields and the crypto_key_id, set pseudonymized_at.
         await cur.execute(
-            "UPDATE anchor SET anchor_status='PSEUDONYMISED' WHERE internal_id=%s",
+            """
+            UPDATE anchor
+            SET anchor_status='PSEUDONYMISED',
+                last_name=NULL,
+                first_name=NULL,
+                date_of_birth=NULL,
+                contact_details=NULL,
+                crypto_key_id=NULL,
+                pseudonymized_at=NOW()
+            WHERE internal_id=%s
+            """,
             (internal_id,),
         )
         await conn.commit()

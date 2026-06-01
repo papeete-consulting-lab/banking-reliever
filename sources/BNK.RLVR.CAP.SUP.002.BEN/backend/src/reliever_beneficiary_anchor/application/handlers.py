@@ -16,17 +16,25 @@ from uuid_extensions import uuid7
 
 from ..domain.aggregate import IdentityAnchor
 from ..domain.errors import (
+    AnchorAlreadyPseudonymised,
     AnchorArchived,
     AnchorNotFound,
     AnchorPseudonymised,
     DomainError,
     NoFieldsToUpdate,
+    RightExerciseIdInvalid,
 )
-from ..domain.events import AnchorMinted, AnchorUpdated, TransitionEvent
-from ..domain.value_objects import Actor, ClientRequestId
+from ..domain.events import (
+    AnchorMinted,
+    AnchorPseudonymised as AnchorPseudonymisedEvent,
+    AnchorUpdated,
+    TransitionEvent,
+)
+from ..domain.value_objects import Actor, ClientRequestId, RightExerciseId
 from .dto import (
     BeneficiaryAnchorDto,
     MintAnchorCommandDto,
+    PseudonymiseAnchorCommandDto,
     UpdateAnchorCommandDto,
 )
 from .ports import (
@@ -48,6 +56,7 @@ EMITTING_CAPABILITY = "BNK.RLVR.CAP.SUP.002.BEN"
 # the same key (in the unlikely chance) do not collide.
 IDEMPOTENCY_SCOPE_MINT = "MINT_ANCHOR"
 IDEMPOTENCY_SCOPE_UPDATE = "UPDATE_ANCHOR"
+IDEMPOTENCY_SCOPE_PSEUDONYMISE = "PSEUDONYMISE_ANCHOR"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +84,22 @@ class UpdateResult:
     error_code: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PseudonymiseResult:
+    """Result of CMD.PSEUDONYMISE_ANCHOR. ``http_status`` is 200 (fresh or
+    idempotent re-call); ``idempotent_replay`` discriminates so the
+    presentation layer can populate ``error_code`` consistently.
+
+    The anchor DTO has the four PII fields nulled — the canonical PSEUDONYMISED
+    shape per BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED.schema.json.
+    """
+
+    anchor: BeneficiaryAnchorDto
+    http_status: int
+    idempotent_replay: bool
+    error_code: str | None = None
+
+
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -87,13 +112,45 @@ def _build_rvt_payload(event: TransitionEvent, actor: Actor) -> dict[str, Any]:
     """Translate a domain transition event into the wire-format
     ``BNK.RLVR.RVT.SUP.002.BENEFICIARY_ANCHOR_UPDATED`` payload.
 
-    Handles every transition_kind whose RVT schema branch carries a full
-    PII snapshot — MINTED, UPDATED, RESTORED, ARCHIVED. The PSEUDONYMISED
-    branch (which nulls PII) lands at TASK-005.
+    Three branches per the canonical RVT schema:
+      - MINTED / UPDATED / RESTORED — anchor_status=ACTIVE, PII required.
+      - ARCHIVED — anchor_status=ARCHIVED, PII still present (snapshot of
+        the last known PII).
+      - PSEUDONYMISED — anchor_status=PSEUDONYMISED, four PII fields are
+        null, pseudonymized_at + right_exercise_id are set.
 
     Validated against the canonical JSON Schema before the outbox row is
     written (fail-fast on contract drift).
     """
+    if isinstance(event, AnchorPseudonymisedEvent):
+        # PSEUDONYMISED branch — four PII fields null, pseudonymized_at and
+        # right_exercise_id set, anchor_status=PSEUDONYMISED.
+        return {
+            "envelope": {
+                "message_id": _mint_uuidv7(),
+                "schema_version": SCHEMA_VERSION,
+                "emitted_at": _now_utc().isoformat(),
+                "emitting_capability": EMITTING_CAPABILITY,
+                "correlation_id": str(event.internal_id),
+                "causation_id": event.command_id,
+                "actor": actor.to_dict(),
+            },
+            "internal_id": str(event.internal_id),
+            "last_name": None,
+            "first_name": None,
+            "date_of_birth": None,
+            "contact_details": None,
+            "anchor_status": "PSEUDONYMISED",
+            "creation_date": event.creation_date.isoformat(),
+            "pseudonymized_at": event.pseudonymized_at.isoformat(),
+            "revision": event.revision,
+            "transition_kind": "PSEUDONYMISED",
+            "command_id": event.command_id,
+            "right_exercise_id": event.right_exercise_id,
+            "occurred_at": event.occurred_at.isoformat(),
+        }
+
+    # MINTED / UPDATED branches (ARCHIVED / RESTORED land with TASK-004).
     payload: dict[str, Any] = {
         "envelope": {
             "message_id": _mint_uuidv7(),
@@ -166,6 +223,12 @@ class MintAnchorHandler:
                     error_code="REQUEST_ALREADY_PROCESSED",
                 )
 
+            # Provision the per-anchor DEK first — the anchor row's
+            # crypto_key_id FK references it. Same transaction so a rollback
+            # cleans both up.
+            crypto_key_id = _mint_uuidv7()
+            await uow.crypto_keys.provision(crypto_key_id=crypto_key_id)
+
             anchor = IdentityAnchor.mint(
                 client_request_id=ClientRequestId(cmd.client_request_id),
                 last_name=cmd.last_name,
@@ -173,6 +236,7 @@ class MintAnchorHandler:
                 date_of_birth=cmd.date_of_birth,
                 contact_details=cmd.contact_details,
                 actor=cmd.actor,
+                crypto_key_id=crypto_key_id,
             )
             # IdentityAnchor.mint() raises IdentityFieldsMissing on PRE.002.
 
@@ -330,6 +394,146 @@ class UpdateAnchorHandler:
             return UpdateResult(anchor=dto, http_status=200, idempotent_replay=False)
 
 
+# ─── CMD.PSEUDONYMISE_ANCHOR ───────────────────────────────────────────
+
+
+class PseudonymiseAnchorHandler:
+    """Handles CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR.
+
+    The handler:
+
+      1. Validates the wire payload against
+         ``CMD.SUP.002.BEN.PSEUDONYMISE_ANCHOR.schema.json`` at the
+         presentation boundary; the handler trusts the DTO.
+      2. Looks up the idempotency table keyed on
+         ``(PSEUDONYMISE_ANCHOR, command_id)``; on hit returns the prior
+         snapshot with ``COMMAND_ALREADY_PROCESSED`` and DOES NOT re-run
+         the crypto-shred (PRE.003 / INV.BEN.008).
+      3. Loads the aggregate by ``internal_id``; raises ``AnchorNotFound``
+         (→ 404) if absent.
+      4. Calls ``IdentityAnchor.pseudonymise(...)`` which enforces the
+         terminal-state guard (INV.BEN.006) and the crypto-shred
+         post-condition (PII fields wiped on the value object,
+         crypto_key_id severed).
+      5. Persists the aggregate (UPDATE ... WHERE internal_id) AND deletes
+         the DEK row from anchor_crypto_keys AND writes the outbox row in
+         the SAME transaction (atomic shredding + atomic outbox per
+         ADR-TECH-STRAT-001 Rule 3).
+      6. Validates the wire RVT against the canonical schema (fail-fast on
+         contract drift, exercises the if/then PSEUDONYMISED branch).
+    """
+
+    def __init__(
+        self,
+        *,
+        uow_factory: UnitOfWorkFactory,
+        rvt_validator: SchemaValidator,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._rvt_validator = rvt_validator
+
+    async def handle(self, cmd: PseudonymiseAnchorCommandDto) -> PseudonymiseResult:
+        scope = IDEMPOTENCY_SCOPE_PSEUDONYMISE
+
+        # ─── Idempotency check (INV.BEN.008) ──────────────────────────
+        async with self._uow_factory() as uow:
+            prior = await uow.idempotency.get(scope=scope, key=cmd.command_id)
+            if prior is not None:
+                stored: dict[str, Any] = prior["response_body"]
+                return PseudonymiseResult(
+                    anchor=_deserialize_anchor(stored),
+                    http_status=200,
+                    idempotent_replay=True,
+                    error_code="COMMAND_ALREADY_PROCESSED",
+                )
+
+        # ─── Fresh pseudonymisation ───────────────────────────────────
+        async with self._uow_factory() as uow:
+            # Re-check inside the transaction — race defence (two POSTs
+            # arriving with the same command_id simultaneously).
+            prior = await uow.idempotency.get(scope=scope, key=cmd.command_id)
+            if prior is not None:
+                stored = prior["response_body"]
+                await uow.rollback()
+                return PseudonymiseResult(
+                    anchor=_deserialize_anchor(stored),
+                    http_status=200,
+                    idempotent_replay=True,
+                    error_code="COMMAND_ALREADY_PROCESSED",
+                )
+
+            # Load the aggregate. Missing → 404 ANCHOR_NOT_FOUND.
+            anchor = await uow.anchors.get(cmd.internal_id)
+            if anchor is None:
+                raise AnchorNotFound(cmd.internal_id)
+
+            # Build the validated RightExerciseId VO. Raises ValueError on
+            # ill-formed UUIDv7; surface as RightExerciseIdInvalid (400).
+            try:
+                right_exercise_id_vo = RightExerciseId(cmd.right_exercise_id)
+            except ValueError as exc:
+                raise RightExerciseIdInvalid(cmd.right_exercise_id) from exc
+
+            # Apply the command. Raises:
+            #   - AnchorAlreadyPseudonymised (→ 409 terminal state)
+            #   - RightExerciseIdInvalid (→ 400 defence-in-depth)
+            anchor.pseudonymise(
+                command_id=cmd.command_id,
+                right_exercise_id=right_exercise_id_vo,
+                reason=cmd.reason,
+                actor=cmd.actor,
+            )
+
+            events = anchor.pull_pending_events()
+            assert len(events) == 1, "AGG must emit exactly one event per transition (INV.BEN.007)"
+            event = events[0]
+            assert isinstance(event, AnchorPseudonymisedEvent)
+
+            # Validate the wire-format payload BEFORE writing the outbox row
+            # — this exercises the if/then PSEUDONYMISED branch of the
+            # canonical RVT schema.
+            payload = _build_rvt_payload(event, cmd.actor)
+            self._rvt_validator.validate_payload(payload)
+
+            # Persist the aggregate (PII columns set to NULL, crypto_key_id
+            # severed, anchor_status=PSEUDONYMISED) and IN THE SAME
+            # TRANSACTION delete the DEK row → the at-rest ciphertext
+            # becomes unrecoverable (crypto-shredding observable
+            # post-condition).
+            await uow.anchors.update(anchor)
+            shredded_key_id = anchor.pull_shredded_crypto_key_id()
+            if shredded_key_id is not None:
+                await uow.crypto_keys.shred(crypto_key_id=shredded_key_id)
+
+            message_id = payload["envelope"]["message_id"]
+            await uow.outbox.append(
+                message_id=message_id,
+                correlation_id=str(event.internal_id),
+                causation_id=event.command_id,
+                schema_id=SCHEMA_ID,
+                schema_version=SCHEMA_VERSION,
+                routing_key=ROUTING_KEY,
+                exchange=EXCHANGE_NAME,
+                occurred_at=event.occurred_at,
+                actor=cmd.actor.to_dict(),
+                payload=payload,
+            )
+
+            dto = _anchor_to_dto(anchor)
+            await uow.idempotency.remember(
+                scope=scope,
+                key=cmd.command_id,
+                internal_id=str(anchor.internal_id),
+                response_body=dto.to_dict(),
+                response_code=200,
+            )
+
+            await uow.commit()
+            return PseudonymiseResult(
+                anchor=dto, http_status=200, idempotent_replay=False
+            )
+
+
 # ─── Helpers ───────────────────────────────────────────────────────────
 
 
@@ -415,9 +619,11 @@ def _row_to_dto(row: dict[str, Any]) -> BeneficiaryAnchorDto:
 __all__ = [
     "MintAnchorHandler",
     "UpdateAnchorHandler",
+    "PseudonymiseAnchorHandler",
     "GetAnchorHandler",
     "MintResult",
     "UpdateResult",
+    "PseudonymiseResult",
     "EXCHANGE_NAME",
     "ROUTING_KEY",
     "SCHEMA_ID",
@@ -425,4 +631,5 @@ __all__ = [
     "EMITTING_CAPABILITY",
     "IDEMPOTENCY_SCOPE_MINT",
     "IDEMPOTENCY_SCOPE_UPDATE",
+    "IDEMPOTENCY_SCOPE_PSEUDONYMISE",
 ]

@@ -208,3 +208,69 @@ gracefully** (see `tests/integration/conftest.py`).
 | Process | `process/BNK.RLVR.CAP.SUP.002.BEN/{aggregates,commands,read-models,bus,api,policies}.yaml` |
 | Schemas | `process/BNK.RLVR.CAP.SUP.002.BEN/schemas/{CMD.MINT_ANCHOR,RVT.BENEFICIARY_ANCHOR_UPDATED}.schema.json` |
 | Task | `tasks/BNK.RLVR.CAP.SUP.002.BEN/TASK-002-foundation-mint-and-get-anchor.md` |
+
+---
+
+## TASK-005 — GDPR Art. 17 pseudonymisation (crypto-shred strategy)
+
+`ADR-TECH-TACT-002` defers the key-management strategy to the implementer
+and constrains only the **observable post-condition**: PII is not
+recoverable from the database, `internal_id` survives, and downstream
+foreign-key integrity is preserved.
+
+The implementer's choice for TASK-005 (carried in `roadmap/OQ-2`):
+
+### Per-anchor DEK (chosen)
+
+- Every `anchor` row carries an FK `crypto_key_id` referencing
+  `anchor_crypto_keys(crypto_key_id)`.
+- `MINT_ANCHOR` provisions the DEK row (via `pgcrypto.gen_random_bytes(32)`
+  for dev; via `hvac.Client.secrets.transit.create_key` in a real Vault
+  deployment) **in the same transaction** as the anchor insert + outbox
+  append. Either everything commits or nothing does.
+- `PSEUDONYMISE_ANCHOR`:
+  1. Wipes the four PII columns to NULL on the `anchor` row.
+  2. `DELETE FROM anchor_crypto_keys WHERE crypto_key_id = $1` — the DEK
+     row is gone.
+  3. The FK `ON DELETE SET NULL` clause severs `anchor.crypto_key_id`;
+     the same UPDATE writes NULL explicitly too (belt-and-suspenders).
+  4. A `CHECK (anchor_status='PSEUDONYMISED' ⇒ all PII NULL AND
+     crypto_key_id NULL)` constraint makes the (PSEUDONYMISED +
+     non-null-PII) state **unforgeable at the database layer**.
+- All four atomic mutations live in the same transaction (`PostgresUnitOfWork`).
+
+### Why per-anchor, not per-zone or per-IS?
+
+- **Blast-radius minimisation.** Shredding one DEK destroys exactly one
+  anchor's recoverable PII; the other ten million anchors are
+  untouched. Per-zone / per-IS keys would tie the durability of every
+  anchor in the zone to that single key — disastrous if mis-rotated.
+- **No retention sweep required.** Per-zone shredding is only safe if no
+  un-pseudonymised anchor is left under the rotated key (you'd have to
+  re-encrypt all the others before deleting the old key). Per-anchor
+  has no such coupling.
+- **Audit clarity.** Every PSEUDONYMISE leaves a one-row delete in
+  `anchor_crypto_keys` keyed by the destroyed anchor — a trivial DBA-
+  level audit query.
+
+### Migration path to Vault transit (deferred)
+
+The in-postgres `anchor_crypto_keys` table is a **dev-only** placeholder.
+A production rollout swaps `PostgresCryptoKeyRepository` for a Vault-
+transit-backed adapter (via `hvac`) — the port `CryptoKeyRepository`
+stays unchanged, the wire and DB contracts (PII columns NULL,
+`crypto_key_id` NULL, audit query) are unchanged. Vault transit gives:
+
+- Cryptographic ratchet (each DEK encrypted under a master key that
+  rotates).
+- Hardware-backed master key (HSM via Vault transit auto-unseal).
+- Centralised audit log (`vault audit list`).
+
+The migration is **out of scope** for TASK-005 — see
+`roadmap/OQ-3 — Vault transit deployment`.
+
+### Joint-custody sign-off
+
+The PII-touching DoD items (crypto-shred semantics, irreversibility,
+DEK shredding) require **DPO + IT Security sign-off** in the PR
+description per the roadmap risk matrix.
