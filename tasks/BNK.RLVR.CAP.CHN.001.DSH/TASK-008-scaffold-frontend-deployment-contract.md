@@ -4,7 +4,7 @@ capability_id: BNK.RLVR.CAP.CHN.001.DSH
 bcm_ref: 9be9fe9
 capability_name: Beneficiary Dashboard
 epic: Epic — Deployment Contract Migration
-status: in_review
+status: done
 priority: medium
 depends_on: []
 loop_count: 0
