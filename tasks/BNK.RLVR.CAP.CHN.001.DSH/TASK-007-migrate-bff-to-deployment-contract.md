@@ -9,7 +9,7 @@ priority: medium
 depends_on: []
 loop_count: 1
 max_loops: 10
-pr_url: pending
+pr_url: https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/31
 ---
 
 # TASK-007 — Migrate BFF to the Deployment contract
