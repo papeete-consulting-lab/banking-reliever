@@ -1,0 +1,46 @@
+# BNK.RLVR.CAP.BSP.001.TIE — local platform stand-in.
+#
+# OPT-IN sibling compose for laptops without a real Reliever platform
+# installation. Brings up:
+#   - the shared external Docker network `reliever-platform`
+#   - a RabbitMQ broker reachable as `rabbitmq:5672` on that network
+#     (management UI on host port 15672 for quick inspection)
+#
+# This file is **not** part of the component's deployment per CLAUDE.md
+# (the platform is out of scope for the component). It is a dev-loop
+# convenience — when the real platform is up, do NOT also run this.
+#
+# Usage:
+#   docker compose -f deployment/local/platform.compose.yml up -d
+#   docker compose -f deployment/local/docker-compose.yml         up -d --build
+#
+# Tear-down:
+#   docker compose -f deployment/local/docker-compose.yml         down
+#   docker compose -f deployment/local/platform.compose.yml down -v
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: reliever-platform-rabbitmq
+    hostname: rabbitmq
+    ports:
+      # Management UI exposed for dev inspection. AMQP is reached service-name
+      # to service-name on the internal network — no host port needed by the
+      # component (kept off so concurrent stand-ins don't collide on 5672).
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - reliever-platform
+    restart: unless-stopped
+
+networks:
+  reliever-platform:
+    name: reliever-platform
+    driver: bridge

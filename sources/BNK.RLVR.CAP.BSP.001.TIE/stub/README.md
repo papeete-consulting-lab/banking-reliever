@@ -27,20 +27,23 @@ Every payload is validated against the runtime JSON Schema **before** publicatio
 1. **Start RabbitMQ** locally:
 
    ```bash
-   cd sources/BNK.RLVR.CAP.BSP.001.TIE/stub
-   docker compose up -d
+   # Platform stand-in (only if the real Reliever platform isn't installed locally).
+   docker compose -f sources/BNK.RLVR.CAP.BSP.001.TIE/stub/deployment/local/platform.compose.yml up -d
    ```
 
-   - AMQP port: `localhost:45381`
-   - Management UI: <http://localhost:45382> (guest / guest)
+   - AMQP service-name: `rabbitmq:5672` on the shared `reliever-platform` Docker network
+   - Management UI (stand-in only): <http://localhost:15672> (guest / guest)
 
-2. **Activate and run** the stub:
+2. **Activate and run** the stub (containerised, per the Deployment contract):
 
    ```bash
-   cd sources/BNK.RLVR.CAP.BSP.001.TIE/stub
-   dotnet restore
-   STUB_Stub__Active=true dotnet run --project src/Reliever.TierManagement.Stub
+   STUB_Stub__Active=true \
+     docker compose \
+       -f sources/BNK.RLVR.CAP.BSP.001.TIE/stub/deployment/local/docker-compose.yml \
+       up -d --build
    ```
+
+   Health: <http://localhost:20393/health> (deterministic `COMPONENT_PORT`).
 
    Or via the appsettings/config files: set `Stub:Active=true` in `src/Reliever.TierManagement.Stub/appsettings.json` (development only — never in production).
 
@@ -93,7 +96,9 @@ Tests cover:
 ```
 sources/BNK.RLVR.CAP.BSP.001.TIE/stub/
 ├── README.md                 ← this file
-├── docker-compose.yml        ← RabbitMQ only
+├── deployment/               ← Deployment contract (local + dev) — TASK-002
+│   ├── local/                ← Dockerfile + compose + .env + platform stand-in
+│   └── dev/                  ← k8s (kustomize) + terraform (banking-tech modules)
 ├── nuget.config
 ├── Reliever.TierManagement.Stub.sln
 ├── config/

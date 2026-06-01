@@ -1,0 +1,17 @@
+# Exclude artefacts that bloat the build context and would invalidate the cache.
+bin/
+obj/
+**/bin/
+**/obj/
+tests/
+**/.vs/
+**/.vscode/
+**/.idea/
+*.user
+*.swp
+.DS_Store
+deployment/dev/
+deployment/local/README.md
+config/
+README.md
+docker-compose.yml
