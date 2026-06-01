@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, ClassVar, Final
 
-from ..domain.value_objects import Actor, ContactDetails, PostalAddress
+from ..domain.value_objects import Actor, ContactDetails, PostalAddress, PseudonymiseReason
 
 
 # ─── Sentinels for sticky-PII (INV.BEN.003) ────────────────────────────
@@ -189,6 +189,22 @@ class UpdateAnchorCommandDto:
 
 
 @dataclass(frozen=True, slots=True)
+class PseudonymiseAnchorCommandDto:
+    """Input payload of CMD.PSEUDONYMISE_ANCHOR — validated through the
+    JSON Schema at the presentation boundary.
+
+    ``internal_id`` is the PATH parameter — it is NOT a body field.
+    """
+
+    internal_id: str
+    command_id: str
+    right_exercise_id: str
+    reason: PseudonymiseReason
+    comment: str | None
+    actor: Actor
+
+
+@dataclass(frozen=True, slots=True)
 class BeneficiaryAnchorDto:
     """Canonical wire-format BeneficiaryAnchor — matches the QRY.GET_ANCHOR
     response and the 201 response of POST /anchors.
@@ -224,6 +240,7 @@ __all__ = [
     "BeneficiaryAnchorDto",
     "ContactDetailsUpdate",
     "MintAnchorCommandDto",
+    "PseudonymiseAnchorCommandDto",
     "UNSET",
     "UpdateAnchorCommandDto",
     "UpdateFields",

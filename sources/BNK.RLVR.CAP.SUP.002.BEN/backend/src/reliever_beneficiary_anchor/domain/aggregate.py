@@ -18,13 +18,20 @@ from typing import TYPE_CHECKING
 from uuid_extensions import uuid7
 
 from .errors import (
+    AnchorAlreadyPseudonymised,
     AnchorArchived,
     AnchorPseudonymised,
     IdentityFieldsMissing,
     InternalIdImmutable,
     NoFieldsToUpdate,
+    RightExerciseIdInvalid,
 )
-from .events import AnchorMinted, AnchorUpdated, TransitionEvent
+from .events import (
+    AnchorMinted,
+    AnchorPseudonymised as AnchorPseudonymisedEvent,
+    AnchorUpdated,
+    TransitionEvent,
+)
 from .value_objects import (
     Actor,
     AnchorStatus,
@@ -33,6 +40,9 @@ from .value_objects import (
     InternalId,
     Pii,
     PostalAddress,
+    PseudonymiseReason,
+    RightExerciseId,
+    TransitionKind,
 )
 
 if TYPE_CHECKING:  # pragma: no cover — only for typing
@@ -60,9 +70,22 @@ class IdentityAnchor:
     pseudonymized_at: datetime | None = None
     last_processed_command_id: str | None = None
     last_processed_client_request_id: str | None = None
+    # Crypto-shredding strategy (ADR-TECH-TACT-002): per-anchor DEK. The
+    # aggregate carries the FK reference to its own data-encryption-key
+    # row; PSEUDONYMISE sets this back to None and the application layer
+    # deletes the matching ``anchor_crypto_keys`` row in the same
+    # transaction. None on a non-PSEUDONYMISED anchor only happens on a
+    # row that pre-dates this migration (back-fill not required because
+    # the in-band MINT path always sets it).
+    crypto_key_id: str | None = None
     # Pending domain events buffered for the application layer to translate
     # into outbox rows. Cleared once persisted.
     _pending_events: list[TransitionEvent] = field(default_factory=list)
+    # Records the DEK that PSEUDONYMISE has severed so the application
+    # layer can ``crypto_keys.shred(...)`` it in the same transaction.
+    # Set inside ``pseudonymise()``; consumed by ``pull_shredded_crypto_key_id()``
+    # which clears it. None when no pseudonymisation is pending.
+    _shredded_crypto_key_id: str | None = None
 
     # ─── Factory — MINT_ANCHOR ─────────────────────────────────────────
 
@@ -76,6 +99,7 @@ class IdentityAnchor:
         date_of_birth: date | None,
         contact_details: ContactDetails | None,
         actor: Actor,
+        crypto_key_id: str | None = None,
     ) -> "IdentityAnchor":
         """Mint a new anchor and buffer the MINTED domain event.
 
@@ -118,6 +142,7 @@ class IdentityAnchor:
             pseudonymized_at=None,
             last_processed_command_id=None,
             last_processed_client_request_id=str(client_request_id),
+            crypto_key_id=crypto_key_id,
         )
 
         # INV.BEN.007 — emit ONE event per transition with the full snapshot.
@@ -155,6 +180,7 @@ class IdentityAnchor:
         pseudonymized_at: datetime | None = None,
         last_processed_command_id: str | None = None,
         last_processed_client_request_id: str | None = None,
+        crypto_key_id: str | None = None,
     ) -> "IdentityAnchor":
         """Rebuild an aggregate from a persisted row.
 
@@ -176,6 +202,7 @@ class IdentityAnchor:
             pseudonymized_at=pseudonymized_at,
             last_processed_command_id=last_processed_command_id,
             last_processed_client_request_id=last_processed_client_request_id,
+            crypto_key_id=crypto_key_id,
         )
 
     # ─── Command — UPDATE_ANCHOR ───────────────────────────────────────
@@ -273,12 +300,126 @@ class IdentityAnchor:
             )
         )
 
+    # ─── Command — PSEUDONYMISE_ANCHOR ─────────────────────────────────
+
+    def pseudonymise(
+        self,
+        *,
+        command_id: str,
+        right_exercise_id: RightExerciseId,
+        reason: PseudonymiseReason,
+        actor: Actor,
+    ) -> None:
+        """Crypto-shred the four PII fields and flip status to PSEUDONYMISED.
+
+        Enforces:
+          - INV.BEN.002 — internal_id is UNCHANGED. Even after pseudonymisation
+            the internal_id survives so downstream foreign-key integrity does
+            not break.
+          - INV.BEN.006 — accepts from ACTIVE or ARCHIVED only. Rejects from
+            PSEUDONYMISED with ``AnchorAlreadyPseudonymised`` (409 — terminal
+            state, irreversible).
+          - INV.BEN.007 — emits exactly one AnchorPseudonymised event carrying
+            the FULL post-state snapshot (four PII fields null, status
+            PSEUDONYMISED, pseudonymized_at set, right_exercise_id set).
+          - PRE.004 — defence-in-depth check: right_exercise_id must already
+            be a validated ``RightExerciseId`` VO (UUIDv7 by construction);
+            callers that pass a raw string are caught at the VO factory.
+
+        The crypto-shredding *post-condition* is enforced HERE at the
+        aggregate (PII fields wiped to None on the value object). The
+        *infrastructure* shredding — destroying the per-anchor DEK in
+        ``anchor_crypto_keys`` so the at-rest ciphertext is unrecoverable —
+        is performed by the application layer alongside persisting the
+        aggregate, inside the same transaction (atomic shredding).
+
+        Per ``ADR-TECH-TACT-002`` the implementer chose a per-anchor key
+        strategy: each anchor row references its own DEK in
+        ``anchor_crypto_keys``; pseudonymisation severs the reference AND
+        deletes the DEK row, leaving any at-rest ciphertext mathematically
+        unrecoverable. See the service README for the full rationale.
+        """
+        # INV.BEN.006 — terminal-state guard.
+        if self.anchor_status == "PSEUDONYMISED":
+            raise AnchorAlreadyPseudonymised(str(self.internal_id))
+
+        # PRE.004 — defence-in-depth. ``RightExerciseId`` only constructs on
+        # a valid UUIDv7; we re-check the explicit type so an accidentally
+        # str-typed argument fails loudly.
+        if not isinstance(right_exercise_id, RightExerciseId):
+            raise RightExerciseIdInvalid(
+                str(right_exercise_id) if right_exercise_id is not None else None
+            )
+
+        previous_status: TransitionKind = (
+            "MINTED" if self.anchor_status == "ACTIVE" else "ARCHIVED"
+        )
+        # The literal type narrows previous_status to ACTIVE | ARCHIVED via
+        # the elif chain; we map it to the closest TransitionKind for the
+        # audit field (ACTIVE→MINTED is the closest semantic root). This is
+        # NOT on the wire — wire payload uses transition_kind=PSEUDONYMISED.
+        assert self.anchor_status in ("ACTIVE", "ARCHIVED")
+
+        now = _now_utc()
+
+        # Crypto-shred the in-memory PII. The persistence layer mirrors this
+        # by SETTING the four PII columns to NULL and DELETING the DEK row.
+        self.pii = Pii(
+            last_name=None,
+            first_name=None,
+            date_of_birth=None,
+            contact_details=None,
+        )
+        # Sever the DEK reference at the aggregate. The application layer
+        # passes this to ``crypto_keys.shred(...)`` to make the deletion
+        # observable across the boundary.
+        self._shredded_crypto_key_id = self.crypto_key_id
+        self.crypto_key_id = None
+        self.anchor_status = "PSEUDONYMISED"
+        self.pseudonymized_at = now
+        self.revision += 1
+        self.last_processed_command_id = command_id
+
+        self._pending_events.append(
+            AnchorPseudonymisedEvent(
+                internal_id=self.internal_id,
+                last_name=None,
+                first_name=None,
+                date_of_birth=None,
+                contact_details=None,
+                anchor_status="PSEUDONYMISED",
+                creation_date=self.creation_date,
+                pseudonymized_at=now,
+                revision=self.revision,
+                transition_kind="PSEUDONYMISED",
+                command_id=command_id,
+                right_exercise_id=str(right_exercise_id),
+                reason=reason,
+                previous_status=previous_status,
+                occurred_at=now,
+                actor=actor,
+            )
+        )
+
     # ─── Pending events ────────────────────────────────────────────────
 
     def pull_pending_events(self) -> list[TransitionEvent]:
         events = list(self._pending_events)
         self._pending_events.clear()
         return events
+
+    def pull_shredded_crypto_key_id(self) -> str | None:
+        """Return (and clear) the DEK that PSEUDONYMISE severed, if any.
+
+        The application layer calls this immediately after applying
+        pseudonymise() and uses the returned id to invoke
+        ``uow.crypto_keys.shred(crypto_key_id=...)`` inside the same
+        transaction. Returns None on a non-pseudonymising apply path so
+        callers can unconditionally invoke this without an extra guard.
+        """
+        cid = self._shredded_crypto_key_id
+        self._shredded_crypto_key_id = None
+        return cid
 
 
 __all__ = ["IdentityAnchor"]

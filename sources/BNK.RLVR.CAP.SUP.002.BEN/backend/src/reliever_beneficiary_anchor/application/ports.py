@@ -15,7 +15,8 @@ from ..domain.aggregate import IdentityAnchor
 
 class UnitOfWork(ABC):
     """A single atomic transaction spanning the anchor row, the outbox row,
-    and the idempotency_keys row.
+    the idempotency_keys row, and (for crypto-shredding) the
+    anchor_crypto_keys row.
 
     Implementations are async context managers that commit on clean exit
     and roll back on exception.
@@ -37,10 +38,11 @@ class UnitOfWork(ABC):
     async def rollback(self) -> None:
         ...
 
-    # The three repositories scoped to this UoW.
+    # Repositories scoped to this UoW.
     anchors: "AnchorRepository"
     outbox: "OutboxRepository"
     idempotency: "IdempotencyRepository"
+    crypto_keys: "CryptoKeyRepository"
 
 
 class UnitOfWorkFactory(ABC):
@@ -114,6 +116,44 @@ class IdempotencyRepository(ABC):
         response_code: int,
     ) -> None:
         ...
+
+
+class CryptoKeyRepository(ABC):
+    """Per-anchor Data-Encryption-Key (DEK) lifecycle. Backs the chosen
+    crypto-shredding strategy (per ADR-TECH-TACT-002) — each anchor row
+    references one DEK; deleting the DEK row makes any at-rest ciphertext
+    encoded under it mathematically unrecoverable.
+
+    The implementation is in-postgres (single table) for the dev
+    environment. A production deployment swaps this adapter for a Vault-
+    transit-backed one — the port contract is unchanged.
+    """
+
+    @abstractmethod
+    async def provision(self, *, crypto_key_id: str) -> None:
+        """Insert a freshly-minted DEK row. Called at MINT time.
+
+        Implementations source the key material from ``pgcrypto.gen_random_bytes(32)``
+        (in-postgres) or from ``hvac.Client.secrets.transit.create_key`` /
+        ``encrypt_data`` envelope encryption (Vault). The contract on the
+        rest of the system is unchanged: the row exists after MINT, the
+        anchor's ``crypto_key_id`` points at it.
+        """
+
+    @abstractmethod
+    async def shred(self, *, crypto_key_id: str) -> None:
+        """Crypto-shred — irreversibly delete the DEK row. Called at
+        PSEUDONYMISE time. The anchor's ``crypto_key_id`` is severed by
+        the ON DELETE SET NULL FK clause (and re-asserted to NULL by the
+        anchor UPDATE in the same transaction).
+        """
+
+    @abstractmethod
+    async def exists(self, *, crypto_key_id: str) -> bool:
+        """Audit primitive — returns True iff the DEK row is still present.
+        Used by integration tests to verify the observable post-condition
+        of crypto-shredding (DEK destroyed).
+        """
 
 
 class AnchorDirectoryReader(ABC):

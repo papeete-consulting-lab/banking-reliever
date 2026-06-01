@@ -16,6 +16,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from ...application.ports import (
     AnchorRepository,
+    CryptoKeyRepository,
     IdempotencyRepository,
     OutboxRepository,
     UnitOfWork,
@@ -42,8 +43,9 @@ class PostgresAnchorRepository(AnchorRepository):
                 INSERT INTO anchor (
                     internal_id, last_name, first_name, date_of_birth, contact_details,
                     anchor_status, creation_date, pseudonymized_at, revision,
-                    last_processed_command_id, last_processed_client_request_id
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    last_processed_command_id, last_processed_client_request_id,
+                    crypto_key_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     str(anchor.internal_id),
@@ -57,6 +59,7 @@ class PostgresAnchorRepository(AnchorRepository):
                     anchor.revision,
                     anchor.last_processed_command_id,
                     anchor.last_processed_client_request_id,
+                    anchor.crypto_key_id,
                 ),
             )
 
@@ -66,7 +69,8 @@ class PostgresAnchorRepository(AnchorRepository):
                 """
                 SELECT internal_id, last_name, first_name, date_of_birth, contact_details,
                        anchor_status, creation_date, pseudonymized_at, revision,
-                       last_processed_command_id, last_processed_client_request_id
+                       last_processed_command_id, last_processed_client_request_id,
+                       crypto_key_id
                 FROM anchor
                 WHERE internal_id = %s
                 FOR UPDATE
@@ -98,6 +102,9 @@ class PostgresAnchorRepository(AnchorRepository):
                     str(row["last_processed_client_request_id"])
                     if row.get("last_processed_client_request_id") else None
                 ),
+                crypto_key_id=(
+                    str(row["crypto_key_id"]) if row.get("crypto_key_id") else None
+                ),
             )
 
     async def update(self, anchor: IdentityAnchor) -> None:
@@ -116,6 +123,7 @@ class PostgresAnchorRepository(AnchorRepository):
                     pseudonymized_at          = %s,
                     revision                  = %s,
                     last_processed_command_id = %s,
+                    crypto_key_id             = %s,
                     updated_at                = NOW()
                 WHERE internal_id = %s
                 """,
@@ -128,6 +136,7 @@ class PostgresAnchorRepository(AnchorRepository):
                     anchor.pseudonymized_at,
                     anchor.revision,
                     anchor.last_processed_command_id,
+                    anchor.crypto_key_id,
                     str(anchor.internal_id),
                 ),
             )
@@ -187,6 +196,49 @@ class PostgresOutboxRepository(OutboxRepository):
             )
 
 
+class PostgresCryptoKeyRepository(CryptoKeyRepository):
+    """In-postgres adapter for the per-anchor DEK lifecycle.
+
+    Crypto-shredding ≡ ``DELETE FROM anchor_crypto_keys WHERE crypto_key_id = $1``
+    inside the same transaction as the anchor wipe — the FK's
+    ``ON DELETE SET NULL`` (declared in 002_pseudonymise.sql) guarantees the
+    anchor row's reference is severed atomically.
+
+    DEK material is sourced from ``gen_random_bytes(32)`` (pgcrypto) in
+    this dev adapter. A production deployment swaps this class for a
+    Vault-transit-backed one — the port contract is unchanged.
+    """
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    async def provision(self, *, crypto_key_id: str) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                """
+                INSERT INTO anchor_crypto_keys (crypto_key_id, dek)
+                VALUES (%s, gen_random_bytes(32))
+                ON CONFLICT (crypto_key_id) DO NOTHING
+                """,
+                (crypto_key_id,),
+            )
+
+    async def shred(self, *, crypto_key_id: str) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                "DELETE FROM anchor_crypto_keys WHERE crypto_key_id = %s",
+                (crypto_key_id,),
+            )
+
+    async def exists(self, *, crypto_key_id: str) -> bool:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                "SELECT 1 FROM anchor_crypto_keys WHERE crypto_key_id = %s",
+                (crypto_key_id,),
+            )
+            return await cur.fetchone() is not None
+
+
 class PostgresIdempotencyRepository(IdempotencyRepository):
     def __init__(self, conn: AsyncConnection) -> None:
         self._conn = conn
@@ -244,6 +296,7 @@ class PostgresUnitOfWork(UnitOfWork):
         self.anchors: AnchorRepository  # type: ignore[assignment]
         self.outbox: OutboxRepository  # type: ignore[assignment]
         self.idempotency: IdempotencyRepository  # type: ignore[assignment]
+        self.crypto_keys: CryptoKeyRepository  # type: ignore[assignment]
 
     async def __aenter__(self) -> "PostgresUnitOfWork":
         self._conn = await self._pool.getconn()
@@ -252,6 +305,7 @@ class PostgresUnitOfWork(UnitOfWork):
         self.anchors = PostgresAnchorRepository(self._conn)
         self.outbox = PostgresOutboxRepository(self._conn)
         self.idempotency = PostgresIdempotencyRepository(self._conn)
+        self.crypto_keys = PostgresCryptoKeyRepository(self._conn)
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
