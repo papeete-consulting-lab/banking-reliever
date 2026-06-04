@@ -17,10 +17,15 @@ tasks/BOARD.md
 *.egg-info/
 
 # .NET build output — promoted to root for the same reason. Safe today:
-# no tracked file lives under bin/ or obj/ anywhere (verified). The new
+# no tracked file lives under nested bin/ or obj/ anywhere (verified). The new
 # Deployment contract puts NO bin/ or obj/ under deployment/.
 bin/
 obj/
+# …except the repo-root /bin/, which holds the committed `kpack` container
+# wrapper (the single knowledge CLI). Re-include the dir then the file —
+# nested sources/**/bin/ build dirs stay ignored.
+!/bin/
+!/bin/kpack
 
 # Python virtualenvs
 .venv/

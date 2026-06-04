@@ -84,13 +84,13 @@ Before generating any test file, do this in order.
 
 The caller hands you a task identifier (`TASK-NNN`) and optionally a branch
 or environment slug. **All BCM/ADR/vision context is sourced from the
-`rlv-knowledge` CLI** — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
+`kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
 `/tech-vision/`, `/strategic-vision/`, or `/product-vision/` directly.
 
 Run **once** at the top of step 1:
 
 ```bash
-rlv-knowledge pack {capability_id} --deep --compact > /tmp/pack-test-bc.json
+kpack pack {capability_id} --deep --compact > /tmp/pack-test-bc.json
 ```
 
 Use `--deep` so the vision narratives are present — they feed the lightweight
@@ -105,9 +105,9 @@ Use `--deep` so the vision narratives are present — they feed the lightweight
 | **URBA constraints** | `governing_urba` | Event meta-model (URBA 0007–0013) — naming, schema, routing-key invariants |
 | **Tactical ADR** | `tactical_stack` | Concrete stack (which DB, which broker, which API style, SLOs) — affects backend integration tests |
 | **Strategic Tech ADRs** | `governing_tech_strat` | Routing-key convention (TECH-STRAT-001), OTel mandatory tags (TECH-STRAT-005) |
-| **Business events** | `emitted_business_events` | Expected event names, schemas, emitting capability, routing keys — used to assert bus emission |
-| **Resource events** | `emitted_resource_events` | Technical event projection, exchange/queue topology, wire-level payload shape |
-| **Consumed events** | `consumed_business_events`, `consumed_resource_events` | Subscription contracts to assert in incoming-message tests |
+| **Business events** | `emitted_events[] \| select(.layer=="business")` | Expected event names, schemas, emitting capability, routing keys — used to assert bus emission |
+| **Resource events** | `emitted_events[] \| select(.layer=="resource")` | Technical event projection, exchange/queue topology, wire-level payload shape |
+| **Consumed events** | `consumed_events[] \| select(.layer=="business")`, `consumed_events[] \| select(.layer=="resource")` | Subscription contracts to assert in incoming-message tests |
 | **Carried structures** | `carried_objects`, `carried_concepts` | Aggregate fields and invariants asserted in DB and in event payloads |
 | **Product vision** | `product_vision` (deep mode) | Tone, language posture (used in vocabulary checks on event payloads / API error messages) |
 | **Business vision** | `business_vision` (deep mode) | The strategic capability this TASK contributes to — used to frame the verdict, not to generate tests |
@@ -287,7 +287,7 @@ for i in $(seq 1 30); do
 done
 
 # Wait for the database — pick the probe based on the TASK / TECH-TACT tag
-DB_KIND="<postgresql|mongodb from rlv-knowledge pack slices.tactical_stack[].tags>"
+DB_KIND="<postgresql|mongodb from kpack pack slices.tactical_stack[].tags>"
 if [ "$DB_KIND" = "postgresql" ]; then
   for i in $(seq 1 30); do
     pg_isready -h localhost -p 5432 >/dev/null 2>&1 && break

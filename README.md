@@ -3,19 +3,30 @@
 This repo is the **implementation side** of Reliever, a financial-inclusion product.
 It holds the roadmap, tasks, and generated source code and tests of every business
 capability. The tactical **process model** is no longer authored here — it is
-consumed **read-only** via `rlv-knowledge process <CAP_ID>`.
+consumed **read-only** via `kpack process <CAP_ID>`.
 
 All upstream knowledge (BCM YAML, GOV / URBA / FUNC / TECH-STRAT / TECH-TACT ADRs,
-product / business / tech visions) lives in the external **`reliever-knowledge`**
-repository and is consumed **read-only** through the `rlv-knowledge` CLI — including the
-DDD process model, authored by the `/process` skill in `reliever-knowledge` and
-surfaced here via `rlv-knowledge process`. The runtime/deployment **platform**
-substrate lives in **`banking-tech`**, consumed read-only via the `tech` CLI;
-**organisation-wide governance** (enterprise GOV ADRs above any single product or
-platform) lives in **`banking-governance`**, consumed read-only via the `gov` CLI.
-Governance is thus layered across three scopes: org-wide (`gov`), Reliever-product
-(`rlv-knowledge`), tech-platform (`tech`). This repo never authors or modifies upstream
-artifacts.
+product / business / tech visions) is consumed **read-only** through a single CLI —
+**`kpack`**, the shared knowledge-pack engine (container `ghcr.io/naive-unicorn/kpack`,
+implementing `ADR-GCM-URBA-0002`). One engine serves every map; the corpus is selected
+by the id prefix or `--context`, never by a binary name. `kpack` replaces the three
+retired per-map CLIs `rlv-knowledge`, `tech` and `gov-pack`. The three corpora it
+resolves for this repo:
+
+- **`BNK.RLVR`** — the **`reliever-knowledge`** repo: BCM YAML, ADRs, visions, and the
+  DDD process model (authored upstream by the `/process` skill), via `kpack pack <CAP_ID>`
+  and `kpack process <CAP_ID>`.
+- **`BNK.TECH`** — the **`banking-tech`** repo: runtime/deployment platform substrate,
+  via `kpack pack <BNK.TECH.…>`.
+- **`BNK.GOV`** — the **`banking-governance`** repo: organisation-wide enterprise GOV
+  ADRs above any single product or platform, via `kpack pack <BNK.GOV.…>`.
+
+Governance is thus layered across three scopes (org-wide `BNK.GOV`, Reliever-product
+`BNK.RLVR`, tech-platform `BNK.TECH`) but reached through **one** engine. `kpack` ships
+as the container `ghcr.io/naive-unicorn/kpack:v1.0.0` — invoke it as a bare `kpack`
+(via the `bin/kpack` wrapper on `PATH`, or a `pipx`-installed console script); the
+repo-root **`.kpack.yaml`** maps enterprise `BNK` → the `banking-governance` registry
+that resolves every context. This repo never authors or modifies upstream artifacts.
 
 ---
 
@@ -23,7 +34,7 @@ artifacts.
 
 ```
                  ┌──────────────────────────────────────────────────────────┐
-                 │ Upstream — reliever-knowledge repo (read-only via rlv-knowledge)│
+                 │ Upstream — reliever-knowledge repo (read-only via kpack)      │
                  │                                                          │
                  │  product → strategic → tech → FUNC ADR → tactical ADR    │
                  │   vision    business    vision    (per L2)    (per L2)   │
@@ -35,8 +46,8 @@ artifacts.
                  │                authored by /process upstream)            │
                  └──────────────────────────────────────────────────────────┘
                                               │
-                                              │  rlv-knowledge pack <CAP_ID> --deep
-                                              │  rlv-knowledge process <CAP_ID>
+                                              │  kpack pack <CAP_ID> --deep
+                                              │  kpack process <CAP_ID>
                                               ▼
    ┌────────────────────────────────────────────────────────────────────────┐
    │ This repo — the implementation pipeline                                 │
@@ -63,7 +74,7 @@ The pipeline is **launched and resumed** through one entry point:
 /implementation-pipeline
 ```
 
-It probes upstream readiness via `rlv-knowledge`, inspects local artifacts, and
+It probes upstream readiness via `kpack`, inspects local artifacts, and
 dispatches the next pending stage. It is idempotent — re-invoke after each
 stage completes to advance.
 
@@ -75,7 +86,7 @@ When you invoke the skill it:
 
 1. **Probes upstream readiness** for each capability:
    ```bash
-   rlv-knowledge pack <CAP_ID> --deep --compact > /tmp/probe.json
+   kpack pack <CAP_ID> --deep --compact > /tmp/probe.json
    jq '.slices'  /tmp/probe.json   # all required slices must be non-empty
    jq '.warnings' /tmp/probe.json  # must be empty
    ```
@@ -95,8 +106,8 @@ When you invoke the skill it:
 
    | Pending state | Action |
    |---|---|
-   | Capabilities with a complete `rlv-knowledge` slice but `rlv-knowledge process <CAP_ID>` does not resolve | Tells you to run `/process <CAP_ID>` in the **reliever-knowledge** repo and merge its PR |
-   | Capabilities where `rlv-knowledge process <CAP_ID>` resolves but no `roadmap.md` | Spawns one `/roadmap` subagent per capability, in parallel |
+   | Capabilities with a complete `kpack pack` slice but `kpack process <CAP_ID>` does not resolve | Tells you to run `/process <CAP_ID>` in the **reliever-knowledge** repo and merge its PR |
+   | Capabilities where `kpack process <CAP_ID>` resolves but no `roadmap.md` | Spawns one `/roadmap` subagent per capability, in parallel |
    | Capabilities with a roadmap but no tasks | Spawns one `/task` subagent per capability, in parallel |
    | Tasks exist | Hands off to `/launch-task` (which calls `/sort-task` first) |
 
@@ -112,9 +123,9 @@ When you invoke the skill it:
 | | |
 |---|---|
 | **Skill** | `/process` — lives in the **reliever-knowledge** repo, not here |
-| **Reads** | `rlv-knowledge pack <CAP_ID> --deep` (BCM + FUNC / URBA / TECH-STRAT ADRs + visions) |
+| **Reads** | `kpack pack <CAP_ID> --deep` (BCM + FUNC / URBA / TECH-STRAT ADRs + visions) |
 | **Produces** | the process model — `aggregates`, `commands`, `policies`, `read-models`, `bus`, `api`, JSON Schemas (`CMD.*` / `RVT.*`), `README.md` — published in `reliever-knowledge` |
-| **Consumed here** | read-only via `rlv-knowledge process <CAP_ID>` (envelope: `.model.<stem>.{parsed,raw}`, `.schemas["X.schema.json"]`, `.meta`, `.readme`, `.knowledge_base`) |
+| **Consumed here** | read-only via `kpack process <CAP_ID>` (envelope: `.model.<stem>.{parsed,raw}`, `.schemas["X.schema.json"]`, `.meta`, `.readme`, `.corpus`) |
 
 This is the **DDD tactical layer** that bridges Big-Picture Event Storming (the
 upstream BCM/ADR corpus) and Software Design (the rest of the pipeline). It
@@ -125,7 +136,7 @@ consumed — all in architecture-neutral YAML.
 
 The DDD process model is authored by the `/process` skill in the
 **reliever-knowledge** repo and consumed here **read-only** via
-`rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+`kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 It does not live in this repo, so there is nothing to guard locally and nothing
 to write under `process/`. When reading it, use `.model.<stem>.parsed` and fall
 back to `.raw` when `parsed` is null (`commands` / `read-models` frequently
@@ -133,7 +144,7 @@ parse to null because of invalid-YAML flow mappings).
 
 **Readiness gate** — `/roadmap`, `/task`, `/launch-task`, `/code`, and `/fix`
 all refuse to run for a capability whose model does not resolve, i.e. whose
-`rlv-knowledge process <CAP_ID>` exits non-zero (its `/process` PR has not been
+`kpack process <CAP_ID>` exits non-zero (its `/process` PR has not been
 merged upstream in **reliever-knowledge** yet). Downstream stages only consume
 process models that have been reviewed and merged upstream.
 
@@ -142,7 +153,7 @@ process models that have been reviewed and merged upstream.
 | | |
 |---|---|
 | **Skill** | `/roadmap` |
-| **Reads** | `rlv-knowledge pack <CAP_ID> --deep` + the process model via `rlv-knowledge process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) |
+| **Reads** | `kpack pack <CAP_ID> --deep` + the process model via `kpack process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) |
 | **Writes** | `roadmap/<CAP_ID>/roadmap.md` (epics, milestones, exit conditions) |
 | **Parallelism** | one subagent per capability |
 
@@ -156,7 +167,7 @@ model — it never re-derives them.
 | | |
 |---|---|
 | **Skill** | `/task` |
-| **Reads** | `roadmap/<CAP_ID>/roadmap.md` + the process model via `rlv-knowledge process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) + `rlv-knowledge pack <CAP_ID> --compact` |
+| **Reads** | `roadmap/<CAP_ID>/roadmap.md` + the process model via `kpack process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) + `kpack pack <CAP_ID> --compact` |
 | **Writes** | `tasks/<CAP_ID>/TASK-NNN-*.md` (flat per-capability folder) |
 | **Frontmatter** | `task_id`, `capability_id`, `epic`, `status`, `priority`, `depends_on`, `task_type?`, `loop_count: 0`, `max_loops: 10` |
 | **Parallelism** | one subagent per capability |
@@ -193,12 +204,12 @@ Pure observation. Never modifies tasks, never launches agents.
 | | |
 |---|---|
 | **Skill** | `/code` |
-| **Reads** | task file + the process model via `rlv-knowledge process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) + `rlv-knowledge pack <CAP_ID>` (for `zoning`) |
+| **Reads** | task file + the process model via `kpack process <CAP_ID>` (`.model.*` slices, `.schemas[...]`) + `kpack pack <CAP_ID>` (for `zoning`) |
 | **Branches on** | `task_type` (`contract-stub` → Mode B), then capability `zoning` |
 
 | Routing | Path | Agent(s) | Output |
 |---|---|---|---|
-| `task_type: contract-stub` (any zone) | C | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker that publishes RVT events on RabbitMQ. **Reads** the JSON Schemas via `rlv-knowledge process <CAP_ID>` (`.schemas["RVT.*.schema.json"]`, does not regenerate them) |
+| `task_type: contract-stub` (any zone) | C | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker that publishes RVT events on RabbitMQ. **Reads** the JSON Schemas via `kpack process <CAP_ID>` (`.schemas["RVT.*.schema.json"]`, does not regenerate them) |
 | `BUSINESS_SERVICE_PRODUCTION` `SUPPORT` `REFERENTIAL` `EXCHANGE_B2B` `DATA_ANALYTIQUE` `STEERING` | A | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB, RabbitMQ, `GET /health` |
 | `CHANNEL` | B | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 ASP.NET Core BFF) + `sources/<CAP_ID>/frontend/` (vanilla HTML5 + CSS3 + JS) |
 
@@ -211,7 +222,7 @@ agent with a `── REMEDIATION CONTEXT ──` block. The loop is bounded by
 For non-CHANNEL Mode A, an optional **contract harness** can be attached
 post-implementation via `/harness-backend <CAP_ID>` — it scaffolds a
 `*.Contracts.Harness/` project that derives `openapi.yaml` and `asyncapi.yaml`
-from the process model (via `rlv-knowledge process <CAP_ID>` — `.model.*`, `.schemas`)
+from the process model (via `kpack process <CAP_ID>` — `.model.*`, `.schemas`)
 and the BCM corpus, and asserts strict alignment with bidirectional `x-lineage`
 extensions.
 
@@ -250,7 +261,7 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
                                       Stage 0 — the DDD tactical model — is NOT
                                       here: authored by /process in the
                                       reliever-knowledge repo, consumed read-only
-                                      via `rlv-knowledge process <CAP_ID>`
+                                      via `kpack process <CAP_ID>`
 /roadmap/                             local — epic roadmaps (Stage 1)
    <CAP_ID>/roadmap.md                epics + milestones + exit conditions
 /tasks/                               local — kanban (Stages 2-3)
@@ -273,7 +284,7 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
       continue-work/                  resume a `stalled` task
       fix/                            remediate a failing PR / merged build
       harness-backend/                add OpenAPI + AsyncAPI contract harness
-      sketch-miro/                    render the process model (via rlv-knowledge process) as a Miro Event Storming board
+      sketch-miro/                    render the process model (via kpack process) as a Miro Event Storming board
       pr-merge-watcher/  agent-watch/ ops helpers
       commit/                         conventional-commit + push + PR helper
    agents/                            agent definitions
@@ -295,8 +306,8 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 | Command | What it does |
 |---|---|
 | `/implementation-pipeline` | Status + advance to next pending stage |
-| `/process <CAP_ID>` | Stage 0 — lives **upstream** in reliever-knowledge; consumed here via `rlv-knowledge process <CAP_ID>` |
-| `/sketch-miro` | Render every process-modelled capability (via `rlv-knowledge process`) as a Miro Event Storming board |
+| `/process <CAP_ID>` | Stage 0 — lives **upstream** in reliever-knowledge; consumed here via `kpack process <CAP_ID>` |
+| `/sketch-miro` | Render every process-modelled capability (via `kpack process`) as a Miro Event Storming board |
 | `/roadmap` | Stage 1 — generate `roadmap.md` for current capability |
 | `/task` | Stage 2 — generate `TASK-NNN-*.md` for a capability |
 | `/sort-task` | Refresh `tasks/BOARD.md` (read-only) |
@@ -318,27 +329,28 @@ pushed, `gh pr create` with DoD checklist + local-stack instructions
 ## Invariants
 
 - **All upstream context is read-only.** GOV / URBA / TECH-STRAT / FUNC / TACTICAL
-  ADRs, BCM YAML, and product/business/tech visions are consumed via `rlv-knowledge`
-  only. To change them, edit the `reliever-knowledge` repo. The `tech` CLI serves the
-  platform substrate (`banking-tech`) and the `gov` CLI the organisation-wide
-  governance ADRs (`banking-governance`) — both equally read-only here.
+  ADRs, BCM YAML, and product/business/tech visions are consumed via `kpack`
+  (context `BNK.RLVR`) only. To change them, edit the `reliever-knowledge` repo. The
+  same engine serves the platform substrate (`kpack pack <BNK.TECH.…>`, `banking-tech`)
+  and the organisation-wide governance ADRs (`kpack pack <BNK.GOV.…>`,
+  `banking-governance`) — all equally read-only here.
 - **The process model is upstream and read-only here.** It is authored by the
   `/process` skill in the **reliever-knowledge** repo and consumed here via
-  `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+  `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
   It does not live in this repo, so there is nothing to guard locally and
   nothing to write under `process/`. Its `/process` PR must be merged upstream
   before downstream stages can consume the model — `/roadmap`, `/task`,
-  `/launch-task`, `/code`, and `/fix` all gate on `rlv-knowledge process <CAP_ID>`
+  `/launch-task`, `/code`, and `/fix` all gate on `kpack process <CAP_ID>`
   resolving (exit 0).
 - **Folder layout is strict.** The legacy `/plan/` output folder no longer
   exists. `/roadmap/` (Stage 1) and `/tasks/` (Stages 2–3) each have a single
   authoring skill. Stage 0 is upstream. No skill writes outside its lane.
 - **Every task traces back** to a roadmap epic → process model (via
-  `rlv-knowledge process`) → BCM capability → FUNC ADR → URBA constraints. The chain
+  `kpack process`) → BCM capability → FUNC ADR → URBA constraints. The chain
   is unbreakable.
 - **Every implementation artifact** (microservice / BFF / frontend / stub) is
   reachable from a TASK-NNN, and every routing key / aggregate / command it uses
-  is defined in the process model, consumed via `rlv-knowledge process <CAP_ID>`.
+  is defined in the process model, consumed via `kpack process <CAP_ID>`.
 - **Branch isolation** — one branch per task, ports & exchanges scoped by branch
   slug, parallel worktrees never collide.
 - **One code agent per task** at a time; one active task per capability.

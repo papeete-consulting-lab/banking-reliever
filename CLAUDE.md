@@ -8,39 +8,79 @@ This is the **implementation side** of *Reliever*, a financial-inclusion product
 It turns validated business capabilities into runnable .NET microservices, BFFs,
 vanilla web frontends, contract stubs, and their tests.
 
-All upstream knowledge — BCM YAML, GOV / URBA / TECH-STRAT / FUNC / TECH-TACT
-ADRs, product / business / tech visions — lives in a separate
-**`reliever-knowledge`** repo and is consumed **read-only** through the
-`rlv-knowledge` CLI. (The GOV ADRs surfaced here are scoped to the **Reliever
-product** — see the governance substrate below for the organisation-wide ones.)
-**The DDD tactical Process Modelling layer** (aggregates,
-commands, policies, read-models, bus topology, JSON Schemas) also lives in
-`reliever-knowledge` now (authored there by the `/process` skill) and is
-consumed here **read-only** through `rlv-knowledge process <CAP_ID>` — exactly like
-the BCM corpus (see `reliever-knowledge` for the migration rationale). The
-runtime/deployment **platform** substrate (PCM model, platform events/objects,
-runtime ADRs) lives in a second separate repo, **`banking-tech`**, consumed
-**read-only** through the `tech` CLI (its GOV ADRs are scoped to the **tech**
-platform). The **organisation-wide governance** substrate — enterprise-level
-GOV ADRs that sit above any single product or platform — lives in a third
-separate repo, **`banking-governance`**
-(`Banking-PapeeteConsulting/banking-governance`), consumed **read-only**
-through the `gov-pack` CLI. So governance is layered across three scopes and
-three sources: org-wide via `gov-pack`, Reliever-product-scoped via
-`rlv-knowledge`, tech-platform-scoped via `tech`. This repo never authors or edits
-upstream artifacts. There is no `bcm/`, `adr/`, `func-adr/`, `process/`,
-`tools/`, `build.sh`, or EventCatalog build here anymore.
+All upstream knowledge is consumed **read-only** through a single CLI — **`kpack`**,
+the shared knowledge-pack engine (container `ghcr.io/naive-unicorn/kpack`, repo
+`naive-unicorn/knowledge-cli`, implementing `ADR-GCM-URBA-0002`). One engine serves
+every capability map; the map is selected **by the id prefix or `--context`, never
+by a binary name**. `kpack` replaces the three retired per-map CLIs `rlv-knowledge`,
+`tech` and `gov-pack`. See the **kpack** subsection below for setup and the command
+surface.
 
-### Enriched, source-context-prefixed asset IDs (CLI v2.0.0+)
+The three knowledge corpora `kpack` resolves for this repo, each owned and authored
+elsewhere, each consumed here read-only:
 
-Every upstream asset ID now carries an **`<ENTERPRISE>.<SCOPE>.`
-source-context prefix** (governed by `ADR-PCM-URBA-0014` — now owned by the
-`banking-governance` repo as an org-wide governance ADR; it keeps its legacy
-`PCM` name until the upstream cleanup renames it. Tech-repo ADRs likewise still
-adhere to the `PCM` naming):
+- **BCM corpus + DDD process model** — context **`BNK.RLVR`**, repo
+  **`reliever-knowledge`**: BCM YAML, GOV / URBA / TECH-STRAT / FUNC / TECH-TACT ADRs,
+  product / business / tech visions, and **the DDD tactical Process Modelling layer**
+  (aggregates, commands, policies, read-models, bus topology, JSON Schemas — authored
+  upstream by the `/process` skill). Fetched via `kpack pack <CAP_ID>` and
+  `kpack process <CAP_ID>`. (The GOV ADRs surfaced at this context are scoped to the
+  **Reliever product** — see the org-wide ones below.)
+- **Platform / PCM substrate** — context **`BNK.TECH`**, repo **`banking-tech`**:
+  PCM model, platform events/objects, runtime ADRs (its GOV ADRs are scoped to the
+  **tech** platform). Fetched via `kpack pack <BNK.TECH.…>`.
+- **Organisation-wide governance** — context **`BNK.GOV`**, repo **`banking-governance`**
+  (`Banking-PapeeteConsulting/banking-governance`): enterprise-level GOV ADRs that sit
+  above any single product or platform. Fetched via `kpack pack <BNK.GOV.…>` (the old
+  `gov` passthrough is retired — governance access is just `pack` on a `BNK.GOV` id).
+
+So governance is layered across three scopes (org-wide `BNK.GOV`, Reliever-product
+`BNK.RLVR`, tech-platform `BNK.TECH`) but reached through **one** engine. This repo
+never authors or edits upstream artifacts. There is no `bcm/`, `adr/`, `func-adr/`,
+`process/`, `tools/`, `build.sh`, or EventCatalog build here anymore.
+
+### kpack — the one knowledge CLI
+
+`kpack` is delivered as the container image **`ghcr.io/naive-unicorn/kpack:v1.0.0`**.
+Skills, agents and scripts invoke it as a **bare `kpack <subcmd>`**, exactly as they
+called the old CLIs. Two setup options:
+
+- **Container wrapper (default):** `bin/kpack` runs the image; put `bin/` on `PATH`
+  (`export PATH="$PWD/bin:$PATH"`). Needs Docker and a `GITHUB_TOKEN` with
+  `read:packages` + read on the private corpus repos.
+- **From source:** `pipx install "git+https://…@github.com/naive-unicorn/knowledge-cli.git"`
+  installs a native `kpack` console script with the identical surface (no Docker).
+
+Enterprise → governance-registry resolution is configured once in the repo-root
+**`.kpack.yaml`** (`BNK` → `banking-governance`); from there `kpack` resolves every
+context's corpus repo via the governance `vocab.yaml`. Command surface:
 
 ```
-CAP.<ZONE>.<NNN>[.<CODE>]   →   BNK.RLVR.CAP.<ZONE>.<NNN>[.<CODE>]   (knowledge / rlv-knowledge)
+kpack pack <id> [--deep] [--compact]                 # capability pack (context from id prefix)
+kpack process <id> [--list] [--compact]              # DDD process model (BNK.RLVR only)
+kpack diff <from_ref> [--to <ref>] \                 # semantic by-id diff
+     [--capability <id> | --context <CTX>] [--compact]
+kpack version [--context <CTX>] [--compact]          # engine version / corpus provenance
+kpack list --context <CTX> [--level L1|L2|L3]        # enumerate capabilities
+```
+
+`pack`/`process` derive the context from the id prefix; `diff` infers it from
+`--capability` (else needs `--context`); `version` needs `--context` for corpus
+provenance (bare `kpack version` reports only the engine version); `process --list`
+takes any capability id in the corpus — the id supplies the context.
+
+### Enriched, source-context-prefixed asset IDs
+
+Every upstream asset ID carries an **`<ENTERPRISE>.<SCOPE>.` source-context prefix**
+(the id grammar `ADR-GCM-URBA-0001`; the prefix rule is governed by
+`ADR-PCM-URBA-0014`, now owned by the `banking-governance` repo as an org-wide
+governance ADR — it keeps its legacy `PCM` name until the upstream cleanup renames
+it. Tech-repo ADRs likewise still adhere to the `PCM` naming). The enterprise is
+id segment 0, the scope is segment 1, so segments 0–1 are the **context** `kpack`
+selects on:
+
+```
+CAP.<ZONE>.<NNN>[.<CODE>]   →   BNK.RLVR.CAP.<ZONE>.<NNN>[.<CODE>]   (knowledge / BNK.RLVR)
 RVT.<ZONE>.<NNN>.<NAME>     →   BNK.RLVR.RVT.<ZONE>.<NNN>.<NAME>     (resource events)
 EVT.<ZONE>.<NNN>.<NAME>     →   BNK.RLVR.EVT.<ZONE>.<NNN>.<NAME>     (business events)
 OBJ.… / SUB.… / RES.… / CON.…  →  BNK.RLVR.OBJ.… / BNK.RLVR.SUB.… / …
@@ -52,48 +92,51 @@ Rules:
 - **The capability ID is the full prefixed form everywhere in this repo** —
   folder names (`sources/BNK.RLVR.CAP.…/`, `roadmap/BNK.RLVR.CAP.…/`, …),
   `capability_id` in TASK frontmatter, branch derivation, the argument to
-  `rlv-knowledge process`, and all skill/agent docs. `rlv-knowledge`/`tech` v2.0.0
-  **reject the old short form** (`CAP.…`) with exit code 2 (`Unknown capability`).
+  `kpack process`, and all skill/agent docs. `kpack` resolves the context from this
+  prefix; an id without one cannot be resolved to a corpus.
 - **bcm-sourced asset IDs** (`CAP/RVT/EVT/OBJ/SUB/RES/CON`) are used **verbatim
-  as returned by `rlv-knowledge`** — already prefixed. Schemas, `bus.yaml` routing
-  keys, generated event classes, and RabbitMQ topology all carry the prefix.
+  as returned by `kpack`** — already prefixed. Schemas, `bus.yaml` routing keys,
+  generated event classes, and RabbitMQ topology all carry the prefix.
 - **Process-authored tactical IDs** (`AGG/CMD/POL/PRJ/QRY` — invented by
   `/process`, not present in BCM) remain **capability-local / unprefixed**.
 
-### Versioned knowledge (CLI v2.0.0+)
+### Versioned knowledge
 
-Both CLIs surface knowledge-base provenance and a semantic diff:
+`kpack` surfaces corpus provenance and a semantic diff:
 
 ```
-rlv-knowledge version [--compact]                       # KB provenance JSON
-rlv-knowledge diff <from_ref> [--to <ref>] [--capability <CAP_ID>] [--compact]
-rlv-knowledge pack <CAP_ID> …                            # now embeds a top-level
-                                                    # "knowledge_base" block
+kpack version --context BNK.RLVR [--compact]            # corpus provenance JSON
+kpack diff <from_ref> [--to <ref>] --capability <CAP_ID> [--compact]   # context inferred
+kpack diff <from_ref> [--to <ref>] --context BNK.RLVR [--compact]      # corpus-wide
+kpack pack <CAP_ID> …                                   # envelope embeds a top-level
+                                                        # "corpus" provenance block
 ```
 
-`version`/`pack.knowledge_base` fields: `package_version`, `source`, `ref`,
-`branch`, `commit`, `commit_short`, `committed_at`, `dirty`. The `diff`
-envelope reports added/removed/changed counts per asset family (capabilities,
-business/resource events, objects, concepts, resources, subscriptions, ADRs,
-vocab) — scoped to one capability with `--capability`.
+kpack emits a normalized envelope (`schema_version`, `engine`, `corpus`, `meta_model`,
+`format`, `tool`, `slices`, …). The **`corpus`** block carries `enterprise`, `context`,
+`repo`, `ref`, `commit`, `committed_at`, `dirty`; the **`engine`** block carries the
+kpack version — corpus ref and engine version are now **two independent coordinates**.
+The `diff` envelope reports added/removed/changed counts per asset family (capabilities,
+events by layer, objects, concepts, subscriptions, ADRs, vocab) — scoped to one
+capability with `--capability`.
 
 **Provenance is recorded and drift is detected** (see invariants): `/process`
-(upstream) stamps the consumed `knowledge_base` block into the process model;
-`rlv-knowledge process <CAP_ID>` surfaces it as `.knowledge_base`; downstream
-artifacts carry the `bcm_ref` forward; `/implementation-pipeline` and `/fix`
-run `rlv-knowledge diff <recorded_ref> --capability <CAP_ID>` to flag when upstream
-knowledge has moved since an artifact was generated.
+(upstream) stamps the consumed `corpus` provenance into the process model;
+`kpack process <CAP_ID>` surfaces it as `.corpus`; downstream artifacts carry the
+`bcm_ref` (= `.corpus.ref`) forward; `/implementation-pipeline` and `/fix` run
+`kpack diff <recorded_ref> --capability <CAP_ID>` to flag when upstream knowledge has
+moved since an artifact was generated.
 
 ## The implementation pipeline
 
 Stage 0 — the DDD tactical **Process Modelling** layer — is authored by
 `/process` **in the `reliever-knowledge` repo** and consumed here read-only via
-`rlv-knowledge process <CAP_ID>`. The five local stages, each owned by a single
+`kpack process <CAP_ID>`. The five local stages, each owned by a single
 skill, each writing to a single folder:
 
 ```
 [0] /process       (reliever-knowledge)        DDD tactical model
-                   ↳ consumed here via `rlv-knowledge process <CAP_ID>` (read-only)
+                   ↳ consumed here via `kpack process <CAP_ID>` (read-only)
 [1] /roadmap       roadmap/<CAP_ID>/          epics + milestones
 [2] /task          tasks/<CAP_ID>/            unit-of-work TASK-NNN-*.md
 [3] /sort-task     tasks/BOARD.md             read-only kanban (hook-driven)
@@ -104,14 +147,14 @@ skill, each writing to a single folder:
 ```
 
 Entry point for end-to-end orchestration: **`/implementation-pipeline`** —
-probes upstream readiness via `rlv-knowledge` (knowledge) and `rlv-knowledge process`
+probes upstream readiness via `kpack pack` (knowledge) and `kpack process`
 (the process model), inspects local artifacts, dispatches the next pending
 stage. Idempotent: re-invoke after each stage completes.
 
 ## Repo layout
 
 ```
-(Stage 0 — process model — is NOT here; fetch via `rlv-knowledge process <CAP_ID>`.
+(Stage 0 — process model — is NOT here; fetch via `kpack process <CAP_ID>`.
  It lives in the reliever-knowledge repo, authored by /process.)
 /roadmap/<CAP_ID>/        Stage 1 — roadmap.md
 /tasks/                   Stages 2-3 — BOARD.md + <CAP_ID>/TASK-NNN-*.md
@@ -150,12 +193,12 @@ bcm_ref: <git ref the process model was generated from, e.g. v2.0.0>   # set by 
 
 `/code` is the sole writer of `loop_count`, `max_loops`, `stalled_reason`, `pr_url`.
 `bcm_ref` is carried forward from the process-model provenance (stamped by
-`/process` upstream, surfaced as `rlv-knowledge process <CAP_ID>` → `.knowledge_base.ref`)
-so any stage can `rlv-knowledge diff` against it to detect upstream drift.
+`/process` upstream, surfaced as `kpack process <CAP_ID>` → `.corpus.ref`)
+so any stage can `kpack diff` against it to detect upstream drift.
 
 ## Stage 4 routing (zone-, type-, and language-aware)
 
-Zone is read from `rlv-knowledge pack <CAP_ID>` (`slices.capability_self[0].zoning`) —
+Zone is read from `kpack pack <CAP_ID>` (`slices.capability_self[0].zoning`) —
 never inferred from the capability ID prefix. The implementation
 language for Path A and Path C is read from the **TECH-TACT ADR** of
 the capability (`slices.tactical_stack[0].tags`) — `python` /
@@ -165,8 +208,8 @@ falls back to the .NET agent with a warning.
 
 | Trigger | Agent(s) | Output |
 |---|---|---|
-| `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `rlv-knowledge process <CAP_ID>` (`.schemas`, does NOT regenerate them) + `deployment/{local,dev}/` per the **Deployment contract** below |
-| `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `rlv-knowledge process <CAP_ID>` (`.schemas`) + `deployment/{local,dev}/` per the **Deployment contract** below |
+| `task_type: contract-stub` + TECH-TACT tag `python` | `implement-capability-python` (Mode B) | `sources/<CAP_ID>/stub/` — FastAPI app publishing RVT events via `aio-pika` + canned-fixture query API; reads schemas from `kpack process <CAP_ID>` (`.schemas`, does NOT regenerate them) + `deployment/{local,dev}/` per the **Deployment contract** below |
+| `task_type: contract-stub` + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode B) | `sources/<CAP_ID>/stub/` — minimal .NET worker + Minimal-API host; schemas read from `kpack process <CAP_ID>` (`.schemas`) + `deployment/{local,dev}/` per the **Deployment contract** below |
 | zone ∈ {`BUSINESS_SERVICE_PRODUCTION`, `SUPPORT`, `REFERENTIAL`, `EXCHANGE_B2B`, `DATA_ANALYTICS`, `STEERING`} + TECH-TACT tag `python` | `implement-capability-python` (Mode A) | `sources/<CAP_ID>/backend/` — Python 3.12+ microservice (Domain / Application / Infrastructure / Presentation / Contracts packages), FastAPI, motor or psycopg/asyncpg, aio-pika + `deployment/{local,dev}/` per the **Deployment contract** below (kind = `api`) |
 | same zones + TECH-TACT tag `dotnet` (default) | `implement-capability` (Mode A) | `sources/<CAP_ID>/backend/` — .NET 10 microservice (Domain / Application / Infrastructure / Presentation / Contracts), MongoDB or PostgreSQL (per TECH-TACT), connecting to the **external platform broker** (no bundled RabbitMQ) + `deployment/{local,dev}/` per the **Deployment contract** below (kind = `api`) |
 | zone = `CHANNEL` | `create-bff` ∥ `code-web-frontend` (parallel) | `sources/<CAP_ID>/bff/` (.NET 10 Minimal API BFF, kind = `bff`) + `sources/<CAP_ID>/frontend/` (vanilla HTML5/CSS3/JS served by an `nginx:alpine` image, kind = `frontend`) — language fixed; TECH-TACT tags ignored for CHANNEL. Both ship `deployment/{local,dev}/` per the **Deployment contract** below |
@@ -178,7 +221,7 @@ Post-implementation:
 - For non-CHANNEL Mode A, an optional **contract harness** is attached via
   `/harness-backend <CAP_ID>` — scaffolds a `*.Contracts.Harness/` project
   that derives `openapi.yaml` + `asyncapi.yaml` from the process model
-  (`rlv-knowledge process <CAP_ID>`) and the BCM corpus, with bidirectional
+  (`kpack process <CAP_ID>`) and the BCM corpus, with bidirectional
   `x-lineage` extensions.
 
 ## Deployment contract (local + dev)
@@ -206,21 +249,21 @@ sources/<CAP_ID>/<component>/                  # <component> ∈ { backend, stub
         README.md              # platform caps resolved; any escape-hatch issue link
 ```
 
-### Derivation chain — `rlv-knowledge` → `tech` (no direct repo access)
+### Derivation chain — `kpack pack BNK.RLVR…` → `kpack pack BNK.TECH…` (no direct repo access)
 
 **Hard rule:** agents never read the `banking-tech` repo directly. The chain is
-always **two CLIs in sequence**:
+always **one engine, two contexts, in sequence**:
 
-1. `rlv-knowledge pack <CAP_ID> --deep` → reads the component's needs from its
-   `slices.tactical_stack[].tags` (e.g. `postgresql`, `aws-eks`, `train-release`),
-   `slices.tactical_stack[].platform_overrides`, and `slices.governing_tech_strat[]`
-   (by `tech_domain`: `EVENT_INFRASTRUCTURE`, `DATA_PERSISTENCE`, `API_CONTRACT`,
-   `RUNTIME`, `DEPLOYMENT`).
+1. `kpack pack <CAP_ID> --deep` (context `BNK.RLVR`) → reads the component's needs
+   from its `slices.tactical_stack[].tags` (e.g. `postgresql`, `aws-eks`,
+   `train-release`), `slices.tactical_stack[].platform_overrides`, and
+   `slices.governing_tech_strat[]` (by `tech_domain`: `EVENT_INFRASTRUCTURE`,
+   `DATA_PERSISTENCE`, `API_CONTRACT`, `RUNTIME`, `DEPLOYMENT`).
 2. For each need, resolve the matching platform capability (`BNK.TECH.CAP.…`) and
-   call `tech pack <PLATFORM_CAP_ID>` (and related `tech` subcommands) to obtain
-   the canonical Terraform-module reference, required inputs, and the
-   ingress/network/security rules. The agent writes these verbatim into
-   `deployment/dev/{k8s,terraform}/` — no inventions, no hardcoded paths.
+   call `kpack pack <PLATFORM_CAP_ID>` (context `BNK.TECH`) to obtain the canonical
+   Terraform-module reference, required inputs, and the ingress/network/security
+   rules. The agent writes these verbatim into `deployment/dev/{k8s,terraform}/` —
+   no inventions, no hardcoded paths.
 
 ### Local environment
 
@@ -295,8 +338,8 @@ always **two CLIs in sequence**:
 | Command | What it does |
 |---|---|
 | `/implementation-pipeline` | Status across all capabilities; advance to next pending stage |
-| `/process <CAP_ID>` | Stage 0 — interactive DDD modelling. **Lives in the `reliever-knowledge` repo**, not here; consumed here via `rlv-knowledge process <CAP_ID>` |
-| `/sketch-miro` | Render every process-modelled capability (enumerated via `rlv-knowledge process --list`) as a Miro Event Storming board |
+| `/process <CAP_ID>` | Stage 0 — interactive DDD modelling. **Lives in the `reliever-knowledge` repo**, not here; consumed here via `kpack process <CAP_ID>` |
+| `/sketch-miro` | Render every process-modelled capability (enumerated via `kpack process <CAP_ID> --list`) as a Miro Event Storming board |
 | `/c4-export` | Render the BCM tree as Structurizr DSL — per-L2, per-zone, enterprise — under `docs/c4/` |
 | `/roadmap` | Stage 1 — `roadmap.md` for a capability |
 | `/task` | Stage 2 — `TASK-NNN-*.md` for a capability |
@@ -318,20 +361,22 @@ always **two CLIs in sequence**:
 
 - **Upstream is read-only.** Never read `/bcm/`, `/adr/`, `/func-adr/`,
   `/strategic-vision/`, `/product-vision/`, `/tech-vision/`, `/tech-adr/`
-  from disk — they don't live here. Use `rlv-knowledge pack <CAP_ID> [--deep] [--compact]`
-  for knowledge (`BNK.RLVR.…`), `tech pack <CAP_ID> …` for the platform
-  substrate (`BNK.TECH.…`), and the `gov-pack` CLI for organisation-wide
-  governance ADRs (`banking-governance`). `<CAP_ID>` is always the **full source-context-prefixed
-  ID**; the short `CAP.…` form is rejected (exit 2) by the v2.0.0 CLIs.
-- **Provenance is recorded; drift is detected.** The `knowledge_base` block of
-  `rlv-knowledge pack`/`version`/`process` (git ref + commit + date) is stamped by
-  `/process` into the process model and carried forward as `bcm_ref` on TASK
-  frontmatter. `/implementation-pipeline` and `/fix` run `rlv-knowledge diff <bcm_ref>
+  from disk — they don't live here. Use the single `kpack` engine:
+  `kpack pack <CAP_ID> [--deep] [--compact]` for knowledge (`BNK.RLVR.…`),
+  `kpack pack <BNK.TECH.…>` for the platform substrate (`BNK.TECH.…`), and
+  `kpack pack <BNK.GOV.…>` for organisation-wide governance ADRs
+  (`banking-governance`). `<CAP_ID>` is always the **full source-context-prefixed
+  ID** — `kpack` resolves the corpus context from its prefix; an id without one
+  cannot be resolved.
+- **Provenance is recorded; drift is detected.** The `corpus` block of
+  `kpack pack`/`version`/`process` (git ref + commit + date) is stamped by
+  `/process` into the process model and carried forward as `bcm_ref` (= `.corpus.ref`)
+  on TASK frontmatter. `/implementation-pipeline` and `/fix` run `kpack diff <bcm_ref>
   --capability <CAP_ID>` to flag upstream changes since an artifact was generated.
 - **The process model is upstream and read-only here.** It lives in
   `reliever-knowledge` (authored by `/process`) and is consumed via
-  `rlv-knowledge process <CAP_ID>` — never read from a local `process/` folder (there
-  is none) and never written. Stage-0 readiness is `rlv-knowledge process <CAP_ID>`
+  `kpack process <CAP_ID>` — never read from a local `process/` folder (there
+  is none) and never written. Stage-0 readiness is `kpack process <CAP_ID>`
   returning exit 0; `/roadmap`, `/task`, `/launch-task`, `/code`, `/fix` refuse
   to run until the model resolves (i.e. its `/process` PR is merged upstream).
 - **One authoring skill per folder.** `/roadmap` → `roadmap/`,
@@ -344,15 +389,16 @@ always **two CLIs in sequence**:
   all carry the branch slug — concurrent worktrees never collide.
 - **One `/code` agent per task; one active task per capability.**
 - **Loop counters live on the TASK file**, not on the board.
-- **Deployment derivation is two-CLI, never direct.** Stage-4 agents owe
-  `deployment/{local,dev}/` per the **Deployment contract** above. The
-  derivation is `rlv-knowledge pack` (what the component needs) → `tech pack`
-  (how the platform provides it). Agents never read the `banking-tech` repo
-  directly (no `gh`/git/`WebFetch` against it). The `tech` CLI is a runtime
-  prerequisite for the dev layer, alongside `rlv-knowledge` and `gov-pack`.
+- **Deployment derivation is one engine, two contexts, never direct.** Stage-4
+  agents owe `deployment/{local,dev}/` per the **Deployment contract** above. The
+  derivation is `kpack pack <CAP_ID>` (context `BNK.RLVR` — what the component
+  needs) → `kpack pack <BNK.TECH.…>` (context `BNK.TECH` — how the platform
+  provides it). Agents never read the `banking-tech` repo directly (no
+  `gh`/git/`WebFetch` against it). `kpack` is the single knowledge-CLI runtime
+  prerequisite for every stage, including the dev layer.
 - **Every artifact traces back** to a TASK → roadmap epic → process model →
   BCM capability (`BNK.RLVR.CAP.…`) → FUNC ADR → URBA constraints, pinned to a
-  knowledge-base `bcm_ref`. The chain is unbreakable and version-anchored.
+  corpus `bcm_ref`. The chain is unbreakable and version-anchored.
 
 ## Task states
 
@@ -370,8 +416,8 @@ always **two CLIs in sequence**:
 
 - New capability, never modelled → `/implementation-pipeline` (it will tell you
   to run `/process <CAP_ID>` **in the `reliever-knowledge` repo** first — until
-  `rlv-knowledge process <CAP_ID>` resolves, there is nothing to plan against).
-- Process model published (`rlv-knowledge process <CAP_ID>` exits 0), no roadmap yet → `/roadmap`.
+  `kpack process <CAP_ID>` resolves, there is nothing to plan against).
+- Process model published (`kpack process <CAP_ID>` exits 0), no roadmap yet → `/roadmap`.
 - Roadmap merged, no tasks → `/task`.
 - Tasks exist → `/launch-task` (or `/launch-task auto`).
 - Something is red → `/fix` with the PR number, branch, or log paste.

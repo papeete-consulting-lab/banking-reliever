@@ -5,7 +5,7 @@ description: |
   hexagonal architecture, DDD, and Event Storming. The Python sibling of
   the `implement-capability` agent — same decision framework, same Mode A
   / Mode B split, same read-only process-model contract consumed via
-  `rlv-knowledge process <CAP_ID>`, same harness-backend hand-off — but emits a
+  `kpack process <CAP_ID>`, same harness-backend hand-off — but emits a
   Python stack instead of .NET 10.
 
   Operates in two modes, selected from the TASK frontmatter:
@@ -25,7 +25,7 @@ description: |
     `.model.api` with canned cold-data fixtures AND an asyncio task
     publishing `RVT.*` events on the agreed bus topology. The wire-format
     JSON Schemas are NOT regenerated here — they are read from `.schemas`
-    of `rlv-knowledge process <CAP_ID>` (already authored by `/process` in
+    of `kpack process <CAP_ID>` (already authored by `/process` in
     reliever-knowledge). Mode B output is a minimal Python package under
     `sources/{cap-name}/stub/`. If `.model.api` declares no operations,
     only the event half ships; if `.model.bus` declares no emitted events,
@@ -76,8 +76,8 @@ the current working directory.
 > **Read-only contract — the process model.**
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
-> process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`. It
+> **reliever-knowledge** repo and consumed here **read-only** via `kpack
+> process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`. It
 > does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`. Fetch it once on entry and read its
 > slices — `.model.aggregates`, `.model.commands`, `.model.policies`,
@@ -94,7 +94,7 @@ the current working directory.
 
 > **Read-only contract — the TECH-TACT ADR.**
 > You were selected (over the .NET sibling) because the capability's
-> TECH-TACT ADR (`tactical_stack[0]` of `rlv-knowledge pack <CAP_ID>`)
+> TECH-TACT ADR (`tactical_stack[0]` of `kpack pack <CAP_ID>`)
 > tagged the runtime as Python. Re-read it on entry — the agent that
 > drove `/code` only inspected the `tags` array, but the ADR's
 > structured fields (`grounded_in_*`, `strategic_overrides`) AND its
@@ -130,7 +130,7 @@ the current working directory.
 >    names) — the harness's validator inspects aio-pika
 >    queue/exchange registrations and will fail the build on any drift.
 > 5. Use the BCM `RES.*` resource shape (from
->    `rlv-knowledge.carried_objects`) as the canonical projection for any
+>    `kpack` `.slices.carried_objects[] | select(.layer=="resource")`) as the canonical projection for any
 >    read endpoint — the harness asserts that read responses are
 >    structurally compatible with the corresponding `RES.*`.
 >
@@ -193,7 +193,7 @@ Read the TASK file frontmatter and extract the `task_type` field:
 | `task_type` value | Mode | Output |
 |---|---|---|
 | (absent) or `full-microservice` | **Mode A** — full microservice scaffold | `sources/{capability-name}/backend/` with the full hexagonal tree |
-| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal FastAPI host: HTTP query API serving `.model.api` responses from canned fixtures + asyncio publisher emitting `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `rlv-knowledge process <CAP_ID>` (already authored by `/process`). |
+| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal FastAPI host: HTTP query API serving `.model.api` responses from canned fixtures + asyncio publisher emitting `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `kpack process <CAP_ID>` (already authored by `/process`). |
 
 Announce the chosen mode:
 
@@ -204,13 +204,13 @@ Announce the chosen mode:
 ### 0.6. Confirm TECH-TACT — Python is the chosen runtime
 
 ```bash
-rlv-knowledge pack {capability_id} --compact > /tmp/pack-impl-python.json
+kpack pack {capability_id} --compact > /tmp/pack-impl-python.json
 ```
 
 `{capability_id}` is the **full source-context-prefixed ID** (e.g.
 `BNK.RLVR.CAP.SUP.002.BEN`); the v2.0.0 CLI rejects the short `CAP.…` form (exit 2).
 
-> **Asset-ID namespacing (CLI v2.0.0+).** Every ID `rlv-knowledge` returns —
+> **Asset-ID namespacing (CLI v2.0.0+).** Every ID `kpack` returns —
 > `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
 > Use them **verbatim**: pydantic event models map to the full ID, routing keys
 > are the prefixed `<EVT-id>.<RVT-id>` from the process model's `.model.bus`, and the
@@ -220,11 +220,11 @@ rlv-knowledge pack {capability_id} --compact > /tmp/pack-impl-python.json
 
 > **Platform substrate (optional, Mode A).** When the TECH-TACT / TECH-STRAT
 > slices reference a `BNK.TECH.CAP.…` runtime/deployment platform capability,
-> fetch its contract from the platform CLI: `tech pack {platform_capability_id}
-> --compact` (reads the `banking-tech` repo, prefix `BNK.TECH.`). Skip when no
-> `BNK.TECH.` dependency is referenced. (`tech` ≥ 2.0.0 ships as its own
-> `pcm_pack` package and coexists cleanly with `rlv-knowledge`; point it at a local
-> checkout with `--repo-root <banking-tech>` or `BANKING_PLATFORM_ROOT`.)
+> fetch its contract from the platform context: `kpack pack {platform_capability_id}
+> --compact` (`kpack` resolves the `BNK.TECH.` context from the prefixed ID). Skip when no
+> `BNK.TECH.` dependency is referenced. (`kpack` is one engine across every
+> context; point it at a local checkout with `--repo-root <banking-tech>` or
+> `BANKING_PLATFORM_ROOT`.)
 
 Inspect `slices.tactical_stack[0]`:
 
@@ -268,7 +268,7 @@ defaults when the ADR is silent:
 ### 1. Read the context
 
 The caller will hand you a task to implement. **All BCM/ADR/vision
-context is sourced from the `rlv-knowledge` CLI** — never read `/bcm/`,
+context is sourced from the `kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`,
 `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`,
 `/tech-vision/`, or `/tech-adr/` directly.
 
@@ -284,8 +284,8 @@ usage:
 | **TECH-TACT ADR** | `tactical_stack` | Concrete stack choices: HTTP framework, DB driver, bus client, ORM strategy, SLOs, infrastructure baseline |
 | **Strategic-tech anchors** | `governing_tech_strat` | Bus topology rules (TECH-STRAT-001), API contract (003), routing-key conventions, OTel mandatory tags (005), runtime placement (002 / 006) |
 | **URBA constraints** | `governing_urba` | Event meta-model (URBA 0007–0013), naming, zoning rules |
-| **Emitted events** | `emitted_business_events`, `emitted_resource_events` | Names, versions, carried object/resource, routing keys |
-| **Consumed events** | `consumed_business_events`, `consumed_resource_events` | Subscription contracts |
+| **Emitted events** | `emitted_events[] \| select(.layer=="business")`, `emitted_events[] \| select(.layer=="resource")` | Names, versions, carried object/resource, routing keys |
+| **Consumed events** | `consumed_events[] \| select(.layer=="business")`, `consumed_events[] \| select(.layer=="resource")` | Subscription contracts |
 | **Carried structures** | `carried_objects`, `carried_concepts` | Aggregate fields, business rules, terminology |
 
 If `pack.warnings` is non-empty, surface the listed gaps and stop —
@@ -566,7 +566,7 @@ endpoints over HTTP — with canned cold data, so downstream consumers
 can develop in isolation. This is not the place to build real domain
 logic.
 
-The stub has **two halves** driven by the `rlv-knowledge process <CAP_ID>` model:
+The stub has **two halves** driven by the `kpack process <CAP_ID>` model:
 
 | Half | Driven by | Output |
 |---|---|---|
@@ -599,13 +599,14 @@ If `ADR-TECH-STRAT-001` is absent, surface this as a blocking gap.
 ### B.2 — Read the BCM source for the events to contract
 
 Same as the .NET sibling — work from the same pack JSON
-(`emitted_business_events`, `emitted_resource_events`,
+(`emitted_events[] | select(.layer=="business")`,
+`emitted_events[] | select(.layer=="resource")`,
 `carried_objects`). Pack is the source of truth for field names and
 types.
 
 ### B.3 — Read the process model — bus, api, schemas (do NOT regenerate)
 
-Identical contract to the .NET sibling (fetch `rlv-knowledge process <CAP_ID>`
+Identical contract to the .NET sibling (fetch `kpack process <CAP_ID>`
 once and read `.model.bus`, `.model.api`, `.schemas[*]` — `.parsed` when
 non-null, else `.raw`; the model is upstream in reliever-knowledge and not
 writable from here).
@@ -748,7 +749,7 @@ and the `/deployment/PORTS.md` ledger (see Pattern 2). The stub exposes
   - Operations to stub:   [list of {method} {path} from .model.api]
   - Response schemas:     [list of schema keys read from .schemas]
   - Fixtures planned:     [N fixtures per operation (≥3 required)]
-- Schemas (read-only):    rlv-knowledge process <CAP_ID> .schemas[*]
+- Schemas (read-only):    kpack process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
 - Component port:         COMPONENT_PORT=[N or n/a] (kind=api, deterministic; salt=[none|:1|…])
 - Platform deps:          rabbitmq  (external, network=reliever-platform)
@@ -766,8 +767,8 @@ Assumptions taken:     [list, or "none"]
   Mode:                 Contract + development stub (events + query API)
   Stack:                Python {version} / FastAPI / aio-pika / jsonschema
   TECH-TACT ADR:        [id]
-  Schemas consumed (read-only, owned by /process, via rlv-knowledge process):
-    rlv-knowledge process <CAP_ID> .schemas[*]
+  Schemas consumed (read-only, owned by /process, via kpack process):
+    kpack process <CAP_ID> .schemas[*]
   Stub:                 sources/{capability-name}/stub/
 
   Publisher half:       [enabled | disabled]
@@ -805,7 +806,7 @@ it first). This section documents **only the Python-specific delta**;
 the contract itself is the source of truth.
 
 **Kind for this agent: `api`** (used by the deterministic port helper
-and by `tech` resolution). Applies to both Mode A (`backend/`) and
+and by `kpack` `BNK.TECH`-context resolution). Applies to both Mode A (`backend/`) and
 Mode B (`stub/`) — `<component>` ∈ { `backend`, `stub` }.
 
 ### Local — `sources/{capability-name}/<component>/deployment/local/`
@@ -865,30 +866,31 @@ Mode B (`stub/`) — `<component>` ∈ { `backend`, `stub` }.
 
 ### Dev — `sources/{capability-name}/<component>/deployment/dev/`
 
-**Derivation is two-CLI: `rlv-knowledge` (needs) → `tech` (how the platform
-provides them). Never read the `banking-tech` repo directly.**
+**Derivation is one engine, two contexts: `kpack pack <CAP_ID>` (context
+`BNK.RLVR` — the needs) → `kpack pack <BNK.TECH.CAP.…>` (context `BNK.TECH` —
+how the platform provides them). Never read the `banking-tech` repo directly.**
 
-- **`k8s/`** kustomize, derived via `tech`:
+- **`k8s/`** kustomize, derived via `kpack` (`BNK.TECH` context):
   - `base/` — `Deployment` (one container, image pinned by tag from
     ECR), `Service` (ClusterIP, port 80 → 8000), readiness/liveness
     probes hitting `GET /health`.
   - `overlay/dev/` — namespace + `PodSecurityStandards` + `ResourceQuotas`
-    derived from `tech pack <PLATFORM_CAP_ID>` for `runtime/deploy`;
+    derived from `kpack pack <PLATFORM_CAP_ID>` for `runtime/deploy`;
     `Ingress` derived from `runtime/api_ingress` (ALB `group.name`
     annotation + the **URL contract**
     `https://k8s.<base>/{env}/<CAP_ID>/api/` from ADR-TECH-STRAT-003);
     `ServiceAccount` + IRSA + External Secrets derived from
     `identity/secrets` + `identity/workload`.
 
-- **`terraform/`** root, derived via `tech`:
-  - `main.tf` calls **banking-tech modules only** at the ref `tech`
+- **`terraform/`** root, derived via `kpack` (`BNK.TECH` context):
+  - `main.tf` calls **banking-tech modules only** at the ref `kpack`
     reports — for `data/db`: the engine mirrors the TECH-TACT tag —
     `postgresql` → RDS Postgres module; `mongodb` → Bitnami MongoDB
     Helm-on-EKS module. **RabbitMQ is not provisioned here** — it is
     platform-level (`data/broker`).
   - `variables.tf` / `terraform.tfvars.dev` — `project_name`,
     `environment="dev"`, `tenant`, `tags`.
-  - `versions.tf` / `outputs.tf` — providers pinned per `tech`; outputs
+  - `versions.tf` / `outputs.tf` — providers pinned per `kpack`; outputs
     surface the DB DSN/URL into External Secrets.
   - `README.md` — lists the platform capabilities resolved
     (`BNK.TECH.CAP.…` IDs + ref) and any escape-hatch issue URL.
@@ -916,7 +918,7 @@ surface it as a blocker in the final report.
 
 **Hard rule (repeats the contract):** **never read `banking-tech` via
 `gh`/`git`/`WebFetch` directly** — always go through
-`tech pack <PLATFORM_CAP_ID>`. The `gh` CLI is used **only** to file
+`kpack pack <PLATFORM_CAP_ID>` (context `BNK.TECH`). The `gh` CLI is used **only** to file
 the escape-hatch issue above.
 
 ---

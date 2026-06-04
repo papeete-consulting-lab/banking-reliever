@@ -13,10 +13,10 @@ description: >
   Python package on Python stacks), generate `openapi.yaml` (OpenAPI 3.1)
   and `asyncapi.yaml` (AsyncAPI 2.6) under `contracts/specs/`, and validate
   strict alignment between the specs, the Process Modelling layer consumed via
-  `rlv-knowledge process <CAP_ID>` (logically `process/{capability-id}/`:
+  `kpack process <CAP_ID>` (logically `process/{capability-id}/`:
   `commands.yaml`, `read-models.yaml`, `bus.yaml`, `api.yaml`,
   `schemas/*.schema.json`), and the BCM corpus
-  consumed via `rlv-knowledge pack <CAP_ID> --deep` (resources, resource events,
+  consumed via `kpack pack <CAP_ID> --deep` (resources, resource events,
   business events, business / resource subscriptions, carried objects, FUNC
   / URBA / TECH-STRAT ADRs).
 
@@ -31,7 +31,7 @@ description: >
   Both generated specs carry a top-level `x-lineage` block (capability +
   bcm + process + generated metadata) plus per-operation, per-message, and
   per-channel `x-lineage` extensions. Lineage is bidirectional — every
-  operation traces back to a `process/` source AND a `rlv-knowledge` source —
+  operation traces back to a `process/` source AND a `kpack` source —
   so reviewers, consumers, observability tooling, and data-catalogue
   ingestion can resolve any spec entry to its definitional origin.
 
@@ -44,7 +44,7 @@ description: >
   Supports `--branch <slug>` or `--env <slug>` to operate in a specific
   worktree. Supports `--gen` (default — regenerate specs and validate) and
   `--validate` (no regeneration; only assert that the committed specs are
-  in sync with the process model (via `rlv-knowledge process`), rlv-knowledge, and the
+  in sync with the process model (via `kpack process`), kpack, and the
   running controller / consumer surface).
 
   Trigger this skill whenever the user says: "harness-backend", "harness for
@@ -67,11 +67,11 @@ You are the entry-point that ensures a backend microservice produced by the
 resolve the context, detect the target stack, and dispatch the
 `harness-backend` agent.
 
-> **Process model — consumed read-only via `rlv-knowledge process`.** The DDD
+> **Process model — consumed read-only via `kpack process`.** The DDD
 > process model (aggregates, commands, policies, read-models, bus topology,
 > JSON Schemas) is authored by the `/process` skill in the **reliever-knowledge**
-> repo and consumed here **read-only** via `rlv-knowledge process <CAP_ID>` — exactly
-> like the BCM corpus via `rlv-knowledge pack`. It does not live in this repo, so
+> repo and consumed here **read-only** via `kpack process <CAP_ID>` — exactly
+> like the BCM corpus via `kpack pack`. It does not live in this repo, so
 > there is nothing to guard locally and nothing to write under `process/`. If
 > the model is wrong, stop and tell the user to run `/process <CAPABILITY_ID>`
 > in the reliever-knowledge repo and merge its PR, then re-run this skill.
@@ -94,7 +94,7 @@ follow:
 End Step 0 with these resolved values:
 
 1. **`CAPABILITY_ID`** (e.g. `BNK.RLVR.CAP.BSP.001.SCO`).
-2. **`CAPABILITY_NAME`** (kebab — derived from `rlv-knowledge pack <CAP_ID>
+2. **`CAPABILITY_NAME`** (kebab — derived from `kpack pack <CAP_ID>
    --compact | jq -r '.slices.capability_self[0].name'`).
 3. **`WORKTREE_ROOT`** — the directory housing the .NET solution (either
    the main repo root, or `/tmp/kanban-worktrees/TASK-NNN-*/` when
@@ -108,8 +108,8 @@ End Step 0 with these resolved values:
 
 ```bash
 # 1. The process model must resolve for this capability (authored upstream in
-#    reliever-knowledge, consumed read-only via `rlv-knowledge process`).
-if ! rlv-knowledge process "${CAPABILITY_ID}" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+#    reliever-knowledge, consumed read-only via `kpack process`).
+if ! kpack process "${CAPABILITY_ID}" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "❌ No process model for ${CAPABILITY_ID} — run /process ${CAPABILITY_ID} in reliever-knowledge and merge its PR."
   cat /tmp/process-model.err
   exit 1
@@ -139,7 +139,7 @@ echo "Detected stack: ${LANG}"
 
 # 3. Cross-check with the TECH-TACT hint (advisory — disk wins, but a
 #    contradiction means /code's language router has a bug worth surfacing)
-rlv-knowledge pack ${CAPABILITY_ID} --compact > /tmp/pack-harness.json
+kpack pack ${CAPABILITY_ID} --compact > /tmp/pack-harness.json
 TACT_TAGS=$(jq -r '.slices.tactical_stack[0].tags // [] | join(",")' /tmp/pack-harness.json)
 case "$TACT_TAGS" in
   *python*|*fastapi*|*starlette*)        HINT=python ;;
@@ -158,13 +158,13 @@ case "$ZONE" in
   *) echo "❌ unknown zone $ZONE"; exit 1 ;;
 esac
 
-# 5. rlv-knowledge returns no warnings and the required slices are non-empty
+# 5. kpack returns no warnings and the required slices are non-empty
 jq '{
   warnings,
-  emitted_resource_events: (.slices.emitted_resource_events | length),
-  consumed_resource_events: (.slices.consumed_resource_events | length),
-  carried_objects:          (.slices.carried_objects        | length),
-  emitted_business_events:  (.slices.emitted_business_events | length),
+  emitted_resource_events:  ([.slices.emitted_events[]?  | select(.layer=="resource")] | length),
+  consumed_resource_events: ([.slices.consumed_events[]?  | select(.layer=="resource")] | length),
+  carried_objects:          (.slices.carried_objects       | length),
+  emitted_business_events:  ([.slices.emitted_events[]?  | select(.layer=="business")] | length),
 }' /tmp/pack-harness.json
 ```
 
@@ -172,7 +172,7 @@ If any prerequisite fails, stop and explain the gap clearly:
 
 | Failure                                              | Resolution                                                        |
 |------------------------------------------------------|-------------------------------------------------------------------|
-| `rlv-knowledge process <CAP>` does not resolve            | run `/process <CAPABILITY_ID>` in reliever-knowledge and merge its PR first |
+| `kpack process <CAP>` does not resolve            | run `/process <CAPABILITY_ID>` in reliever-knowledge and merge its PR first |
 | Neither `.sln` nor `pyproject.toml` under `BACKEND_DIR` | run `/code TASK-NNN` first (Path A scaffolds the microservice) |
 | Zone is CHANNEL                                      | this skill is non-CHANNEL only — no action                        |
 | `pack.warnings` non-empty / required slice empty     | fix the upstream BCM in `reliever-knowledge` (out of scope here)   |
@@ -183,7 +183,7 @@ If any prerequisite fails, stop and explain the gap clearly:
 
 If `${BACKEND_DIR}/contracts/specs/openapi.yaml` already exists, compare its
 top-level `x-lineage.process.version` with the current process-model version
-from the `rlv-knowledge process <CAP_ID>` envelope (`.meta.version`):
+from the `kpack process <CAP_ID>` envelope (`.corpus.ref`):
 
 - **Same version + `--validate` mode** → run the harness validator only,
   expect drift = 0.
@@ -217,13 +217,13 @@ Agent({
    Backend dir:     ${BACKEND_DIR}
 
    Inputs you must read (read-only):
-     - the process model via `rlv-knowledge process ${CAPABILITY_ID} --compact`:
+     - the process model via `kpack process ${CAPABILITY_ID} --compact`:
          .readme, .model.aggregates, .model.commands, .model.policies,
          .model["read-models"], .model.bus, .model.api (use .parsed, fallback
          .raw when null), and .schemas["*.schema.json"]. (Logically the
          process/${CAPABILITY_ID}/{README.md,*.yaml,schemas/*.schema.json}
          files, authored upstream in reliever-knowledge.)
-     - rlv-knowledge pack ${CAPABILITY_ID} --deep --compact
+     - kpack pack ${CAPABILITY_ID} --deep --compact
 
    Existing service under ${BACKEND_DIR}:
      - .NET stack (LANG=dotnet):
@@ -268,12 +268,12 @@ Agent({
          * Edit Dockerfile to `COPY contracts/ ./contracts/`.
 
    Hard rules:
-     - The process model is READ-ONLY and is fetched via `rlv-knowledge process
+     - The process model is READ-ONLY and is fetched via `kpack process
        ${CAPABILITY_ID}` — authored upstream in reliever-knowledge, never on
        disk here. There is nothing to write under process/.
      - Lineage closure (process AND bcm) is non-negotiable: every operation
        in openapi.yaml AND every channel/message in asyncapi.yaml carries
-       an x-lineage block resolving to a process source + a rlv-knowledge source.
+       an x-lineage block resolving to a process source + a kpack source.
      - Spec ↔ runtime alignment: every controller action / consumer must
        map to an OpenAPI / AsyncAPI operation, and vice versa.
        (.NET: Assembly.LoadFrom + reflection. Python: import create_app()
@@ -293,7 +293,7 @@ Agent({
      - If the on-disk stack contradicts the LANG hint above, abort and
        report — likely a /code routing bug.
      - You never write to the process model — it is served read-only by
-       `rlv-knowledge process` from reliever-knowledge. If you find yourself trying
+       `kpack process` from reliever-knowledge. If you find yourself trying
        to write a process artifact, stop and report.
 
    Final output:
@@ -337,7 +337,7 @@ back, and offer the right remediation:
 | Missing HTTP route for an OpenAPI path             | re-run `/code TASK-NNN` — implement-capability(-python) missed a controller / FastAPI route       |
 | Missing consumer for an AsyncAPI subscribe         | re-run `/code TASK-NNN` — bus subscription not wired (MassTransit on .NET / aio-pika on Python)   |
 | Drift between generated and committed specs        | run `/harness-backend <CAPABILITY_ID>` (default mode) and commit the diff                          |
-| `LANG` hint contradicts on-disk layout              | fix the TECH-TACT ADR or the `/code` language routing (`rlv-knowledge` tactical_stack[0].tags)         |
+| `LANG` hint contradicts on-disk layout              | fix the TECH-TACT ADR or the `/code` language routing (`kpack` tactical_stack[0].tags)         |
 
 ---
 
@@ -346,7 +346,7 @@ back, and offer the right remediation:
 - **Idempotent.** Re-running the skill with no process / bcm changes
   produces identical specs (modulo the `generated.at` timestamp).
 - **Cheap to run.** The harness only reads files and shells out to
-  `rlv-knowledge`; it does not bring up MongoDB / RabbitMQ. Safe to call
+  `kpack`; it does not bring up MongoDB / RabbitMQ. Safe to call
   inside a build hook.
 - **Branch-aware.** When invoked with `--branch <slug>`, the skill resolves
   artifacts from `/tmp/kanban-worktrees/TASK-NNN-{slug}/` so an in-flight

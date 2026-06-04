@@ -1,0 +1,31 @@
+# kpack consumer configuration for banking-reliever.
+#
+# kpack (https://github.com/naive-unicorn/knowledge-cli, container
+# ghcr.io/naive-unicorn/kpack) is the single knowledge-pack engine that replaces
+# the three retired CLIs `rlv-knowledge`, `tech` and `gov-pack`. It implements
+# ADR-GCM-URBA-0002. One engine serves every capability map; the map is selected
+# by the id prefix (segments 0–1) or by `--context`, never by a binary name.
+#
+# This file is the ONLY a-priori pointer kpack needs from a consumer: it maps each
+# ENTERPRISE (id segment 0) to the governance registry that owns its authoritative
+# `vocab.yaml :: contexts:` map. From there kpack resolves every context this repo
+# consumes to its corpus repo, with zero per-context configuration here:
+#
+#   BNK.RLVR  → Banking-PapeeteConsulting/reliever-knowledge   (BCM corpus + DDD process model)
+#   BNK.TECH  → Banking-PapeeteConsulting/banking-tech         (PCM platform substrate)
+#   BNK.GOV   → Banking-PapeeteConsulting/banking-governance   (org-wide governance ADRs)
+#
+# Resolution precedence (highest first): --registry-repo flag > --config file >
+# KPACK_CONFIG / KPACK_REGISTRY_* env > project ./.kpack.yaml (this file) >
+# ~/.config/kpack/config.yaml.
+#
+# `registry_ref: main` is fine for day-to-day work; pin it to an immutable
+# governance tag for reproducible / released flows (the envelope records the
+# resolved registry.{repo,ref} alongside corpus.{repo,ref} so any binding replays).
+
+enterprises:
+  BNK:
+    registry_repo: Banking-PapeeteConsulting/banking-governance
+    registry_ref: main
+
+default_enterprise: BNK

@@ -64,7 +64,7 @@ through which beneficiaries interact with the IS.
 
 > **Read-only contract — the process model.**
 > The process model is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
+> **reliever-knowledge** repo and consumed here **read-only** via `kpack
 > process <CAP_ID>` — it does not live in this repo, so there is nothing to
 > guard locally and nothing to write under `process/`. Fetch it once and
 > read `.model.api` and `.model["read-models"]` (use `.parsed` when
@@ -165,12 +165,12 @@ ID. Locate `/tasks/{capability-id}/TASK-NNN-*.md` and verify:
 If a prerequisite fails, stop and explain:
 > "TASK-NNN cannot start because [reason]. Resolve this first."
 
-Then source the BCM/ADR/vision context from the `rlv-knowledge` CLI — never
+Then source the BCM/ADR/vision context from the `kpack` CLI — never
 read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
 `/product-vision/`, `/tech-vision/`, or `/tech-adr/` directly:
 
 ```bash
-rlv-knowledge pack {capability_id} --deep --compact > /tmp/pack-frontend.json
+kpack pack {capability_id} --deep --compact > /tmp/pack-frontend.json
 ```
 
 Use `--deep` here — the frontend agent specifically needs the **vision
@@ -184,9 +184,9 @@ Selective slice usage:
 | **Capability metadata** | `capability_self`, `capability_ancestors` | Capability name (used in `<title>` and `window.{Name}Api`), zoning, parent L1 |
 | **FUNC ADR** | `capability_definition` | Business rules constraining UX, business vocabulary, displayed business objects, governance constraints inherited from URBA ADRs, language / consent posture |
 | **URBA dignity / consent rules** | `governing_urba` | Hard rules on DOM order, consent gate, French vocabulary |
-| **Carried structures** | `carried_objects`, `carried_concepts` | Field names and business definitions that drive `STUB_DATA` |
+| **Carried structures** | `slices.carried_objects` (by `.layer`), `slices.carried_concepts` | Field names and business definitions that drive `STUB_DATA` |
 | **Product vision** | `product_vision` (deep mode) | Service offer, tone, voice, target audience |
-| **Business vision** | `business_vision` (deep mode) | The strategic capability this view contributes to, used to calibrate copy and information density |
+| **Business vision** | `domain_vision` (deep mode) | The strategic capability this view contributes to, used to calibrate copy and information density |
 | **Tech vision** | `tech_vision` (deep mode) | Frontend architectural anchors that constrain layout/behavior |
 
 If `pack.warnings` is non-empty, or `capability_definition` is empty,
@@ -845,8 +845,9 @@ section in `CLAUDE.md` — read it first.** This section only documents the
   The optional `platform.compose.yml` only **creates the external
   `reliever-platform` network** for devs without a running platform — no
   infra (RabbitMQ, DB) is bundled for a frontend.
-- **Dev environment** is derived via the **two-CLI chain** described in
-  CLAUDE.md (`rlv-knowledge pack` → `tech pack`) — never read the
+- **Dev environment** is derived via the **two-context derivation** described in
+  CLAUDE.md (`kpack pack <CAP_ID>` context `BNK.RLVR` → `kpack pack
+  <PLATFORM_CAP_ID>` context `BNK.TECH`) — never read the
   `banking-tech` repo directly (no `gh`/git/`WebFetch` against it).
   - **kustomize** (`deployment/dev/k8s/`) derived from `runtime/static_hosting`
     (frontend hosting), `runtime/deploy` (namespace + PodSecurityStandards
@@ -887,7 +888,7 @@ section in `CLAUDE.md` — read it first.** This section only documents the
   `test-app`, which the `/code` skill invokes
   immediately after this agent.
 - Does **not** read the `banking-tech` repo directly — derivation goes
-  through `tech pack <PLATFORM_CAP_ID>`. `gh` against
+  through `kpack pack <PLATFORM_CAP_ID>` (context `BNK.TECH`). `gh` against
   `Banking-PapeeteConsulting/banking-tech` is restricted to the
   escape-hatch `gh issue create` flow described above.
 - If multiple frontend tasks for the same capability depend on each

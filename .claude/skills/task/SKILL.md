@@ -51,18 +51,18 @@ access to the next agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Process model — consumed read-only via `rlv-knowledge process`
+## Process model — consumed read-only via `kpack process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
 > **reliever-knowledge** repo and consumed here **read-only** via
-> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 This skill consumes the model as a primary input — tasks routinely reference
 `AGG.*`, `CMD.*`, `POL.*`, `PRJ.*`, `QRY.*` identifiers from it. Fetch it once
-via `rlv-knowledge process <CAPABILITY_ID>` and read the returned slices.
+via `kpack process <CAPABILITY_ID>` and read the returned slices.
 
 If the model evolves (new aggregate, renamed command, new policy), run
 `/process <CAPABILITY_ID>` in the reliever-knowledge repo and merge its PR to
@@ -70,19 +70,19 @@ refresh the model, then re-run `/task`.
 
 ---
 
-## Readiness gate — the process model must resolve via `rlv-knowledge process`
+## Readiness gate — the process model must resolve via `kpack process`
 
 Before reading anything from the process model, verify it resolves. A model is
-ready iff `rlv-knowledge process <CAP_ID>` returns exit 0 (rlv-knowledge resolves the
+ready iff `kpack process <CAP_ID>` returns exit 0 (kpack resolves the
 published `main` of reliever-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
-# can resolve it (rlv-knowledge resolves the published main by default).
-if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff kpack
+# can resolve it (kpack resolves the published main by default).
+if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
   echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
@@ -101,14 +101,14 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
 1. **Identify the capability** to generate tasks for. Ask if not specified, or list plannable 
    capabilities (those with a `roadmap.md` under `/roadmap/{cap}/` but no `/tasks/{cap}/`
    directory yet, or with a stale task set). To enumerate plannable capabilities, run
-   `rlv-knowledge list --level L2` (and `--level L3` if relevant) — never read `/bcm/*.yaml` directly.
+   `kpack list --context BNK.RLVR --level L2` (and `--level L3` if relevant) — never read `/bcm/*.yaml` directly.
 
-2. **Fetch the capability pack** from the `rlv-knowledge` CLI — this is the **only** sanctioned 
+2. **Fetch the capability pack** from the `kpack` engine — this is the **only** sanctioned 
    knowledge source. Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or 
    `/product-vision/` directly; those paths are not authoritative in this checkout.
 
    ```bash
-   rlv-knowledge pack <CAPABILITY_ID> --compact > /tmp/pack-task.json
+   kpack pack <CAPABILITY_ID> --compact > /tmp/pack-task.json
    ```
 
    `<CAPABILITY_ID>` is the **full source-context-prefixed ID** (e.g.
@@ -116,13 +116,13 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
    with exit code 2.
 
    **Carry the knowledge-base ref into every TASK.** Read the
-   `rlv-knowledge process <CAPABILITY_ID> --compact` envelope's `.knowledge_base.ref`
+   `kpack process <CAPABILITY_ID> --compact` envelope's `.corpus.ref`
    (the model's git provenance) and copy it into each TASK's `bcm_ref`
    frontmatter field. This pins every task to the exact knowledge version it was
    derived from, so `/implementation-pipeline` and `/fix` can later
-   `rlv-knowledge diff <bcm_ref> --capability <CAP_ID>` to detect upstream drift. If
-   `.knowledge_base.ref` is absent, fall back to the current `rlv-knowledge version
-   --compact` `ref` and note it as an assumption.
+   `kpack diff <bcm_ref> --capability <CAP_ID>` to detect upstream drift. If
+   `.corpus.ref` is absent, fall back to the current `kpack version
+   --context BNK.RLVR --compact` `ref` and note it as an assumption.
 
    Lightweight mode is enough for task generation — you do not need the rationale ADRs 
    behind the vision narratives. Read these slices selectively:
@@ -131,21 +131,21 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
    |-----------------------------|-------------------------------------------------------|
    | `capability_self`           | task `capability_id`, `capability_name`, level, ADRs  |
    | `capability_definition`     | governing FUNC ADR(s) — decisions and constraints     |
-   | `emitted_business_events`   | "Business Events to Produce" per task                 |
-   | `consumed_business_events`  | "Event Subscriptions Required" per task               |
+   | `emitted_events[] \| select(.layer=="business")`  | "Business Events to Produce" per task                 |
+   | `consumed_events[] \| select(.layer=="business")` | "Event Subscriptions Required" per task               |
    | `carried_objects`           | "Business Objects Involved" per task                  |
    | `carried_concepts`          | terminology grounding — feeds Open Questions if fuzzy |
    | `governing_urba`            | URBA ADR constraints (event meta-model, naming…)      |
 
    Then read the local roadmap and the process model:
    - `/roadmap/{capability-id}/roadmap.md` — the source of epics and exit conditions (local)
-   - the Process Modelling layer via `rlv-knowledge process <CAPABILITY_ID> --compact`
+   - the Process Modelling layer via `kpack process <CAPABILITY_ID> --compact`
      (read-only). Tasks must reference the `AGG.*` / `CMD.*` / `POL.*` / `PRJ.*`
      / `QRY.*` identifiers from `.model.aggregates`, `.model.commands`,
      `.model.policies`, and `.model["read-models"]`, and the routing keys /
      subscriptions from `.model.bus` (use `.parsed`, falling back to `.raw` when
      null — `commands`/`read-models` are frequently `parsed:null`). If
-     `rlv-knowledge process` does not resolve, stop and run `/process
+     `kpack process` does not resolve, stop and run `/process
      <CAPABILITY_ID>` in the reliever-knowledge repo and merge its PR first.
    - Existing tasks in `/tasks/{capability-id}/` — to avoid duplication (local)
 
@@ -179,7 +179,7 @@ Rationale:
 
 > Throughout this section, `process/<CAP_ID>/bus.yaml`, `.../api.yaml` and
 > `.../schemas/` name the **logical** model artifacts — they are fetched via
-> `rlv-knowledge process <CAP_ID>` (`.model.bus`/`.model.api`, using `.parsed` or the
+> `kpack process <CAP_ID>` (`.model.bus`/`.model.api`, using `.parsed` or the
 > `.raw` fallback, and `.schemas[...]`), not read from a local `process/` folder
 > (there is none in this repo).
 
@@ -294,7 +294,7 @@ capability must be able to do when this task is done]
 This template is what TASK-001 should look like for every capability.
 Adapt the surface lists (`RVT.*` events, HTTP operations) to what the process
 model's `bus` and `api` slices actually declare (the logical `process/<CAP_ID>/`
-artifact names below are stable provenance references, read via `rlv-knowledge
+artifact names below are stable provenance references, read via `kpack
 process <CAP_ID>` — `.model.bus` and `.model.api`). The stub may need to serve
 only events, only queries, or both — shape the DoD accordingly.
 
@@ -308,7 +308,7 @@ status: todo
 priority: high
 depends_on: []
 task_type: contract-stub
-bcm_ref: [v2.0.0]                 # from `rlv-knowledge process <CAP_ID> --compact` .knowledge_base.ref
+bcm_ref: [v2.0.0]                 # from `kpack process <CAP_ID> --compact` .corpus.ref
 ---
 
 # TASK-001 — Contract and development stub for [Capability Name]
@@ -410,7 +410,7 @@ For each epic:
 ## Step 2 — Generate the mandatory TASK-001 stub
 
 Always emit TASK-001 first, using the **TASK-001 stub template** above.
-Populate it from the `rlv-knowledge process <CAP_ID> --compact` envelope:
+Populate it from the `kpack process <CAP_ID> --compact` envelope:
 
 - Enumerate every `RVT.*` declared in the bus slice (`.model.bus.parsed`,
   fallback `.raw`) — list them under "Events to Stub" with the routing key the
@@ -425,7 +425,7 @@ The TASK-001 file lives in `tasks/<CAP_ID>/TASK-001-contract-and-stub-*.md`
 (slug describes the capability surface, e.g.
 `TASK-001-contract-and-stub-beneficiary-referential.md`).
 
-If `rlv-knowledge process <CAP_ID>` does not resolve, **stop** and tell the user to
+If `kpack process <CAP_ID>` does not resolve, **stop** and tell the user to
 run `/process <CAP_ID>` in the reliever-knowledge repo and merge its PR first.
 
 ---
@@ -462,7 +462,7 @@ kanban: `BOARD.md` at its root (auto-generated by `/sort-task`) plus the
 files, and contract folders all live elsewhere — see the layout rules in
 the `/roadmap` (→ `/roadmap/`) skill. The process model is not a local lane
 here; it is authored by `/process` in the reliever-knowledge repo and consumed
-read-only via `rlv-knowledge process`.
+read-only via `kpack process`.
 
 After writing all tasks, tell the user:
 > "Tasks for [capability] are committed to `/tasks/[capability-id]/`.

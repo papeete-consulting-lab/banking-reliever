@@ -63,7 +63,7 @@ business events produced by frontend interactions.
 
 > **Read-only contract — the process model.**
 > The process model is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
+> **reliever-knowledge** repo and consumed here **read-only** via `kpack
 > process <CAP_ID>` — it does not live in this repo, so there is nothing to
 > guard locally and nothing to write under `process/`. Fetch it once and
 > read `.model.bus` to ground your subscriptions (queue names, binding
@@ -150,14 +150,14 @@ Only if both checks pass, proceed to step 1.
 ### 1. Read the context
 
 The caller hands you a CHANNEL-zone L2 capability (or an explicit TASK).
-**All BCM/ADR knowledge is sourced from the `rlv-knowledge` CLI** — never read
+**All BCM/ADR knowledge is sourced from the `kpack` CLI** — never read
 `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`, `/tech-vision/`,
 `/strategic-vision/`, or `/product-vision/` directly.
 
 Run **once** at the top of step 1:
 
 ```bash
-rlv-knowledge pack {capability_id} --compact > /tmp/pack-bff.json
+kpack pack {capability_id} --compact > /tmp/pack-bff.json
 ```
 
 Lightweight mode is sufficient (the BFF does not need narrative visions —
@@ -172,8 +172,8 @@ it needs structured ADR slices). Selective slice usage:
 | **Tactical ADRs** | `tactical_stack` | Endpoint contracts (paths, methods, ETag support, payload shape) for each L3, LocalStorage / PII exclusions (fields the BFF must NOT return), SLO targets (use as comments), per-L3 cache strategy |
 | **Strategic Tech ADRs** | `governing_tech_strat` | Routing-key convention (TECH-STRAT-001), API contract policy (TECH-STRAT-003 — ETag), OTel mandatory tags (TECH-STRAT-005), cold-path exceptions like REF.001 (TECH-STRAT-004) |
 | **URBA constraints** | `governing_urba` | Dignity / consent / language constraints inherited from URBA ADRs (vision-driven) |
-| **Consumed events** | `consumed_business_events`, `consumed_resource_events` | Subscription contracts — pair each event name with the emitting L2; the consumer-side rationale |
-| **Emitted events** | `emitted_business_events`, `emitted_resource_events` | Events the BFF itself publishes |
+| **Consumed events** | `slices.consumed_events` (business + resource layers, by `.layer`) | Subscription contracts — pair each event name with the emitting L2; the consumer-side rationale |
+| **Emitted events** | `slices.emitted_events` (business + resource layers, by `.layer`) | Events the BFF itself publishes |
 
 If `pack.warnings` is non-empty or `capability_definition` is empty, surface
 the gap and stop. If the capability `zoning` is **not** `CHANNEL`, surface
@@ -181,8 +181,8 @@ and stop — do not invent topology that has no functional grounding (see
 "Push back" below).
 
 If a consumed event lists no `emitting_capability`, do **not** read other
-FUNC ADRs from disk to find the producer — instead query `rlv-knowledge` for
-each candidate capability (or use `rlv-knowledge list` then filter), and 
+FUNC ADRs from disk to find the producer — instead query `kpack` for
+each candidate capability (or use `kpack list --context BNK.RLVR` then filter), and 
 document the assumption.
 
 ### 2. Make decisions explicitly
@@ -376,8 +376,8 @@ Per-event placeholders: `{EventName}` (PascalCase), `{business-event-name}`
 14. `deployment/local/.env` (Pattern 3 — `COMPONENT_PORT`, `AMQP_URL`, `BRANCH`)
 15. `deployment/local/platform.compose.yml` — optional stand-in (ext net + RabbitMQ only, no DB — BFF has none)
 16. `deployment/local/README.md` — "platform is a prerequisite; use `platform.compose.yml` if you don't have it"
-17. `deployment/dev/k8s/{base,overlay/dev}/` — kustomize derived from `tech` (see `## Deployment artifacts (local + dev)`)
-18. `deployment/dev/terraform/{main.tf,variables.tf,versions.tf,outputs.tf,terraform.tfvars.dev,README.md}` — Terraform derived from `tech`
+17. `deployment/dev/k8s/{base,overlay/dev}/` — kustomize derived from `kpack` (context `BNK.TECH`) (see `## Deployment artifacts (local + dev)`)
+18. `deployment/dev/terraform/{main.tf,variables.tf,versions.tf,outputs.tf,terraform.tfvars.dev,README.md}` — Terraform derived from `kpack` (context `BNK.TECH`)
 
 For variables that depend on the FUNC ADR content (L3 list, events),
 generate code sections iteratively — one class per L3, one consumer per
@@ -477,7 +477,7 @@ The canonical contract is **`## Deployment contract (local + dev)`** in
   (`capability_id`, `zone`, `deployable`).
 
 - **Dev kustomize** (`deployment/dev/k8s/{base,overlay/dev}/`) is derived via
-  the `tech` CLI from these platform modules — never invent paths:
+  `kpack` (context `BNK.TECH`) from these platform modules — never invent paths:
   - `runtime/bff` — the BFF runtime Deployment (the BFF-specific runtime
     module, distinct from the API runtime).
   - `runtime/api_ingress` — the ALB Ingress, including the
@@ -508,18 +508,19 @@ The canonical contract is **`## Deployment contract (local + dev)`** in
 
 - **Never read `banking-tech` directly** — no `gh`/git/`WebFetch` against
   the `Banking-PapeeteConsulting/banking-tech` repo from this agent. The
-  derivation chain is always `rlv-knowledge pack <CAP_ID> --deep` →
-  `tech pack <PLATFORM_CAP_ID>`. The `gh` CLI is used **only** to file the
-  escape-hatch issue above.
+  derivation is always one engine, two contexts: `kpack pack <CAP_ID> --deep`
+  (context `BNK.RLVR`) → `kpack pack <PLATFORM_CAP_ID>` (context `BNK.TECH`).
+  The `gh` CLI is used **only** to file the escape-hatch issue above.
 
 ---
 
 ## Facilitation Notes
 
 - If the FUNC ADR lists events consumed but does not specify the emitting
-  L2, run `rlv-knowledge pack <CANDIDATE_ID>` for each plausible producer (or
-  start from `rlv-knowledge list --level L2` and filter) until you find the L2
-  whose `emitted_business_events` includes that event name — do not invent,
+  L2, run `kpack pack <CANDIDATE_ID>` for each plausible producer (or
+  start from `kpack list --context BNK.RLVR --level L2` and filter) until you find the L2
+  whose `slices.emitted_events` (filtered `.layer=="business"`) includes that
+  event name — do not invent,
   and never read `/func-adr/` from disk to discover producers.
 - If a tactical ADR for an L3 specifies a payload shape (e.g.
   `ADR-TECH-TACT-001` for TAB), use that shape verbatim for the response

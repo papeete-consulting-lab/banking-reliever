@@ -16,12 +16,12 @@ description: |
     HTTP query operations declared in the process model's `.model.api` with
     canned cold-data fixtures. For use when only the contract is given and the
     full implementation is deferred. The wire-format JSON Schemas are NOT
-    regenerated here — they are read from `.schemas` of `rlv-knowledge process
+    regenerated here — they are read from `.schemas` of `kpack process
     <CAP_ID>` (already authored by `/process` in reliever-knowledge).
     Mode B output is a minimal .NET host under `sources/{cap-name}/stub/`
     combining a Minimal-API surface and a BackgroundService publisher.
     No full microservice scaffold; no schema files written anywhere
-    (they are served by `rlv-knowledge process`, authored by `/process`). If
+    (they are served by `kpack process`, authored by `/process`). If
     `.model.api` declares no operations, only the event half ships; if
     `.model.bus` declares no emitted events, only the query half ships; if
     both are empty, Mode B aborts with a structured gap.
@@ -57,8 +57,8 @@ You output goes under `sources/{capability-name}/backend/` relative to the curre
 > **Read-only contract — the process model.**
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `rlv-knowledge
-> process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`. It
+> **reliever-knowledge** repo and consumed here **read-only** via `kpack
+> process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`. It
 > does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`. Fetch it once on entry and read its
 > slices — `.model.aggregates`, `.model.commands`, `.model.policies`,
@@ -98,7 +98,8 @@ You output goes under `sources/{capability-name}/backend/` relative to the curre
 >    model's `.model.bus` (queue names, routing keys, exchange names) —
 >    the harness's runtime-alignment validator inspects MassTransit /
 >    consumer registrations and will fail the build on any drift.
-> 5. Use the BCM `RES.*` resource shape (from `rlv-knowledge.carried_objects`) as
+> 5. Use the BCM `RES.*` resource shape (from
+>    `kpack` `.slices.carried_objects[] | select(.layer=="resource")`) as
 >    the canonical projection for any read endpoint — the harness asserts
 >    that read responses are structurally compatible with the corresponding
 >    `RES.*`.
@@ -166,7 +167,7 @@ Read the TASK file frontmatter and extract the `task_type` field:
 | `task_type` value | Mode | Output |
 |---|---|---|
 | (absent) or `full-microservice` | **Mode A** — full microservice scaffold | `sources/{capability-name}/backend/` with the full Clean Architecture tree |
-| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal .NET host: Minimal-API serving canned `.model.api` responses + BackgroundService publishing `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `rlv-knowledge process <CAP_ID>` (already authored by `/process`). |
+| `contract-stub` | **Mode B** — contract + development stub | `sources/{capability-name}/stub/` (minimal .NET host: Minimal-API serving canned `.model.api` responses + BackgroundService publishing `.model.bus` events on RabbitMQ). JSON Schemas are NOT generated — Mode B reads them from `.schemas` of `kpack process <CAP_ID>` (already authored by `/process`). |
 
 Announce the chosen mode to the caller before any further action:
 
@@ -183,20 +184,20 @@ and skip the Mode A patterns.
 ### 1. Read the context
 
 The caller will hand you a task to implement. **All BCM/ADR/vision context is sourced
-from the `rlv-knowledge` CLI** — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
+from the `kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
 `/product-vision/`, `/tech-vision/`, or `/tech-adr/` directly.
 
 Run **once** at the top of step 1:
 
 ```bash
-rlv-knowledge pack {capability_id} --compact > /tmp/pack-impl.json
+kpack pack {capability_id} --compact > /tmp/pack-impl.json
 ```
 
 `{capability_id}` is the **full source-context-prefixed ID** (e.g.
 `BNK.RLVR.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short `CAP.…` form with
 exit code 2.
 
-> **Asset-ID namespacing (CLI v2.0.0+).** Every ID returned by `rlv-knowledge` —
+> **Asset-ID namespacing (CLI v2.0.0+).** Every ID returned by `kpack` —
 > `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
 > Use them **verbatim** for wire contracts: event class names map to the full ID,
 > RabbitMQ routing keys are the prefixed `<EVT-id>.<RVT-id>` from
@@ -207,16 +208,16 @@ exit code 2.
 > **Platform substrate (optional, Mode A).** When the TECH-TACT / TECH-STRAT
 > slices reference a runtime/deployment **platform** capability (a `BNK.TECH.CAP.…`
 > ID — e.g. the cluster, deployment, or observability substrate), fetch its
-> contract from the platform CLI rather than guessing:
+> contract from the platform context rather than guessing:
 > ```bash
-> tech pack {platform_capability_id} --compact > /tmp/pack-platform.json
+> kpack pack {platform_capability_id} --compact > /tmp/pack-platform.json
 > ```
-> `tech` reads the `banking-tech` repo (prefix `BNK.TECH.`). Use it to
+> `kpack` resolves the `BNK.TECH.` context from the platform-prefixed ID. Use it to
 > honour platform-mandated deployment topology, health/observability endpoints,
 > and platform event contracts the service must emit/consume. Skip it when no
-> `BNK.TECH.` dependency is referenced. (`tech` ≥ 2.0.0 ships as its own
-> `pcm_pack` package and coexists cleanly with `rlv-knowledge`; point it at a local
-> checkout with `--repo-root <banking-tech>` or `BANKING_PLATFORM_ROOT`.)
+> `BNK.TECH.` dependency is referenced. (`kpack` is one engine across every
+> context; point it at a local checkout with `--repo-root <banking-tech>` or
+> `BANKING_PLATFORM_ROOT`.)
 
 Lightweight mode is sufficient for Mode A (you do not need the rationale ADRs behind the
 vision narratives — the FUNC + tactical + URBA + tech-strategic ADRs that you actually
@@ -231,8 +232,8 @@ need are already structured slices). Selective slice usage:
 | **Tactical ADR** | `tactical_stack` | Concrete stack choices: language, runtime, database (likely MongoDB), messaging (likely RabbitMQ), API style, SLOs |
 | **Strategic-tech anchors** | `governing_tech_strat` | Bus topology rules (TECH-STRAT-001), API contract (003), routing-key conventions, OTel mandatory tags (005) |
 | **URBA constraints** | `governing_urba` | Event meta-model (URBA 0007–0013), naming, zoning rules |
-| **Emitted events** | `emitted_business_events`, `emitted_resource_events` | Names, versions, carried object/resource, routing keys |
-| **Consumed events** | `consumed_business_events`, `consumed_resource_events` | Subscription contracts, rationales |
+| **Emitted events** | `emitted_events[] \| select(.layer=="business")`, `emitted_events[] \| select(.layer=="resource")` | Names, versions, carried object/resource, routing keys |
+| **Consumed events** | `consumed_events[] \| select(.layer=="business")`, `consumed_events[] \| select(.layer=="resource")` | Subscription contracts, rationales |
 | **Carried structures** | `carried_objects`, `carried_concepts` | Aggregate fields, business rules, terminology |
 
 If `pack.warnings` is non-empty, surface the listed gaps and stop — do not invent a 
@@ -462,7 +463,7 @@ endpoints over HTTP — with canned cold data, so any downstream consumer
 (BFFs, frontends, other capabilities) can develop in complete isolation.
 This is not the place to build real domain logic.
 
-The stub has **two halves** driven by the `rlv-knowledge process <CAP_ID>` model:
+The stub has **two halves** driven by the `kpack process <CAP_ID>` model:
 
 | Half | Driven by | Output |
 |---|---|---|
@@ -479,7 +480,7 @@ whatever is non-empty; abort only when both are empty.
 truth for bus topology in Mode B. Pull it from the pack:
 
 ```bash
-rlv-knowledge pack {capability_id} --compact > /tmp/pack-modeB.json
+kpack pack {capability_id} --compact > /tmp/pack-modeB.json
 ```
 
 Then locate `ADR-TECH-STRAT-001` inside `slices.governing_tech_strat[*]`.
@@ -507,14 +508,14 @@ a fallback; the pack is the only authoritative source.
 ### B.2 — Read the BCM source for the events to contract
 
 For each event named in the TASK's deliverable list, work from the same
-pack JSON (no extra `rlv-knowledge` calls needed — these slices are already
+pack JSON (no extra `kpack` calls needed — these slices are already
 present):
 
-1. From `slices.emitted_business_events[*]` — locate the `EVT.*` entry,
+1. From `slices.emitted_events[*] | select(.layer=="business")` — locate the `EVT.*` entry,
    note its `carried_business_object`, `version`, and tags.
-2. From `slices.emitted_resource_events[*]` — locate the paired `RVT.*`
+2. From `slices.emitted_events[*] | select(.layer=="resource")` — locate the paired `RVT.*`
    entry, note its `carried_resource` and `business_event` link.
-3. From `slices.carried_objects[*]` — extract the `data` field list of
+3. From `slices.carried_objects[*] | select(.layer=="business")` — extract the `data` field list of
    the carried business object (each field has a name, type, description,
    and required flag).
 4. The carried resource fields are exposed by the same slice payload — if
@@ -523,14 +524,14 @@ present):
 
 The pack is the source of truth for field names and types. The JSON
 Schemas mirror these. Never read `/bcm/*.yaml` directly — go through
-`rlv-knowledge`.
+`kpack`.
 
 ### B.3 — Read the process model — bus, api, schemas (do NOT regenerate)
 
 The wire-format schemas and the surface declarations are authored by the
 `/process` skill in the **reliever-knowledge** repo from the BCM corpus and
-consumed here **read-only** via `rlv-knowledge process <CAP_ID>` — they do not
-live in this repo. Fetch the model once (`rlv-knowledge process {capability-id}
+consumed here **read-only** via `kpack process <CAP_ID>` — they do not
+live in this repo. Fetch the model once (`kpack process {capability-id}
 --compact`, cache the JSON) and read its slices. Mode B is a **consumer** of
 the model; there is nothing to write under `process/`.
 
@@ -577,7 +578,7 @@ If any schema referenced by `.model.bus` or `.model.api` is missing from
 `/process <CAP_ID>` in the reliever-knowledge repo to refresh the model and
 merge the resulting PR before re-running this task. Do NOT attempt to write a
 fallback schema anywhere — the schemas are owned by `/process` and served by
-`rlv-knowledge process`.
+`kpack process`.
 
 If `bus.yaml` declares no emitted events: skip the publisher half and
 note it in the assumptions block (B.6). If `api.yaml` declares no
@@ -757,12 +758,12 @@ Before writing files, output:
   - Operations to stub:   [list of {method} {path} from .model.api]
   - Response schemas:     [list of schema keys read from .schemas]
   - Fixtures planned:     [N fixtures per operation (≥3 required)]
-- Schemas (read-only):    rlv-knowledge process <CAP_ID> .schemas[*]
+- Schemas (read-only):    kpack process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
 - Component port:         COMPONENT_PORT=[deterministic, see Pattern 2 / B.5]
 - Platform deps:          rabbitmq (via reliever-platform network); no local broker bundled
 
-Sources of truth used: [list of slices read — rlv-knowledge process .model.bus,
+Sources of truth used: [list of slices read — kpack process .model.bus,
                        .model.api, .schemas[*],
                        ADR-TECH-STRAT-001, FUNC ADR]
 Assumptions taken:     [list, or "none"]
@@ -777,8 +778,8 @@ When Mode B succeeds:
 
   Capability:           [CAP.ID — Name]
   Mode:                 Contract + development stub (events + query API)
-  Schemas consumed (read-only, owned by /process, via rlv-knowledge process):
-    rlv-knowledge process <CAP_ID> .schemas[*]
+  Schemas consumed (read-only, owned by /process, via kpack process):
+    kpack process <CAP_ID> .schemas[*]
   Stub:                 sources/{capability-name}/stub/
 
   Publisher half:       [enabled | disabled]
@@ -867,10 +868,10 @@ is what this agent (kind = `api`) owes per component, in both Mode A
 
 ### Dev (`deployment/dev/`)
 
-Both subtrees are **derived via `tech`** from the capability's
-`tech pack <PLATFORM_CAP_ID>` calls — *no values are invented*. The agent
-**never** reads the `banking-tech` repo directly (no `gh repo view`, no
-`git clone`, no `WebFetch` against it). The `tech` CLI is the only way
+Both subtrees are **derived via `kpack`** (context `BNK.TECH`) from the
+capability's `kpack pack <PLATFORM_CAP_ID>` calls — *no values are invented*.
+The agent **never** reads the `banking-tech` repo directly (no `gh repo view`,
+no `git clone`, no `WebFetch` against it). `kpack` is the only way
 in; `gh` is used only to file the escape-hatch issue below.
 
 - **`k8s/`** — kustomize, derived from:
@@ -886,7 +887,7 @@ in; `gh` is used only to file the escape-hatch issue below.
     `Dockerfile` above and exposes the same `GET /health` probe the
     agent already emits in Mode A / Mode B.
 - **`terraform/`** — calls `banking-tech` modules **only**, at the ref
-  `tech` reports, with inputs `project_name`, `environment="dev"`,
+  `kpack` reports, with inputs `project_name`, `environment="dev"`,
   `tenant`, `tags`:
   - `data/db` for `postgresql` / `mongodb` (per the TECH-TACT tag).
   - **RabbitMQ is NOT provisioned here** — it is a platform-level

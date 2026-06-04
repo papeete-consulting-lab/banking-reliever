@@ -134,8 +134,8 @@ conversation. Include:
 - The backend artifact path located in Step 4
 - Any flags the user passed (`--env`, etc.)
 - The roadmap path: `/roadmap/{capability-id}/roadmap.md` (local artifact)
-- An explicit instruction to fetch BCM/ADR/vision context from `rlv-knowledge`:
-  `rlv-knowledge pack <CAPABILITY_ID> --deep --compact` — and to NOT read
+- An explicit instruction to fetch BCM/ADR/vision context from `kpack`:
+  `kpack pack <CAPABILITY_ID> --deep --compact` — and to NOT read
   `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`, `/tech-vision/`,
   `/strategic-vision/`, or `/product-vision/` directly. The FUNC ADR is
   in `slices.capability_definition`; the tactical ADR is in
@@ -163,7 +163,7 @@ Say to the user:
 > "Spawning test-business-capability agent for TASK-NNN (branch: {BRANCH})..."
 
 The agent handles everything from here:
-- Reads context: TASK file (local) + plan (local) + capability pack via `rlv-knowledge` (FUNC ADR, tactical ADR, vision narratives, BCM data)
+- Reads context: TASK file (local) + plan (local) + capability pack via `kpack` (FUNC ADR, tactical ADR, vision narratives, BCM data)
 - States its test plan + assumptions
 - Brings up the ephemeral environment (.NET service + MongoDB + RabbitMQ)
 - Generates the test corpus under `tests/{capability-id}/TASK-NNN-{slug}/`

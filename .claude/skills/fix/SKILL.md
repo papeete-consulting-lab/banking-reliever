@@ -67,18 +67,18 @@ explicit `rm -f` on exit is preferred.
 
 ---
 
-## Process model — consumed read-only via `rlv-knowledge process`
+## Process model — consumed read-only via `kpack process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
 > **reliever-knowledge** repo and consumed here **read-only** via
-> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 A fix never reshapes the process model — it is the contract; the fix lives in
 the implementation that must satisfy it. The model is fetched via
-`rlv-knowledge process <CAP_ID>`.
+`kpack process <CAP_ID>`.
 
 If the failure analysis reveals that the contract itself is wrong (an
 aggregate invariant is too strict, a command schema misses a field, a routing
@@ -90,20 +90,20 @@ key is mis-paired), **stop the fix loop**. Tell the user to:
 
 ---
 
-## Readiness gate — the process model must resolve via `rlv-knowledge process`
+## Readiness gate — the process model must resolve via `kpack process`
 
 Before re-spawning any implementation agent, verify the capability's process
 model resolves. A fix must never run against an unresolvable model. A model is
-ready iff `rlv-knowledge process <CAP_ID>` returns exit 0 (rlv-knowledge resolves the
+ready iff `kpack process <CAP_ID>` returns exit 0 (kpack resolves the
 published `main` of reliever-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-failing-task>"
 
-# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
-# can resolve it (rlv-knowledge resolves the published main by default).
-if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff kpack
+# can resolve it (kpack resolves the published main by default).
+if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
   echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
@@ -181,7 +181,7 @@ fix on. Never guess.
 4. Fetch the capability pack — same pattern as `/code`:
 
    ```bash
-   rlv-knowledge pack <capability_id> --compact > /tmp/pack-fix.json
+   kpack pack <capability_id> --compact > /tmp/pack-fix.json
    ```
 
    `<capability_id>` is the full source-context-prefixed ID (e.g.
@@ -195,7 +195,7 @@ fix on. Never guess.
    `bcm_ref` against the current knowledge base:
 
    ```bash
-   rlv-knowledge diff "$bcm_ref" --capability <capability_id> --compact \
+   kpack diff "$bcm_ref" --capability <capability_id> --compact \
      | jq '{empty, summary}'
    ```
 
@@ -345,7 +345,7 @@ Say:
 
 The harness will regenerate `contracts/specs/openapi.yaml` +
 `asyncapi.yaml` + `lineage.json` + `harness-report.md` strictly from
-`process/{cap}/` + `rlv-knowledge`, with full bidirectional `x-lineage` (process
+`process/{cap}/` + `kpack`, with full bidirectional `x-lineage` (process
 + bcm) on every operation, message, and channel. Treat its outcome the same
 way `/code` Step 2.5 does:
 
@@ -359,7 +359,7 @@ way `/code` Step 2.5 does:
 
 Stalls from process / bcm closure failures are deliberate: an upstream fix
 cannot be done by `/fix` itself — the process model is authored upstream in
-reliever-knowledge and consumed here read-only via `rlv-knowledge process`, so it
+reliever-knowledge and consumed here read-only via `kpack process`, so it
 cannot be amended from this repo at all.
 
 ---
@@ -507,7 +507,7 @@ Worktree retained at /tmp/kanban-worktrees/TASK-NNN-{slug} until the PR is merge
 - **Never bypass tests.** The matching test skill is mandatory. If Playwright cannot
   install on Path B, fall back to `manual-checklist.md` exactly like `/test-app` does.
 - **Never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
-  `/product-vision/`, or `/tech-vision/` directly.** Use `rlv-knowledge`.
+  `/product-vision/`, or `/tech-vision/` directly.** Use `kpack`.
 - **One task per invocation.** Refuse compound requests; ask which to fix first.
 - **Loop budget is shared with `/code`.** A task that already burned 8 of 10 loops in
   `/code` only has 2 loops left in `/fix`.

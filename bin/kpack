@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# kpack — thin wrapper that runs the published knowledge-pack engine container.
+#
+# kpack is the single knowledge CLI for banking-reliever; it replaces the retired
+# `rlv-knowledge`, `tech` and `gov-pack` binaries (ADR-GCM-URBA-0002). One engine,
+# every map: selection is by id prefix or --context, never by binary name.
+#
+#   bin/kpack pack    BNK.RLVR.CAP.BSP.001.SCO --deep --compact
+#   bin/kpack process BNK.RLVR.CAP.BSP.001.SCO
+#   bin/kpack pack    BNK.TECH.CAP.<…>            # platform substrate (PCM)
+#   bin/kpack pack    BNK.GOV.<…>                 # org-wide governance (GCM)
+#   bin/kpack version --context BNK.RLVR
+#
+# Put this directory on PATH (e.g. `export PATH="$PWD/bin:$PATH"`) so every skill,
+# agent and script can call a bare `kpack`, exactly as they called the old CLIs.
+#
+# Requirements:
+#   • Docker (or set KPACK_DOCKER=podman).
+#   • A GITHUB_TOKEN with `read:packages` (to pull the private image) and read
+#     access to the private corpus repos (kpack clones them with your git identity).
+#     `gh auth token` is used as a fallback when GITHUB_TOKEN is unset.
+#   • Project ./.kpack.yaml (enterprise → governance registry). Mounted read-only.
+#
+# Alternative (no Docker): pip/pipx install the engine from source and drop this
+# wrapper —
+#   pipx install "git+https://x-access-token:$(gh auth token)@github.com/naive-unicorn/knowledge-cli.git"
+# installs a native `kpack` console script with the identical command surface.
+set -euo pipefail
+
+IMAGE="${KPACK_IMAGE:-ghcr.io/naive-unicorn/kpack:v1.0.0}"
+ENGINE="${KPACK_DOCKER:-docker}"
+TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+
+CACHE="${KPACK_CACHE_DIR:-$HOME/.cache/kpack}"
+mkdir -p "$CACHE"
+
+# Resolve the project config: prefer an explicit KPACK_CONFIG, else the repo root.
+REPO_ROOT="$(git -C "${PWD}" rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
+CONFIG="${KPACK_CONFIG:-$REPO_ROOT/.kpack.yaml}"
+
+declare -a MOUNTS=( -v "$CACHE:/root/.cache/kpack" )
+[ -f "$CONFIG" ] && MOUNTS+=( -v "$CONFIG:/work/.kpack.yaml:ro" )
+
+# The image entrypoint is `kpack`; we shell in only to teach git to authenticate
+# private https clones with the token, then exec the real engine with our args.
+exec "$ENGINE" run --rm -i \
+  "${MOUNTS[@]}" \
+  -e "GITHUB_TOKEN=${TOKEN}" \
+  -e "KPACK_CONFIG=/work/.kpack.yaml" \
+  --entrypoint sh \
+  "$IMAGE" -c '
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+      git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/" 2>/dev/null || true
+    fi
+    exec kpack "$@"
+  ' kpack "$@"

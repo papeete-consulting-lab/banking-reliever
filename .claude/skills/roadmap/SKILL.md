@@ -23,35 +23,35 @@ language. The "how" emerges in the task phase.
 
 ---
 
-## Process model — consumed read-only via `rlv-knowledge process`
+## Process model — consumed read-only via `kpack process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
 > **reliever-knowledge** repo and consumed here **read-only** via
-> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 This skill consumes the model as a primary input to ground epics in real
-aggregates and commands. Fetch it once via `rlv-knowledge process <CAP_ID>` and read
+aggregates and commands. Fetch it once via `kpack process <CAP_ID>` and read
 the slices it returns; do not attempt to derive aggregates or commands inside the
 roadmap, that is a category violation owned by `/process`.
 
 ---
 
-## Readiness gate — the process model must resolve via `rlv-knowledge process`
+## Readiness gate — the process model must resolve via `kpack process`
 
 Before reading anything from the process model, verify it resolves. A model is
-ready iff `rlv-knowledge process <CAP_ID>` returns exit 0 (rlv-knowledge resolves the
+ready iff `kpack process <CAP_ID>` returns exit 0 (kpack resolves the
 published `main` of reliever-knowledge by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
-# can resolve it (rlv-knowledge resolves the published main by default).
-if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff kpack
+# can resolve it (kpack resolves the published main by default).
+if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
   echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
@@ -65,24 +65,24 @@ is run in the reliever-knowledge repo and its PR merged, re-run `/roadmap`.
 
 ---
 
-## Knowledge access — `rlv-knowledge` CLI (mandatory)
+## Knowledge access — `kpack` CLI (mandatory)
 
-**You MUST source all BCM, ADR, vision, and event knowledge from the `rlv-knowledge` CLI.**
+**You MUST source all BCM, ADR, vision, and event knowledge from the `kpack` CLI.**
 Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`, or any 
 other knowledge file directly from the local working directory — those paths may be missing, 
 stale, or incomplete in this checkout. The authoritative corpus lives in the
-`Banking-PapeeteConsulting/reliever-knowledge` Git repository, and `rlv-knowledge` is the only sanctioned 
+`Banking-PapeeteConsulting/reliever-knowledge` Git repository, and `kpack` is the only sanctioned 
 way to query it.
 
 Two subcommands are all you need:
 
 ```bash
 # 1. Enumerate plannable capabilities (use to disambiguate user input)
-rlv-knowledge list --level L2
-rlv-knowledge list --level L3
+kpack list --context BNK.RLVR --level L2
+kpack list --context BNK.RLVR --level L3
 
 # 2. Fetch the full pack for one capability (lightweight mode is the default)
-rlv-knowledge pack <CAPABILITY_ID> --deep --compact
+kpack pack <CAPABILITY_ID> --deep --compact
 ```
 
 Always pass `--deep` from this skill: it pulls in the rationale ADRs (URBA, governance,
@@ -97,10 +97,10 @@ The pack JSON exposes these slices under `slices.*` — map them to the roadmap 
 | `capability_self`           | The L2/L3 itself (description, owner, ADRs)            | Capability Summary                   |
 | `capability_ancestors`      | Parent L1 (and grandparent if L3)                      | Strategic Alignment                  |
 | `capability_definition`     | The governing FUNC ADR(s)                              | Epic framing, Exit conditions        |
-| `emitted_business_events`   | Events the capability must produce                     | Epics — "Unlocks events"             |
-| `consumed_business_events`  | Events the capability subscribes to                    | Cross-capability dependencies        |
-| `emitted_resource_events`   | Technical projections of emitted events                | Sanity check on event topology       |
-| `consumed_resource_events`  | Technical subscriptions                                | Sanity check on event topology       |
+| `emitted_events[]` `\| select(.layer=="business")`   | Events the capability must produce            | Epics — "Unlocks events"             |
+| `consumed_events[]` `\| select(.layer=="business")`  | Events the capability subscribes to           | Cross-capability dependencies        |
+| `emitted_events[]` `\| select(.layer=="resource")`   | Technical projections of emitted events       | Sanity check on event topology       |
+| `consumed_events[]` `\| select(.layer=="resource")`  | Technical subscriptions                       | Sanity check on event topology       |
 | `carried_objects`           | Business objects owned/touched by the capability       | Capability Summary                   |
 | `carried_concepts`          | Canonical business concepts with definition + rules    | Capability Summary, Open Questions   |
 | `governance_adrs`           | Applicable GOV ADRs (review cycle, arbitration…)       | Risks, Sequencing constraints        |
@@ -118,40 +118,40 @@ should land in the roadmap's **Open Questions** section.
 ### Repo ref and offline behaviour
 
 - Default ref is `main` on `git@github.com:Banking-PapeeteConsulting/reliever-knowledge.git`. To pin a 
-  specific snapshot (e.g. matching a release): `rlv-knowledge --ref v0.1.0 pack <ID> --deep --compact`.
-- Cached locally under `~/.cache/rlv-knowledge/`. Add `--no-fetch` to skip the per-invocation 
+  specific snapshot (e.g. matching a release): `kpack --ref v0.1.0 pack <ID> --deep --compact`.
+- Cached locally under `~/.cache/kpack/`. Add `--no-fetch` to skip the per-invocation 
   `git fetch` if the network is slow or unreachable; `--fresh` re-clones from scratch.
 - If the user has a local checkout, they can set `BANKING_KNOWLEDGE_ROOT=/path/to/checkout` 
-  and `rlv-knowledge` will read from disk silently. Don't assume that's the case.
+  and `kpack` will read from disk silently. Don't assume that's the case.
 
 ### Recommended invocation pattern
 
 ```bash
 # One JSON object → parse it once, then drive the roadmap from the parsed slices.
-rlv-knowledge pack BNK.RLVR.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
-jq '.slices.capability_self[0]'         /tmp/pack.json
-jq '.slices.capability_definition[0]'   /tmp/pack.json
-jq '.slices.emitted_business_events'    /tmp/pack.json
-jq '.warnings'                          /tmp/pack.json
+kpack pack BNK.RLVR.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
+jq '.slices.capability_self[0]'                                  /tmp/pack.json
+jq '.slices.capability_definition[0]'                           /tmp/pack.json
+jq '[.slices.emitted_events[] | select(.layer=="business")]'    /tmp/pack.json
+jq '.warnings'                                                  /tmp/pack.json
 ```
 
-If the capability ID is unknown to `rlv-knowledge pack` (exit code 2), do not fall back to local
-files — surface the error to the user and ask them to confirm the ID against `rlv-knowledge list`.
+If the capability ID is unknown to `kpack pack` (exit code 2), do not fall back to local
+files — surface the error to the user and ask them to confirm the ID against `kpack list --context BNK.RLVR`.
 
 ---
 
 ## Before You Begin
 
 1. **Identify which capability to roadmap.** The user should specify the capability ID (e.g., 
-   `BNK.RLVR.CAP.BSP.001.PAL`) or a name. If ambiguous, run `rlv-knowledge list --level L2` (and 
+   `BNK.RLVR.CAP.BSP.001.PAL`) or a name. If ambiguous, run `kpack list --context BNK.RLVR --level L2` (and 
    `--level L3` if relevant), present the matches, and ask the user to select.
 
-2. **Fetch the capability pack** with `rlv-knowledge pack <ID> --deep --compact`. This single call 
+2. **Fetch the capability pack** with `kpack pack <ID> --deep --compact`. This single call 
    replaces all of the previous local file reads (capability YAML, FUNC ADR, strategic 
    vision, product vision, etc.). Do not read those files from disk.
 
 3. **Read the Process Modelling layer (read-only).** Fetch it once with
-   `rlv-knowledge process <CAPABILITY_ID> --compact` and read the slices from the
+   `kpack process <CAPABILITY_ID> --compact` and read the slices from the
    returned envelope (use `.model.<stem>.parsed`, falling back to `.raw` when
    `parsed` is null). These are produced by the `/process` skill in
    reliever-knowledge and are the canonical source of:
@@ -161,13 +161,14 @@ files — surface the error to the user and ask them to confirm the ID against `
    - the **read-models** and queries the capability exposes — `.model["read-models"]` (often `parsed:null`; use `.raw`),
    - the **bus topology** (exchanges, routing keys, subscriptions) — `.model.bus`.
 
-   If `rlv-knowledge process` does not resolve (gate fail above), **stop** and ask the
+   If `kpack process` does not resolve (gate fail above), **stop** and ask the
    user to run `/process <CAPABILITY_ID>` in the reliever-knowledge repo and merge
    its PR. Do **not** attempt to invent aggregates / commands from the FUNC ADR —
    that is `/process`'s responsibility.
 
-   If the model lacks an entry referenced in `pack.emitted_*` / `pack.consumed_*`,
-   surface the gap and ask the user to refresh `/process` upstream.
+   If the model lacks an entry referenced in `pack.slices.emitted_events` /
+   `pack.slices.consumed_events`, surface the gap and ask the user to refresh
+   `/process` upstream.
 
 4. **Check if a roadmap already exists** locally at `/roadmap/{capability-id}/roadmap.md`. This *is* a
    local file — the roadmap output lives in the working repo, not in `reliever-knowledge`. If it 
@@ -203,16 +204,16 @@ deliverable when it's done.
 ## Step 1 — Understand the Capability
 
 Before drafting the roadmap, ground yourself in the pack's `capability_self`,
-`capability_definition`, and the `emitted_business_events` slices, then ask the user to 
+`capability_definition`, and the `emitted_events[] | select(.layer=="business")` slices, then ask the user to 
 validate the framing:
 
 - "Looking at [capability name], what is the minimum version of this capability that delivers 
   business value? What would be true about the business on day 1 if this capability existed 
   in its simplest form?"
-- "Among the events listed in `emitted_business_events` ([list them]), which is the most 
+- "Among the events listed in `emitted_events[] | select(.layer=="business")` ([list them]), which is the most 
   critical to deliver first?"
 - "Are there external dependencies — capabilities that must exist or expose data before this 
-  one can function? (Cross-check against `consumed_business_events`.)"
+  one can function? (Cross-check against `consumed_events[] | select(.layer=="business")`.)"
 
 ---
 
@@ -230,9 +231,9 @@ For each epic, define:
 - **Exit condition** (Definition of Done): what is verifiably true when this epic is complete?
 - **Complexity**: S / M / L / XL (relative estimation — no days or sprints)
 - **Capabilities needed**: which other L2 capabilities must exist or be partially ready?
-  Source this from `consumed_business_events[*].subscribed_event` (trace the event back to its
-  emitting capability via another `rlv-knowledge pack` call if needed).
-- **Key business events unlocked**: which events from `emitted_business_events` become 
+  Source this from `(.slices.consumed_events[] | select(.layer=="business")).subscribed_event` (trace the event back to its
+  emitting capability via another `kpack pack` call if needed).
+- **Key business events unlocked**: which events from `emitted_events[] | select(.layer=="business")` become 
   producible when this epic is done?
 
 Ask the user to validate the epic sequence before writing the file:
@@ -244,7 +245,7 @@ Ask the user to validate the epic sequence before writing the file:
 ## Step 3 — Risk and Dependencies
 
 For the full roadmap, identify:
-- **Cross-capability dependencies**: from `consumed_business_events` — which other L2s does 
+- **Cross-capability dependencies**: from `consumed_events[] | select(.layer=="business")` — which other L2s does 
   this roadmap depend on? (Reference by capability ID.)
 - **External dependencies**: third-party systems, data sources, regulatory approvals
 - **Key risks**: the 2-3 assumptions that, if wrong, would derail this roadmap. Cross-check 
@@ -351,7 +352,7 @@ preferred.
 - [Anything surfaced via `pack.warnings`]
 
 ## Knowledge Source
-- rlv-knowledge ref: [the `--ref` used, default `main`]
+- kpack ref: [the `--ref` used, default `main`]
 - Capability pack mode: deep
 - Pack date: [today's date]
 ```

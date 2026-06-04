@@ -59,45 +59,45 @@ write access to the next agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Process model — consumed read-only via `rlv-knowledge process`
+## Process model — consumed read-only via `kpack process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
 > **reliever-knowledge** repo and consumed here **read-only** via
-> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 The process model is the **contract** that the implementation must satisfy.
 This skill, and every agent it spawns (`implement-capability`,
 `implement-capability-python`, `create-bff`, `code-web-frontend`), consumes it
-via `rlv-knowledge process <CAP_ID>` but never reshapes it. If a remediation
+via `kpack process <CAP_ID>` but never reshapes it. If a remediation
 iteration suggests changing a command shape, an aggregate invariant, or a
 routing key, stop the loop and tell the user to run `/process <CAPABILITY_ID>`
 in the reliever-knowledge repo to update the model — then re-run `/code TASK-NNN`.
 
 When forwarding context to `implement-capability`, `create-bff`, or
 `code-web-frontend`, instruct each agent to **fetch** the process model via
-`rlv-knowledge process <CAPABILITY_ID>` (the `.model.<stem>` slices and the
+`kpack process <CAPABILITY_ID>` (the `.model.<stem>` slices and the
 `.schemas[...]` JSON Schemas) as the source of truth on aggregates, commands,
 events, and routing keys — never to invent or reshape them.
 
 ---
 
-## Readiness gate — the process model must resolve via `rlv-knowledge process`
+## Readiness gate — the process model must resolve via `kpack process`
 
 Before reading the task, before spawning any agent, verify the capability's
-process model resolves. A model is ready iff `rlv-knowledge process <CAP_ID>`
-returns exit 0 (rlv-knowledge resolves the published `main` of reliever-knowledge by
+process model resolves. A model is ready iff `kpack process <CAP_ID>`
+returns exit 0 (kpack resolves the published `main` of reliever-knowledge by
 default):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task>"
 
-# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
-# can resolve it (rlv-knowledge resolves the published main by default).
-if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff kpack
+# can resolve it (kpack resolves the published main by default).
+if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
   echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
@@ -130,12 +130,12 @@ repo and its PR merged, re-run `/code TASK-NNN`.
    If any prerequisite fails, stop and explain:
    > "TASK-NNN cannot start because [reason]. Resolve this first."
 
-4. **Read supporting context.** All BCM/ADR/vision knowledge comes from the `rlv-knowledge` 
-   CLI — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/product-vision/`
+4. **Read supporting context.** All BCM/ADR/vision knowledge comes from the `kpack` 
+   engine — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/product-vision/`
    directly:
 
    ```bash
-   rlv-knowledge pack <CAPABILITY_ID> --compact > /tmp/pack-code.json
+   kpack pack <CAPABILITY_ID> --compact > /tmp/pack-code.json
    ```
 
    Selective slice usage at this layer (this skill is mostly a router — keep it light):
@@ -144,8 +144,8 @@ repo and its PR merged, re-run `/code TASK-NNN`.
    |-----------------------------|-----------------------------------------------|
    | `capability_self`           | zone detection, capability_name, level        |
    | `capability_definition`     | summarized to the user in Step 1, forwarded to the spawned agent |
-   | `emitted_business_events`   | "events that will become emittable" in Step 1 |
-   | `consumed_business_events`  | "events consumed (BFF subscriptions)" in Step 1 (CHANNEL only) |
+   | `emitted_events[] \| select(.layer=="business")`  | "events that will become emittable" in Step 1 |
+   | `consumed_events[] \| select(.layer=="business")` | "events consumed (BFF subscriptions)" in Step 1 (CHANNEL only) |
 
    The deeper slices (tactical_stack, governing_*, vision narratives) are forwarded to the
    spawned agent via the prompt — that agent re-fetches them with `--deep` if it needs the
@@ -153,11 +153,11 @@ repo and its PR merged, re-run `/code TASK-NNN`.
 
    Supporting artifacts:
    - the roadmap file at `/roadmap/{capability-id}/roadmap.md` (local, read directly)
-   - the Process Modelling layer via `rlv-knowledge process <CAPABILITY_ID> --compact`
+   - the Process Modelling layer via `kpack process <CAPABILITY_ID> --compact`
      (read-only) — the `.model.aggregates`, `.model.commands`, `.model.policies`,
      `.model["read-models"]`, `.model.bus`, `.model.api` slices (use `.parsed`,
      fallback `.raw` when null) and the `.schemas[...]` JSON Schemas. The
-     implementation agents consume these via `rlv-knowledge process`; they do not
+     implementation agents consume these via `kpack process`; they do not
      author or modify them.
 
 5. **Read loop counters** from the task file frontmatter:
@@ -180,7 +180,7 @@ repo and its PR merged, re-run `/code TASK-NNN`.
 
    | `task_type` value | Routing path | Notes |
    |-------------------|--------------|-------|
-   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `BNK.RLVR.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in the model's `api` surface (`rlv-knowledge process <CAP_ID>` → `.model.api`) with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
+   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `BNK.RLVR.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in the model's `api` surface (`kpack process <CAP_ID>` → `.model.api`) with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
    | (absent) or `full-microservice` | Fall through to 6b | standard zone-aware routing |
 
    **6b — Zone (when `task_type` does not force Path C)**
@@ -202,7 +202,7 @@ repo and its PR merged, re-run `/code TASK-NNN`.
    **6c — Language (TECH-TACT-driven, Path A & Path C only)**
 
    For Path A and Path C, inspect the **tactical_stack** slice of the
-   `rlv-knowledge` output to pick the concrete implementation agent. The
+   `kpack` output to pick the concrete implementation agent. The
    TECH-TACT ADR (`ADR-TECH-TACT-{NNN}`) is authored per L2 capability
    and pins the runtime; its `tags` array carries the language signal:
 
@@ -356,7 +356,7 @@ The context to pass includes:
 - The events to contract (the BNK.RLVR.EVT/BNK.RLVR.RVT pairs named in the task) — drives
   the publisher half
 - The query operations to stub — every entry in the process model's api slice
-  (`rlv-knowledge process <CAP_ID>` → `.model.api`), with their response schemas.
+  (`kpack process <CAP_ID>` → `.model.api`), with their response schemas.
   Drives the HTTP half.
 - The carried business objects / resources (event payloads + canned
   fixture shapes)
@@ -391,7 +391,7 @@ The agent produces:
 - Canned fixtures under `sources/{capability-name}/stub/fixtures/`
   (≥3 per query operation, deterministic IDs)
 - The wire-format JSON Schemas it consumes are NOT regenerated — the
-  agent reads them from the `rlv-knowledge process <CAP_ID>` envelope's
+  agent reads them from the `kpack process <CAP_ID>` envelope's
   `.schemas[...]` (already authored by `/process` in reliever-knowledge). No
   schema files are authored by the stub.
 - No full microservice scaffold (Domain / Application / Infrastructure /
@@ -526,23 +526,23 @@ After the language-matching agent (`implement-capability` or
 `implement-capability-python`) succeeds for a non-CHANNEL task, invoke
 the `/harness-backend` skill to add the contract harness to the
 freshly-scaffolded microservice. The harness derives its specs from the process
-model (consumed via `rlv-knowledge process <CAP_ID>`; the `process/{capability-id}/…`
-names below are stable logical provenance references) and `rlv-knowledge` — it is
+model (consumed via `kpack process <CAP_ID>`; the `process/{capability-id}/…`
+names below are stable logical provenance references) and `kpack` — it is
 language-agnostic and works on both .NET and Python services. The harness
 produces, under `sources/{capability-name}/backend/contracts/specs/`:
 
 - `openapi.yaml` (OpenAPI 3.1) — derived strictly from
   `process/{capability-id}/api.yaml` + `commands.yaml` + `read-models.yaml` +
-  `schemas/CMD.*.schema.json` + `rlv-knowledge.carried_objects` (resource shapes).
+  `schemas/CMD.*.schema.json` + `kpack`'s `.slices.carried_objects[] | select(.layer=="resource")` (resource shapes).
 - `asyncapi.yaml` (AsyncAPI 2.6) — derived strictly from
   `process/{capability-id}/bus.yaml` + `schemas/BNK.RLVR.RVT.*.schema.json` +
-  `rlv-knowledge.emitted_resource_events` / `consumed_resource_events`.
+  `kpack`'s `.slices.emitted_events[] | select(.layer=="resource")` / `.slices.consumed_events[] | select(.layer=="resource")`.
 - `lineage.json` — top-level lineage (capability + bcm + process metadata).
 - `harness-report.md` — closure verdict.
 
 Both specs carry a top-level `x-lineage` block plus per-operation,
 per-message, per-channel `x-lineage` extensions so every entry traces back
-to its `process/` source AND its `rlv-knowledge` source. The harness also adds a
+to its `process/` source AND its `kpack` source. The harness also adds a
 `*.Contracts.Harness/` project to the .NET solution (which re-runs the
 validation on every `dotnet build`) and mounts `/openapi.yaml` and
 `/asyncapi.yaml` endpoints in the Presentation project.
@@ -830,7 +830,7 @@ After all tests pass (or after the remediation loop concludes):
 
    Each component also ships `deployment/dev/k8s/` (kustomize) and
    `deployment/dev/terraform/` (banking-tech modules only), derived via
-   `rlv-knowledge` → `tech` per the Deployment contract in CLAUDE.md.
+   `kpack` in two contexts (`BNK.RLVR` → `BNK.TECH`) per the Deployment contract in CLAUDE.md.
 
    - Resolved platform capabilities: see `deployment/dev/terraform/README.md`.
    - Escape-hatch issues (when a needed banking-tech module is missing): {none |

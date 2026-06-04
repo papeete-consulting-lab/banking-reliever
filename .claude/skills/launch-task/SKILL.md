@@ -62,17 +62,17 @@ agent — explicit `rm -f` on exit is preferred.
 
 ---
 
-## Process model — consumed read-only via `rlv-knowledge process`
+## Process model — consumed read-only via `kpack process`
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
 > **reliever-knowledge** repo and consumed here **read-only** via
-> `rlv-knowledge process <CAP_ID>` — exactly like the BCM corpus via `rlv-knowledge pack`.
+> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
 
 The `code` agents you spawn (and the test agents that follow) consume the model
-as a **read-only contract**, fetched via `rlv-knowledge process <CAP_ID>`. There is
+as a **read-only contract**, fetched via `kpack process <CAP_ID>`. There is
 no local `process/` folder in the main checkout or in any worktree, so:
 
 - The `code` / `fix` agents you spawn have nothing to commit under `process/`.
@@ -85,17 +85,17 @@ When you create a new worktree, propagate this constraint by including in the
 agent prompt:
 
 > "The process model for this capability is the read-only contract. Fetch it
-> via `rlv-knowledge process <CAPABILITY_ID>` for AGG / CMD / POL / PRJ / QRY / bus
+> via `kpack process <CAPABILITY_ID>` for AGG / CMD / POL / PRJ / QRY / bus
 > topology / JSON Schemas, but never reshape it — it is authored upstream in
 > reliever-knowledge."
 
 ---
 
-## Readiness gate — the process model must resolve via `rlv-knowledge process`
+## Readiness gate — the process model must resolve via `kpack process`
 
 Before launching any code agent for a task whose capability is `<CAP_ID>`,
-verify the process model resolves. A model is ready iff `rlv-knowledge process
-<CAP_ID>` returns exit 0 (rlv-knowledge resolves the published `main` of
+verify the process model resolves. A model is ready iff `kpack process
+<CAP_ID>` returns exit 0 (kpack resolves the published `main` of
 reliever-knowledge by default). Launching against a capability with no published
 process model produces a useless run.
 
@@ -103,9 +103,9 @@ process model produces a useless run.
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task-about-to-launch>"
 
-# The process model lives in reliever-knowledge now; it is ready iff rlv-knowledge
-# can resolve it (rlv-knowledge resolves the published main by default).
-if ! rlv-knowledge process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
+# The process model lives in reliever-knowledge now; it is ready iff kpack
+# can resolve it (kpack resolves the published main by default).
+if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
   echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
@@ -249,12 +249,12 @@ If the worktree already exists (same case): use it as-is without recreating.
 Read the complete content of the `TASK-NNN-*.md` file to include in the sub-agent prompt.
 Read the local roadmap at `/roadmap/{capability-id}/roadmap.md`.
 
-For **all** BCM/ADR/vision context, fetch the capability pack from the `rlv-knowledge` CLI —
+For **all** BCM/ADR/vision context, fetch the capability pack from the `kpack` CLI —
 do NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/product-vision/`
 directly:
 
 ```bash
-rlv-knowledge pack <CAPABILITY_ID> --compact > /tmp/pack-launch.json
+kpack pack <CAPABILITY_ID> --compact > /tmp/pack-launch.json
 ```
 
 Pass the parsed pack JSON (or just the capability ID + a note that the spawned agent will
@@ -265,10 +265,10 @@ layer:
 |-----------------------------|---------------------------------------------------|
 | `capability_self`           | branch slug, capability_name (for worktree path), zone |
 | `capability_definition`     | included in the sub-agent prompt as context       |
-| `emitted_business_events`   | included in the sub-agent prompt                  |
-| `consumed_business_events`  | included in the sub-agent prompt                  |
+| `emitted_events` (`.layer=="business"`)  | included in the sub-agent prompt     |
+| `consumed_events` (`.layer=="business"`) | included in the sub-agent prompt     |
 
-The sub-agent will issue its own `rlv-knowledge` calls — possibly with `--deep` — when it
+The sub-agent will issue its own `kpack` calls — possibly with `--deep` — when it
 needs vision narratives or the rationale ADRs.
 
 ---
@@ -297,17 +297,19 @@ capability [CAPABILITY_NAME] ([CAPABILITY_ID]) using the `code` skill.
 
 [CONTENT OF PLAN.MD]
 
-## Capability Pack (from `rlv-knowledge`)
+## Capability Pack (from `kpack`)
 
-[Inline the relevant slices of `rlv-knowledge pack [CAPABILITY_ID] --compact` —
- at minimum: `capability_self`, `capability_definition`, `emitted_business_events`,
- `consumed_business_events`, `carried_objects`. Do NOT inline the full pack —
+[Inline the relevant slices of `kpack pack [CAPABILITY_ID] --compact` —
+ at minimum: `capability_self`, `capability_definition`,
+ `.slices.emitted_events[] | select(.layer=="business")`,
+ `.slices.consumed_events[] | select(.layer=="business")`, `carried_objects`.
+ Do NOT inline the full pack —
  the spawned agent re-fetches with `--deep` if it needs vision narratives.]
 
 ## Knowledge access reminder
 
 The spawned agent MUST source any further BCM/ADR/vision context via the
-`rlv-knowledge` CLI, e.g. `rlv-knowledge pack [CAPABILITY_ID] --deep --compact`. It must
+`kpack` CLI, e.g. `kpack pack [CAPABILITY_ID] --deep --compact`. It must
 NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`,
 or `/tech-vision/` directly — those paths are not authoritative in this checkout.
 

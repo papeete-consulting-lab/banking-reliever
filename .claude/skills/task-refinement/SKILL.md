@@ -92,11 +92,11 @@ deliberate.
    - The roadmap: `/roadmap/{capability-id}/roadmap.md` — the epic this task belongs to and its exit condition
    - Sibling tasks in `/tasks/{capability-id}/` — to spot collateral amendments (Rule 2)
 
-   Knowledge corpus — fetch via the `rlv-knowledge` CLI **only**, never read `/bcm/`, `/func-adr/`, 
+   Knowledge corpus — fetch via the `kpack` engine **only**, never read `/bcm/`, `/func-adr/`, 
    `/adr/`, `/strategic-vision/`, or `/product-vision/` directly:
 
    ```bash
-   rlv-knowledge pack <CAPABILITY_ID> --deep --compact > /tmp/pack-refine.json
+   kpack pack <CAPABILITY_ID> --deep --compact > /tmp/pack-refine.json
    ```
 
    Use `--deep` here so the product/business/tech vision narratives are present — you may 
@@ -106,8 +106,8 @@ deliberate.
    |-----------------------------|---------------------------------------------------|
    | `capability_self`           | grounding the task title and capability framing   |
    | `capability_definition`     | Movement 1 (FUNC ADR rules), Movement 2 (sharper DoD), Movement 4 (rule conflicts) |
-   | `emitted_business_events`   | Movement 2 — making event-emission DoD precise    |
-   | `consumed_business_events`  | Movement 4 — challenging dependency assumptions   |
+   | `emitted_events[] \| select(.layer=="business")`  | Movement 2 — making event-emission DoD precise    |
+   | `consumed_events[] \| select(.layer=="business")` | Movement 4 — challenging dependency assumptions   |
    | `carried_objects`           | Movement 3 — scope boundary on object ownership   |
    | `carried_concepts`          | Movement 4 — terminology gap probe                |
    | `product_vision`            | keeps the dialogue anchored on business value     |

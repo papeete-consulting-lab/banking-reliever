@@ -18,7 +18,7 @@ jobs:
   # `process/` from non-`process/*` branches) was removed when the DDD
   # Process Modelling layer migrated to the reliever-knowledge repo. There is
   # no `process/` folder here any more; the process model is consumed
-  # read-only via `rlv-knowledge process <CAP_ID>`, and its write-protection now
+  # read-only via `kpack process <CAP_ID>`, and its write-protection now
   # lives in reliever-knowledge.
 
   language-check:
@@ -32,43 +32,49 @@ jobs:
           python-version: '3.x'
 
       # The BCM and the process model no longer live in this repo — both are
-      # hosted in the private `reliever-knowledge` repo and consumed via the
-      # `rlv-knowledge` CLI. check_language.py discovers capabilities via
-      # `rlv-knowledge process --list` and fetches prose via `rlv-knowledge pack`, so
-      # the installed CLI must include the `process` subcommand (post-v2.0.0
-      # — we pin `main`). Requires a token with read access to
-      # Banking-PapeeteConsulting/reliever-knowledge in the `RELIEVER_KNOWLEDGE_TOKEN`
-      # repo secret.
+      # hosted in the private `reliever-knowledge` repo (context BNK.RLVR) and
+      # consumed via the single `kpack` engine (the GHCR container
+      # `ghcr.io/naive-unicorn/kpack`, which replaces rlv-knowledge/tech/gov-pack).
+      # check_language.py discovers capabilities via `kpack process BNK.RLVR
+      # --list` and fetches prose via `kpack pack`, so a bare `kpack` must be on
+      # PATH. We expose it via the repo's `bin/kpack` container wrapper.
       #
-      # If the secret is not set (or installation fails for any other
-      # reason), the install step succeeds silently and the script will
-      # detect the missing CLI and skip the check (exit 0). Configure the
-      # secret to make this check effective.
-      - name: Install rlv-knowledge from reliever-knowledge (optional)
-        id: install_bcm_pack
+      # Auth: the `RELIEVER_KNOWLEDGE_TOKEN` secret must be a token with
+      # `read:packages` on the naive-unicorn org (to pull the private image) AND
+      # read access to the private corpora kpack resolves (reliever-knowledge,
+      # and — via the governance registry in .kpack.yaml — banking-governance,
+      # banking-tech). The wrapper passes it into the container as GITHUB_TOKEN
+      # so kpack's git clones of those private corpora authenticate.
+      #
+      # If the secret is not set (or the image cannot be pulled for any other
+      # reason), this step succeeds silently and the script detects the missing
+      # CLI and skips the check (exit 0). Configure the secret to make it effective.
+      - name: Make kpack available (optional)
+        id: install_kpack
         continue-on-error: true
         env:
           RELIEVER_KNOWLEDGE_TOKEN: ${{ secrets.RELIEVER_KNOWLEDGE_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${RELIEVER_KNOWLEDGE_TOKEN:-}" ]; then
-            echo "ℹ RELIEVER_KNOWLEDGE_TOKEN secret not set — skipping rlv-knowledge install."
+            echo "ℹ RELIEVER_KNOWLEDGE_TOKEN secret not set — skipping kpack setup."
             echo "  The language-check script will run in skip mode."
             exit 0
           fi
-          pip install --upgrade pip
-          # rlv-knowledge depends on gov-pack, sourced from the *private*
-          # banking-governance repo over https. The token embedded in the
-          # reliever-knowledge URL below only covers that top-level clone — the
-          # transitive gov-pack clone uses a bare `https://github.com/...` URL
-          # and would fail with "could not read Username". Rewrite bare github
-          # https URLs to carry the token so transitive private clones auth too.
-          git config --global url."https://x-access-token:${RELIEVER_KNOWLEDGE_TOKEN}@github.com/".insteadOf "https://github.com/"
-          pip install "git+https://${RELIEVER_KNOWLEDGE_TOKEN}@github.com/Banking-PapeeteConsulting/reliever-knowledge.git@main"
-          rlv-knowledge --help >/dev/null
-          rlv-knowledge process --list >/dev/null   # fail fast if the CLI predates the `process` subcommand
+          # Authenticate to GHCR and pre-pull the private kpack image so the
+          # bin/kpack wrapper's `docker run` calls don't re-pull each invocation.
+          echo "${RELIEVER_KNOWLEDGE_TOKEN}" | docker login ghcr.io -u x-access-token --password-stdin
+          docker pull ghcr.io/naive-unicorn/kpack:v1.0.0
+          # Put the wrapper on PATH and let kpack authenticate its private corpus
+          # clones with the same token (the wrapper reads GITHUB_TOKEN).
+          echo "${GITHUB_WORKSPACE}/bin" >> "$GITHUB_PATH"
+          echo "GITHUB_TOKEN=${RELIEVER_KNOWLEDGE_TOKEN}" >> "$GITHUB_ENV"
+          # Smoke-test: engine version needs no corpus/auth, proves the image runs.
+          "${GITHUB_WORKSPACE}/bin/kpack" version >/dev/null
 
       - name: Verify natural language consistency (BCM ↔ code)
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELIEVER_KNOWLEDGE_TOKEN }}
         run: python3 .github/scripts/check_language.py
 
   dotnet:

@@ -2,7 +2,7 @@
 """c4_export.py — render the Reliever business-capability tree as
 Structurizr DSL files.
 
-Reads upstream BCM via `rlv-knowledge` only — never touches /bcm/, /adr/,
+Reads upstream BCM via `kpack` only — never touches /bcm/, /adr/,
 /func-adr/, /tech-adr/, /tech-vision/, /product-vision/, /business-vision/
 on disk. The implementation overlay is taken from `sources/<CAP>/{backend,
 stub,bff,frontend}/` in the working tree.
@@ -23,16 +23,16 @@ Outputs:
                                    as components. ADR refs as properties.
 
 All cross-capability flows are drawn from BUSINESS event subscriptions
-only — `consumed_business_events` / `emitted_business_events` slices and
-`paired_business_event:` entries of the capability's bus model (logical
-artifact `process/<CAP>/bus.yaml`, now consumed via `rlv-knowledge process`).
+only — the business-layer items of the `consumed_events` / `emitted_events`
+slices and `paired_business_event:` entries of the capability's bus model
+(logical artifact `process/<CAP>/bus.yaml`, now consumed via `kpack process`).
 The resource-event layer (RVT.*) is intentionally hidden as it is an
 implementation detail of the bus rail.
 
 The DDD process model (aggregates, read-models, policies, bus topology) is
 authored by the `/process` skill in the **reliever-knowledge** repo and
-consumed here **read-only** via `rlv-knowledge process <CAP_ID>` — exactly like
-the BCM corpus via `rlv-knowledge pack`. It does not live in this repo.
+consumed here **read-only** via `kpack process <CAP_ID>` — exactly like
+the BCM corpus via `kpack pack`. It does not live in this repo.
 
 Run from the repo root:
 
@@ -77,29 +77,29 @@ ZONE_ABBREV = {
 
 
 # ─────────────────────────────────────────────────────────────────────
-# rlv-knowledge invocation
+# kpack invocation
 # ─────────────────────────────────────────────────────────────────────
 
 
 def run_bcm_pack(*args: str) -> str:
-    """Invoke `rlv-knowledge` and return stdout. The first '[rlv-knowledge] fetching ...'
+    """Invoke `kpack` and return stdout. The first '[kpack] fetching ...'
     log line on stdout is stripped — only the JSON / TSV payload is returned."""
-    cmd = ["rlv-knowledge", *args]
+    cmd = ["kpack", *args]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
-        print(f"!! rlv-knowledge {' '.join(args)} failed:", file=sys.stderr)
+        print(f"!! kpack {' '.join(args)} failed:", file=sys.stderr)
         print(proc.stderr, file=sys.stderr)
         sys.exit(proc.returncode)
-    # rlv-knowledge prints "[rlv-knowledge] fetching ..." on stdout before the payload.
+    # kpack prints "[kpack] fetching ..." on stdout before the payload.
     lines = proc.stdout.splitlines()
-    payload = "\n".join(line for line in lines if not line.startswith("[rlv-knowledge]"))
+    payload = "\n".join(line for line in lines if not line.startswith("[kpack]"))
     return payload
 
 
 def list_capabilities() -> list[dict]:
-    """Return every capability rlv-knowledge knows about. Each entry has
+    """Return every capability kpack knows about. Each entry has
     id / level / zone / name."""
-    raw = run_bcm_pack("list")
+    raw = run_bcm_pack("list", "--context", "BNK.RLVR")
     out: list[dict] = []
     for line in raw.splitlines():
         line = line.strip()
@@ -116,7 +116,7 @@ def list_capabilities() -> list[dict]:
 
 
 def pack_capability(cap_id: str) -> dict:
-    """Return the rlv-knowledge --deep --compact payload for one capability."""
+    """Return the kpack --deep --compact payload for one capability."""
     raw = run_bcm_pack("pack", cap_id, "--deep", "--compact")
     return json.loads(raw)
 
@@ -126,13 +126,13 @@ _PROCESS_CACHE: dict[str, dict | None] = {}
 
 
 def fetch_process_model(cap_id: str) -> dict | None:
-    """Fetch one capability's DDD process model via `rlv-knowledge process
+    """Fetch one capability's DDD process model via `kpack process
     <cap_id> --compact` and return the parsed JSON envelope.
 
     The process model lives in the reliever-knowledge repo and is served
-    read-only by the CLI — exactly like the BCM corpus via `rlv-knowledge pack`.
+    read-only by the CLI — exactly like the BCM corpus via `kpack pack`.
     Returns None (treated everywhere as "no process model") when:
-      - rlv-knowledge is not installed / not on PATH,
+      - kpack is not installed / not on PATH,
       - the CLI exits non-zero (e.g. exit 3 = no model for this id),
       - the payload is not valid JSON.
     """
@@ -140,13 +140,13 @@ def fetch_process_model(cap_id: str) -> dict | None:
         return _PROCESS_CACHE[cap_id]
     try:
         proc = subprocess.run(
-            ["rlv-knowledge", "process", cap_id, "--compact"],
+            ["kpack", "process", cap_id, "--compact"],
             capture_output=True,
             text=True,
             check=False,
         )
     except FileNotFoundError:
-        print("!! rlv-knowledge not found on PATH — treating as no process model",
+        print("!! kpack not found on PATH — treating as no process model",
               file=sys.stderr)
         _PROCESS_CACHE[cap_id] = None
         return None
@@ -154,11 +154,11 @@ def fetch_process_model(cap_id: str) -> dict | None:
         _PROCESS_CACHE[cap_id] = None
         return None
     lines = proc.stdout.splitlines()
-    payload = "\n".join(line for line in lines if not line.startswith("[rlv-knowledge]"))
+    payload = "\n".join(line for line in lines if not line.startswith("[kpack]"))
     try:
         env = json.loads(payload)
     except json.JSONDecodeError:
-        print(f"!! rlv-knowledge process {cap_id} returned non-JSON output",
+        print(f"!! kpack process {cap_id} returned non-JSON output",
               file=sys.stderr)
         _PROCESS_CACHE[cap_id] = None
         return None
@@ -189,7 +189,7 @@ class ImplStatus:
     has_stub: bool = False       # sources/<CAP>/stub/
     has_frontend: bool = False   # sources/<CAP>/frontend/
     has_bff: bool = False        # sources/<CAP>/bff/
-    has_process: bool = False    # rlv-knowledge process <CAP> resolves (exit 0)
+    has_process: bool = False    # kpack process <CAP> resolves (exit 0)
 
     @property
     def label(self) -> str:
@@ -215,13 +215,13 @@ def detect_impl(cap_id: str, zone: str) -> ImplStatus:
     if (cap_dir / "bff").is_dir():
         s.has_bff = True
 
-    # has_process is True iff `rlv-knowledge process <cap_id>` resolves (exit 0).
+    # has_process is True iff `kpack process <cap_id>` resolves (exit 0).
     s.has_process = fetch_process_model(cap_id) is not None
     return s
 
 
 # ─────────────────────────────────────────────────────────────────────
-# DDD components, mined from the `rlv-knowledge process` model (logical
+# DDD components, mined from the `kpack process` model (logical
 # process/<CAP>/ artifacts) when present
 # ─────────────────────────────────────────────────────────────────────
 
@@ -249,7 +249,7 @@ def _scan_yaml_ids(text: str, prefixes: tuple[str, ...]) -> list[str]:
     aggregate entry but use a different prefix).
 
     Operates on raw YAML TEXT (the `.model.<stem>.raw` string from the
-    `rlv-knowledge process` envelope) so it works whether or not `.parsed` is
+    `kpack process` envelope) so it works whether or not `.parsed` is
     null for that file."""
     if not text:
         return []
@@ -296,7 +296,7 @@ def mine_ddd(cap_id: str) -> DddComponents:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# ADR URLs — derived from the `files` slice of rlv-knowledge pack output
+# ADR URLs — derived from the `files` slice of kpack pack output
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -524,7 +524,9 @@ def emit_l2_workspace(
     # subscriptions are an implementation detail of the bus layer and are
     # intentionally hidden from the C4 view).
     upstream: dict[str, dict] = {}
-    for sub in slices.get("consumed_business_events", []) or []:
+    for sub in slices.get("consumed_events", []) or []:
+        if sub.get("layer") != "business":
+            continue
         ev = sub.get("subscribed_event", {})
         emitter = ev.get("emitting_capability")
         if not emitter or emitter == cap_id:
@@ -533,7 +535,9 @@ def emit_l2_workspace(
         upstream[emitter]["events"].append(ev.get("id", ""))
 
     emitted_events = [
-        e.get("id") for e in slices.get("emitted_business_events", []) or []
+        e.get("id")
+        for e in slices.get("emitted_events", []) or []
+        if e.get("layer") == "business"
     ]
 
     self_ident = dsl_id(cap_id)
@@ -900,7 +904,9 @@ def emit_zone_workspace(
         cap_id = cap["id"]
         pack = packs.get(cap_id, {})
         cap_ident = cap_idents[cap_id]
-        for sub in pack.get("slices", {}).get("consumed_business_events", []) or []:
+        for sub in pack.get("slices", {}).get("consumed_events", []) or []:
+            if sub.get("layer") != "business":
+                continue
             ev = sub.get("subscribed_event", {})
             emitter = ev.get("emitting_capability")
             if not emitter or emitter == cap_id:
@@ -1097,7 +1103,9 @@ def emit_enterprise_workspace(
     for cap in l2_caps:
         cap_id = cap["id"]
         pack = packs.get(cap_id, {})
-        for sub in pack.get("slices", {}).get("consumed_business_events", []) or []:
+        for sub in pack.get("slices", {}).get("consumed_events", []) or []:
+            if sub.get("layer") != "business":
+                continue
             ev = sub.get("subscribed_event", {})
             emitter = ev.get("emitting_capability")
             if not emitter:

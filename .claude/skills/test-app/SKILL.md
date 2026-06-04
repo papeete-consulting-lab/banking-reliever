@@ -141,8 +141,8 @@ conversation. Include:
 - The list of artifacts located in Step 4 (frontend / BFF paths)
 - Any flags the user passed (`--bff`, `--env`, etc.)
 - The roadmap path: `/roadmap/{capability-id}/roadmap.md` (local artifact)
-- An explicit instruction to fetch BCM/ADR/vision context from `rlv-knowledge`:
-  `rlv-knowledge pack <CAPABILITY_ID> --deep --compact` — and to NOT read
+- An explicit instruction to fetch BCM/ADR/vision context from `kpack`:
+  `kpack pack <CAPABILITY_ID> --deep --compact` — and to NOT read
   `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`, `/tech-vision/`,
   `/strategic-vision/`, or `/product-vision/` directly. The FUNC ADR is
   in `slices.capability_definition`; the tactical ADR is in
@@ -164,7 +164,7 @@ Say to the user:
 > "Spawning test-app agent for TASK-NNN (branch: {BRANCH})..."
 
 The agent handles everything from here:
-- Reads context: TASK file (local) + plan (local) + capability pack via `rlv-knowledge` (FUNC ADR, tactical ADR, vision narratives)
+- Reads context: TASK file (local) + plan (local) + capability pack via `kpack` (FUNC ADR, tactical ADR, vision narratives)
 - States its test plan + assumptions
 - Picks the test mode (full-mock / frontend+bff / bff-only)
 - Brings up the ephemeral environment (HTTP server + BFF + RabbitMQ if needed)
