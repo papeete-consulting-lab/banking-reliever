@@ -14,7 +14,7 @@ description: >
   bff / frontend / not-scaffolded), with corresponding colors in the styles
   block so the rendered views show "where we stand". Reads upstream knowledge
   exclusively via `kpack` — never opens /bcm/, /adr/, /func-adr/, /tech-adr/,
-  /product-vision/, /business-vision/, /tech-vision/ directly. Idempotent —
+  /domain-vision/, /business-vision/, /tech-vision/ directly. Idempotent —
   re-runs overwrite the same files in place.
   Trigger on: "c4-export", "/c4-export", "structurizr export", "render c4",
   "c4 model", "draw the c4 diagram", "export the c4 model", "update c4",
@@ -217,7 +217,7 @@ This skill MUST NOT:
 - Treat the process model as a local writable lane. It is authored by `/process`
   in `reliever-knowledge` and consumed read-only via `kpack process` — there
   is no `process/` folder in this repo to read from or write to.
-- Open `/bcm/`, `/adr/`, `/func-adr/`, `/tech-adr/`, `/product-vision/`,
+- Open `/bcm/`, `/adr/`, `/func-adr/`, `/tech-adr/`, `/domain-vision/`,
   `/business-vision/`, `/tech-vision/` directly. All upstream knowledge flows
   through `kpack`.
 - Modify `sources/`, `src/`, `tasks/`, `roadmap/`. Implementation status is

@@ -103,7 +103,7 @@ canonical CHANNEL-zone layout:
      endpoints every 5 s, renders the dashboard chrome (tier panel +
      envelopes + recent transactions), and fires
      `POST /dashboard-views` on first paint + manual refresh.
-   - French vocabulary throughout (per product vision); no English UI
+   - French vocabulary throughout (per domain vision); no English UI
      strings.
    - **Dignity rule materialised**: the DOM structure places the
      `#progression-section` (tier + score) **before** the

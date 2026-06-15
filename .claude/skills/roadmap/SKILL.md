@@ -68,7 +68,7 @@ is run in the reliever-knowledge repo and its PR merged, re-run `/roadmap`.
 ## Knowledge access — `kpack` CLI (mandatory)
 
 **You MUST source all BCM, ADR, vision, and event knowledge from the `kpack` CLI.**
-Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`, or any 
+Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/domain-vision/`, or any 
 other knowledge file directly from the local working directory — those paths may be missing, 
 stale, or incomplete in this checkout. The authoritative corpus lives in the
 `Banking-PapeeteConsulting/reliever-knowledge` Git repository, and `kpack` is the only sanctioned 
@@ -107,7 +107,7 @@ The pack JSON exposes these slices under `slices.*` — map them to the roadmap 
 | `governing_urba`            | URBA ADRs scoping this capability                      | Risks, Sequencing constraints        |
 | `governing_tech_strat`      | Strategic-tech ADRs that frame the zone                | Strategic Alignment                  |
 | `tactical_stack`            | Tactical-tech ADRs already accepted for this L2        | Strategic Alignment                  |
-| `product_vision`            | Product-vision narrative + rationale (with `--deep`)   | Strategic Alignment, North-star      |
+| `domain_vision`            | Domain-vision narrative + rationale (with `--deep`)   | Strategic Alignment, North-star      |
 | `business_vision`           | Strategic-business narrative + rationale               | Strategic Alignment                  |
 | `tech_vision`               | Strategic-tech narrative + rationale                   | Strategic Alignment                  |
 | `vocab`                     | Allowed levels and zoning values                       | Validation only                      |
@@ -148,7 +148,7 @@ files — surface the error to the user and ask them to confirm the ID against `
 
 2. **Fetch the capability pack** with `kpack pack <ID> --deep --compact`. This single call 
    replaces all of the previous local file reads (capability YAML, FUNC ADR, strategic 
-   vision, product vision, etc.). Do not read those files from disk.
+   vision, domain vision, etc.). Do not read those files from disk.
 
 3. **Read the Process Modelling layer (read-only).** Fetch it once with
    `kpack process <CAPABILITY_ID> --compact` and read the slices from the
@@ -309,7 +309,7 @@ preferred.
 > [One-sentence capability responsibility from `capability_self[0].description`]
 
 ## Strategic Alignment
-- Service offer: [from `product_vision`]
+- Service offer: [from `domain_vision`]
 - Strategic L1: [from `capability_ancestors[0]`]
 - BCM Zone: [from `capability_self[0].zoning`]
 - Governing FUNC ADR: [from `capability_definition[*].id`]

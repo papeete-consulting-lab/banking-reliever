@@ -131,7 +131,7 @@ repo and its PR merged, re-run `/code TASK-NNN`.
    > "TASK-NNN cannot start because [reason]. Resolve this first."
 
 4. **Read supporting context.** All BCM/ADR/vision knowledge comes from the `kpack` 
-   engine — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/product-vision/`
+   engine — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/domain-vision/`
    directly:
 
    ```bash
@@ -482,7 +482,7 @@ run concurrently in the same isolated worktree):
    ```
 
 2. **`code-web-frontend` agent** — senior frontend engineer that generates the
-   vanilla HTML/CSS/JS web view from the task plan, FUNC ADRs, product vision,
+   vanilla HTML/CSS/JS web view from the task plan, FUNC ADRs, domain vision,
    and the BFF API contract (or inferred contract if the BFF is not yet compiled).
    The agent decides on views, sections, stub data, dignity-rule DOM order, and
    testability hooks.
@@ -493,7 +493,7 @@ run concurrently in the same isolated worktree):
      subagent_type: "code-web-frontend",
      description: "Scaffold frontend for [capability name]",
      prompt: <full context block: task identifier and task file content,
-              capability ID, FUNC ADR content, product vision excerpts,
+              capability ID, FUNC ADR content, domain vision excerpts,
               instruction to read sources/{CAP_ID}/bff/ for the API contract —
               or to infer it from endpoint paths derived by the create-bff
               agent if the BFF is not yet written, Definition of Done>

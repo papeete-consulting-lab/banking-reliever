@@ -152,7 +152,7 @@ Only if both checks pass, proceed to step 1.
 The caller hands you a CHANNEL-zone L2 capability (or an explicit TASK).
 **All BCM/ADR knowledge is sourced from the `kpack` CLI** — never read
 `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`, `/tech-vision/`,
-`/strategic-vision/`, or `/product-vision/` directly.
+`/strategic-vision/`, or `/domain-vision/` directly.
 
 Run **once** at the top of step 1:
 

@@ -250,7 +250,7 @@ Read the complete content of the `TASK-NNN-*.md` file to include in the sub-agen
 Read the local roadmap at `/roadmap/{capability-id}/roadmap.md`.
 
 For **all** BCM/ADR/vision context, fetch the capability pack from the `kpack` CLI —
-do NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/product-vision/`
+do NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or `/domain-vision/`
 directly:
 
 ```bash
@@ -310,7 +310,7 @@ capability [CAPABILITY_NAME] ([CAPABILITY_ID]) using the `code` skill.
 
 The spawned agent MUST source any further BCM/ADR/vision context via the
 `kpack` CLI, e.g. `kpack pack [CAPABILITY_ID] --deep --compact`. It must
-NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`,
+NOT read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/domain-vision/`,
 or `/tech-vision/` directly — those paths are not authoritative in this checkout.
 
 ## Execution Instructions (WITHOUT user confirmation)

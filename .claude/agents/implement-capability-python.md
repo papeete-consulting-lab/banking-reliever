@@ -269,7 +269,7 @@ defaults when the ADR is silent:
 
 The caller will hand you a task to implement. **All BCM/ADR/vision
 context is sourced from the `kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`,
-`/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`,
+`/func-adr/`, `/adr/`, `/strategic-vision/`, `/domain-vision/`,
 `/tech-vision/`, or `/tech-adr/` directly.
 
 The pack from step 0.6 is sufficient for Mode A — selective slice

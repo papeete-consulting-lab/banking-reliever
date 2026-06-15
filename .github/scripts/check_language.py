@@ -56,7 +56,7 @@ SOURCE_EXTS = {
 # Slices that carry natural-language prose (as opposed to identifiers,
 # IDs, enums…). Anything else in the pack is structural and would only
 # muddy the language detection. These are kpack's normalized slice names
-# (e.g. business-/platform-/governance-vision all normalize to `domain_vision`).
+# (e.g. business-/platform-/governance-vision all normalize to `capability_vision`).
 PROSE_SLICES = {
     "capability_self",
     "capability_ancestors",
@@ -66,8 +66,8 @@ PROSE_SLICES = {
     "governing_urba",
     "governing_tech_strat",
     "governance_adrs",
-    "product_vision",
     "domain_vision",
+    "capability_vision",
     "tech_vision",
 }
 

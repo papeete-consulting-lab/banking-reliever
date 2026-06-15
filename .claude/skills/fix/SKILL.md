@@ -187,7 +187,7 @@ fix on. Never guess.
    `<capability_id>` is the full source-context-prefixed ID (e.g.
    `BNK.RLVR.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short form (exit 2).
    Read `slices.capability_self[0].zoning` for routing. Never read `/bcm/`,
-   `/func-adr/`, `/adr/`, `/strategic-vision/`, `/product-vision/`, or
+   `/func-adr/`, `/adr/`, `/strategic-vision/`, `/domain-vision/`, or
    `/tech-vision/` directly.
 
    **Check for knowledge drift first.** A failure can stem from upstream
@@ -507,7 +507,7 @@ Worktree retained at /tmp/kanban-worktrees/TASK-NNN-{slug} until the PR is merge
 - **Never bypass tests.** The matching test skill is mandatory. If Playwright cannot
   install on Path B, fall back to `manual-checklist.md` exactly like `/test-app` does.
 - **Never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
-  `/product-vision/`, or `/tech-vision/` directly.** Use `kpack`.
+  `/domain-vision/`, or `/tech-vision/` directly.** Use `kpack`.
 - **One task per invocation.** Refuse compound requests; ask which to fix first.
 - **Loop budget is shared with `/code`.** A task that already burned 8 of 10 loops in
   `/code` only has 2 loops left in `/fix`.

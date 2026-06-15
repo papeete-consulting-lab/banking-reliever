@@ -90,13 +90,13 @@ When you invoke the skill it:
    jq '.slices'  /tmp/probe.json   # all required slices must be non-empty
    jq '.warnings' /tmp/probe.json  # must be empty
    ```
-   Required slices: `product_vision`, `business_vision`, `tech_vision`,
+   Required slices: `domain_vision`, `business_vision`, `tech_vision`,
    `governing_tech_strat`, `capability_definition`, `tactical_stack`,
    `capability_self`. If any is empty or `warnings` is non-empty, the
    skill stops and redirects you to the upstream repo.
 
 2. **Inspects local artifacts** with `ls` — never touches `/bcm/`, `/func-adr/`,
-   `/adr/`, `/strategic-vision/`, `/product-vision/`, `/tech-vision/`, `/tech-adr/`
+   `/adr/`, `/strategic-vision/`, `/domain-vision/`, `/tech-vision/`, `/tech-adr/`
    (those are upstream and not authoritative locally).
 
 3. **Reports per-capability status** as a table of ✅ / ⏳ / ⬜ across the six

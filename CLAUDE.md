@@ -360,7 +360,7 @@ always **one engine, two contexts, in sequence**:
 ## Invariants
 
 - **Upstream is read-only.** Never read `/bcm/`, `/adr/`, `/func-adr/`,
-  `/strategic-vision/`, `/product-vision/`, `/tech-vision/`, `/tech-adr/`
+  `/strategic-vision/`, `/domain-vision/`, `/tech-vision/`, `/tech-adr/`
   from disk — they don't live here. Use the single `kpack` engine:
   `kpack pack <CAP_ID> [--deep] [--compact]` for knowledge (`BNK.RLVR.…`),
   `kpack pack <BNK.TECH.…>` for the platform substrate (`BNK.TECH.…`), and

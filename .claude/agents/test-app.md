@@ -85,7 +85,7 @@ Before generating any test file, do this in order.
 The caller hands you a task identifier (`TASK-NNN`) and optionally a branch
 or environment slug. **All BCM/ADR/vision context is sourced from the
 `kpack` CLI** — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
-`/tech-vision/`, `/strategic-vision/`, or `/product-vision/` directly.
+`/tech-vision/`, `/strategic-vision/`, or `/domain-vision/` directly.
 
 Run **once** at the top of step 1:
 
@@ -107,8 +107,8 @@ Use `--deep` so the vision narratives are present — they feed the lightweight
 | **Strategic Tech ADRs** | `governing_tech_strat` | OTel mandatory tags (TECH-STRAT-005), routing-key conventions used in BFF assertions |
 | **Emitted/consumed events** | `slices.emitted_events` / `slices.consumed_events` filtered `.layer=="business"` | Network calls / RabbitMQ messages to intercept or assert on the bus |
 | **Carried structures** | `slices.carried_objects` (by `.layer`), `slices.carried_concepts` | DOM presence assertions (e.g. tier names, envelope categories) |
-| **Product vision** | `product_vision` (deep mode) | Tone, language posture, interface intent — basis for the lightweight `test_strategic.py` heuristics |
-| **Business vision** | `domain_vision` (deep mode) | The strategic capability this TASK contributes to — used to frame the verdict, not to generate tests |
+| **Domain vision** | `domain_vision` (deep mode) | Tone, language posture, interface intent — basis for the lightweight `test_strategic.py` heuristics |
+| **Business vision** | `capability_vision` (deep mode) | The strategic capability this TASK contributes to — used to frame the verdict, not to generate tests |
 
 If `pack.warnings` is non-empty or `capability_definition` is empty,
 **stop and report a context gap** — you cannot fairly judge an
@@ -520,7 +520,7 @@ docker compose -f sources/{CAP_ID}/frontend/deployment/local/docker-compose.yml 
 ## FUNC ADR Business Rules
 - [ ] Dignity rule: [verification steps]
 
-## Product Vision
+## Domain Vision
 - [ ] Labels in French: [verification steps]
 ```
 

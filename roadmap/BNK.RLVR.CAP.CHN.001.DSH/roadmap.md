@@ -80,7 +80,7 @@ All three upstream contract stubs are merged on `main` as of 2026-05-16 — Epic
 - `QRY.GET_DASHBOARD` (`GET /cases/{case_id}/dashboard`) serves the synthesised snapshot (tier + tier_upgraded_at + score + open envelopes + last_synced_at) with `ETag` and `max_age=PT5S`. Most polling responses are `304`.
 - The frontend renders the progression bar (score progress, current → next tier) **above** the restriction panel (envelope balances, remaining limits). DOM order asserted in a Playwright test (`progression-section` precedes `restrictions-section`).
 - Every envelope rendered carries its `available_amount` AND the accomplished consumption (`consumed_amount`), framed positively ("Vous avez utilisé X — il vous reste Y").
-- French vocabulary throughout the frontend per the Reliever product vision (no English UI strings).
+- French vocabulary throughout the frontend per the Reliever domain vision (no English UI strings).
 - A beneficiary with an uninitialised aggregate gets an explicit "Première synchronisation en cours…" empty state, never a raw 404.
 - Tier-upgrade animation triggers when the frontend detects `current_tier_code` change between two consecutive polls (timestamp from `tier_upgraded_at` drives the animation duration).
 - Consent gate: the frontend exits to an explanatory view if the JWT does not carry an active consent claim (per `ADR-TECH-STRAT-003` bi-layer security; the actual `CAP.SUP.001.CON` integration is out of scope here — the BFF reads the consent claim from the bearer token).

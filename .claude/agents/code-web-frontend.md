@@ -4,7 +4,7 @@ description: |
   Senior frontend engineer specialized in vanilla browser stacks (HTML5 +
   CSS3 + pure JavaScript, zero framework, zero CDN). Generates the web
   view of an L2 or L3 business capability by reasoning from the functional
-  context (TASK file, plan, FUNC ADR, product vision, strategic vision)
+  context (TASK file, plan, FUNC ADR, domain vision, strategic vision)
   and from the API contract exposed by the matching `implement-capability`
   microservice or `create-bff` BFF — rather than following a fixed recipe.
   Makes explicit design decisions (information architecture, dignity-rule
@@ -32,7 +32,7 @@ description: |
   and needs to generate the web view in parallel with the BFF scaffolding.
   assistant: "Spawning code-web-frontend agent for BNK.RLVR.CAP.CAN.001.TAB."
   <commentary>
-  The agent reads the TASK, the plan, the FUNC ADR, the product vision,
+  The agent reads the TASK, the plan, the FUNC ADR, the domain vision,
   detects the BFF/microservice contract from sources/, decides on
   views/sections/stubs, applies the dignity rule (progression before
   restrictions), and emits a runnable vanilla web frontend under
@@ -167,7 +167,7 @@ If a prerequisite fails, stop and explain:
 
 Then source the BCM/ADR/vision context from the `kpack` CLI — never
 read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
-`/product-vision/`, `/tech-vision/`, or `/tech-adr/` directly:
+`/domain-vision/`, `/tech-vision/`, or `/tech-adr/` directly:
 
 ```bash
 kpack pack {capability_id} --deep --compact > /tmp/pack-frontend.json
@@ -185,8 +185,8 @@ Selective slice usage:
 | **FUNC ADR** | `capability_definition` | Business rules constraining UX, business vocabulary, displayed business objects, governance constraints inherited from URBA ADRs, language / consent posture |
 | **URBA dignity / consent rules** | `governing_urba` | Hard rules on DOM order, consent gate, French vocabulary |
 | **Carried structures** | `slices.carried_objects` (by `.layer`), `slices.carried_concepts` | Field names and business definitions that drive `STUB_DATA` |
-| **Product vision** | `product_vision` (deep mode) | Service offer, tone, voice, target audience |
-| **Business vision** | `domain_vision` (deep mode) | The strategic capability this view contributes to, used to calibrate copy and information density |
+| **Domain vision** | `domain_vision` (deep mode) | Service offer, tone, voice, target audience |
+| **Business vision** | `capability_vision` (deep mode) | The strategic capability this view contributes to, used to calibrate copy and information density |
 | **Tech vision** | `tech_vision` (deep mode) | Frontend architectural anchors that constrain layout/behavior |
 
 If `pack.warnings` is non-empty, or `capability_definition` is empty,

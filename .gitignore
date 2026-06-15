@@ -59,3 +59,6 @@ docs/tools/structurizr.watch.dev.json
 .DS_Store
 Thumbs.db
 *.swp
+
+# Private sanitization key for Claude (NAIVE↔real org) — must never be committed/pushed
+.translation

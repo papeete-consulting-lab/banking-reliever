@@ -93,7 +93,7 @@ deliberate.
    - Sibling tasks in `/tasks/{capability-id}/` — to spot collateral amendments (Rule 2)
 
    Knowledge corpus — fetch via the `kpack` engine **only**, never read `/bcm/`, `/func-adr/`, 
-   `/adr/`, `/strategic-vision/`, or `/product-vision/` directly:
+   `/adr/`, `/strategic-vision/`, or `/domain-vision/` directly:
 
    ```bash
    kpack pack <CAPABILITY_ID> --deep --compact > /tmp/pack-refine.json
@@ -110,7 +110,7 @@ deliberate.
    | `consumed_events[] \| select(.layer=="business")` | Movement 4 — challenging dependency assumptions   |
    | `carried_objects`           | Movement 3 — scope boundary on object ownership   |
    | `carried_concepts`          | Movement 4 — terminology gap probe                |
-   | `product_vision`            | keeps the dialogue anchored on business value     |
+   | `domain_vision`            | keeps the dialogue anchored on business value     |
    | `governance_adrs` / `governing_urba` | Movement 1 — escalation triggers          |
 
    If `pack.warnings` lists missing items in the corpus, treat them as escalations 

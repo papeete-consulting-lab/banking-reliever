@@ -105,7 +105,7 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
 
 2. **Fetch the capability pack** from the `kpack` engine — this is the **only** sanctioned 
    knowledge source. Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or 
-   `/product-vision/` directly; those paths are not authoritative in this checkout.
+   `/domain-vision/` directly; those paths are not authoritative in this checkout.
 
    ```bash
    kpack pack <CAPABILITY_ID> --compact > /tmp/pack-task.json

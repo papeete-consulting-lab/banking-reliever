@@ -178,7 +178,7 @@ implementation agents directly.
 The pipeline operates on a per-capability basis. For each capability the user
 wants to advance, query `kpack` to verify upstream knowledge is complete,
 then check local artifacts. Do not `ls` `/bcm/`, `/func-adr/`, `/adr/`,
-`/strategic-vision/`, `/product-vision/`, `/tech-vision/`, or `/tech-adr/` —
+`/strategic-vision/`, `/domain-vision/`, `/tech-vision/`, or `/tech-adr/` —
 those paths are not authoritative locally and are typically absent.
 
 ```bash
@@ -188,7 +188,7 @@ CAP_ID="BNK.RLVR.CAP.BSP.001"
 # Upstream readiness — all required slices must be non-empty for stages 1-2 to run
 kpack pack $CAP_ID --deep --compact > /tmp/probe.json
 jq '{
-  product_vision:        (.slices.product_vision        | length),
+  domain_vision:        (.slices.domain_vision        | length),
   business_vision:       (.slices.business_vision       | length),
   tech_vision:           (.slices.tech_vision           | length),
   governing_tech_strat:  (.slices.governing_tech_strat  | length),
@@ -221,7 +221,7 @@ Report the status clearly:
 
 ```
 Upstream (kpack) for BNK.RLVR.CAP.BSP.001:
-  ✅ product_vision / business_vision / tech_vision present
+  ✅ domain_vision / business_vision / tech_vision present
   ✅ FUNC ADR present (capability_definition non-empty)
   ✅ Tactical ADR present (tactical_stack non-empty)
   ✅ BCM YAML present (capability_self non-empty, no warnings)
@@ -294,10 +294,10 @@ Use the roadmap skill to generate a roadmap for capability [BNK.RLVR.CAP.ZONE.NN
 Knowledge access (mandatory):
 - Source ALL BCM, ADR, and vision context from the `kpack` CLI:
     `kpack pack [BNK.RLVR.CAP.ZONE.NNN] --deep --compact`
-  Do NOT read /bcm/, /func-adr/, /adr/, /strategic-vision/, /product-vision/,
+  Do NOT read /bcm/, /func-adr/, /adr/, /strategic-vision/, /domain-vision/,
   /tech-vision/, or /tech-adr/ directly. The pack returns slices for
   capability_self, capability_definition (FUNC ADR), tactical_stack
-  (tactical ADR), governing_urba, governing_tech_strat, product_vision,
+  (tactical ADR), governing_urba, governing_tech_strat, domain_vision,
   business_vision, tech_vision — use these.
 
 Local artifacts (read directly only if updating):
@@ -502,7 +502,7 @@ Runs in a **temporary, isolated `/tmp/test-app-{cap-id}-XXXXXX` directory**:
    - `test_dod.py` — one test per `[ ]` item in the task's "Definition of Done".
    - `test_business_rules.py` — derived from FUNC ADRs and roadmap scoping decisions
      (dignity rule order, V0-without-gamification, business-language errors).
-   - `test_strategic.py` — alignment with the product vision (French labels, encouraging
+   - `test_strategic.py` — alignment with the domain vision (French labels, encouraging
      vocabulary).
    - `test_bff.py` (when a BFF is running) — `/health`, snapshot endpoints, ETag/304
      behavior, `environment` tag matches `{branch}`.
@@ -525,7 +525,7 @@ under the same `tests/{capability-id}/TASK-NNN-{slug}/` directory.
 
 | Stage | Prerequisite |
 |-------|--------------|
-| 0 (Process) | `kpack pack <CAP_ID> --deep` returns non-empty `capability_self`, `capability_definition`, `tactical_stack`, `governing_urba`, `governing_tech_strat`, `product_vision`, `business_vision`, `tech_vision`, and `pack.warnings` is empty. The full upstream chain (product → strategic business → strategic tech → FUNC ADR → tactical ADR → BCM YAML) must be in place in the `reliever-knowledge` repo. |
+| 0 (Process) | `kpack pack <CAP_ID> --deep` returns non-empty `capability_self`, `capability_definition`, `tactical_stack`, `governing_urba`, `governing_tech_strat`, `domain_vision`, `business_vision`, `tech_vision`, and `pack.warnings` is empty. The full upstream chain (product → strategic business → strategic tech → FUNC ADR → tactical ADR → BCM YAML) must be in place in the `reliever-knowledge` repo. |
 | 1 (Roadmap) | Stage 0 prerequisites + `kpack process <CAP_ID>` resolves (exit 0) with at least `.readme`, `.model.aggregates`, `.model.commands`, `.model.policies`, `.model["read-models"]`, `.model.bus`. |
 | 2 (Task) | Stage 1 prerequisite + local `/roadmap/{capability-id}/roadmap.md` has at least one epic with an exit condition |
 | 3 (sort-task / launch-task) | At least one `TASK-NNN-*.md` in local `/tasks/*/` with valid frontmatter |

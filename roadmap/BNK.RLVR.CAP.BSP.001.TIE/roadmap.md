@@ -4,7 +4,7 @@
 > Manage the autonomy-tier transitions of a beneficiary based on behavioural score thresholds and prescriber overrides. Emit each transition as a business event so that downstream capabilities (dashboard, notifications, card rules, envelope allocation) can react.
 
 ## Strategic Alignment
-- **Service offer**: Tier transitions are the visible milestone of beneficiary progression — both motivational (upward crossings) and protective (downgrade following relapse). Cf. `product-vision/product.md`.
+- **Service offer**: Tier transitions are the visible milestone of beneficiary progression — both motivational (upward crossings) and protective (downgrade following relapse). Cf. `domain-vision/domain.md`.
 - **L1 strategic capability**: SC.001 — Behavioural Remediation (parent: CAP.BSP.001)
 - **BCM Zone**: BUSINESS_SERVICE_PRODUCTION
 - **Governing ADRs**: ADR-BCM-FUNC-0005 (BSP.001 L2 breakdown), ADR-BCM-URBA-0007 (event meta-model), ADR-BCM-URBA-0009 (capability event responsibility)

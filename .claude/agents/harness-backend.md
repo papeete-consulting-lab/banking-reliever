@@ -354,7 +354,7 @@ info:
   version: <process.version>
   summary: <one-line from capability_definition>
   description: |
-    <multi-paragraph from capability_definition + product vision excerpt>
+    <multi-paragraph from capability_definition + domain vision excerpt>
   x-lineage: { ... see §1 ... }   # full top-level lineage block
 
 servers:

@@ -24,7 +24,7 @@ DOM constraints: the progression panel (tier + score) comes **before**
 the restrictions panel (envelope balances) in the DOM order, every
 envelope frames consumption positively ("Vous avez utilisé X — il
 vous reste Y"), and every label uses the French vocabulary defined in
-the product vision.
+the domain vision.
 
 The dignity rule is not a CSS polish but a functional constraint of
 `ADR-BCM-FUNC-0009` — Playwright tests in this task encode it as

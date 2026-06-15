@@ -144,10 +144,10 @@ conversation. Include:
 - An explicit instruction to fetch BCM/ADR/vision context from `kpack`:
   `kpack pack <CAPABILITY_ID> --deep --compact` — and to NOT read
   `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`, `/tech-vision/`,
-  `/strategic-vision/`, or `/product-vision/` directly. The FUNC ADR is
+  `/strategic-vision/`, or `/domain-vision/` directly. The FUNC ADR is
   in `slices.capability_definition`; the tactical ADR is in
   `slices.tactical_stack`; vision narratives are in
-  `slices.product_vision` / `slices.business_vision` / `slices.tech_vision`.
+  `slices.domain_vision` / `slices.business_vision` / `slices.tech_vision`.
 
 Spawn:
 

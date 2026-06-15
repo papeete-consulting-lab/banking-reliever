@@ -85,7 +85,7 @@ Before generating any test file, do this in order.
 The caller hands you a task identifier (`TASK-NNN`) and optionally a branch
 or environment slug. **All BCM/ADR/vision context is sourced from the
 `kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
-`/tech-vision/`, `/strategic-vision/`, or `/product-vision/` directly.
+`/tech-vision/`, `/strategic-vision/`, or `/domain-vision/` directly.
 
 Run **once** at the top of step 1:
 
@@ -109,7 +109,7 @@ Use `--deep` so the vision narratives are present — they feed the lightweight
 | **Resource events** | `emitted_events[] \| select(.layer=="resource")` | Technical event projection, exchange/queue topology, wire-level payload shape |
 | **Consumed events** | `consumed_events[] \| select(.layer=="business")`, `consumed_events[] \| select(.layer=="resource")` | Subscription contracts to assert in incoming-message tests |
 | **Carried structures** | `carried_objects`, `carried_concepts` | Aggregate fields and invariants asserted in DB and in event payloads |
-| **Product vision** | `product_vision` (deep mode) | Tone, language posture (used in vocabulary checks on event payloads / API error messages) |
+| **Domain vision** | `domain_vision` (deep mode) | Tone, language posture (used in vocabulary checks on event payloads / API error messages) |
 | **Business vision** | `business_vision` (deep mode) | The strategic capability this TASK contributes to — used to frame the verdict, not to generate tests |
 
 If `pack.warnings` is non-empty or `capability_definition` is empty,

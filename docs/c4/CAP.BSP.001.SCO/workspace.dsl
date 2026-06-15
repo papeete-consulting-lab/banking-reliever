@@ -43,12 +43,12 @@ workspace "Behavioural Scoring (CAP.BSP.001.SCO)" "Compute the beneficiary's beh
                 "adr:ADR-BCM-GOV-0003" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/adr/ADR-BCM-GOV-0003-periodic-stability-review.md"
                 "adr:ADR-BCM-GOV-0002" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/adr/ADR-BCM-GOV-0002.md"
                 "adr:ADR-BCM-GOV-0001" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/adr/ADR-BCM-GOV-0001.md"
-                "adr:ADR-PROD-0005" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/product-vision/adr/ADR-PROD-0005-dignity-as-functional-condition.md"
-                "adr:ADR-PROD-0004" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/product-vision/adr/ADR-PROD-0004-tier-algorithm-prescriber-override.md"
-                "adr:ADR-PROD-0006" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/product-vision/adr/ADR-PROD-0006-bypass-detection-unconsumed-envelope.md"
-                "adr:ADR-PROD-0002" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/product-vision/adr/ADR-PROD-0002-primary-beneficiary-multi-prescriber.md"
-                "adr:ADR-PROD-0003" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/product-vision/adr/ADR-PROD-0003-scope-open-banking-protocol.md"
-                "adr:ADR-PROD-0001" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/product-vision/adr/ADR-PROD-0001-service-offer-framing.md"
+                "adr:ADR-DOM-0005" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/domain-vision/adr/ADR-DOM-0005-dignity-as-functional-condition.md"
+                "adr:ADR-DOM-0004" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/domain-vision/adr/ADR-DOM-0004-tier-algorithm-prescriber-override.md"
+                "adr:ADR-DOM-0006" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/domain-vision/adr/ADR-DOM-0006-bypass-detection-unconsumed-envelope.md"
+                "adr:ADR-DOM-0002" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/domain-vision/adr/ADR-DOM-0002-primary-beneficiary-multi-prescriber.md"
+                "adr:ADR-DOM-0003" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/domain-vision/adr/ADR-DOM-0003-scope-open-banking-protocol.md"
+                "adr:ADR-DOM-0001" "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main/domain-vision/adr/ADR-DOM-0001-service-offer-framing.md"
             }
             stub = container "Contract stub" "Contract stub" "python+fastapi+postgresql+kafka+rabbitmq · Mode B (contract stub)" {
                 tags "implemented:stub" "tech:python+fastapi+postgresql+kafka+rabbitmq"

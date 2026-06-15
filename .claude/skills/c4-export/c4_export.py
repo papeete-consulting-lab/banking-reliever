@@ -3,7 +3,7 @@
 Structurizr DSL files.
 
 Reads upstream BCM via `kpack` only — never touches /bcm/, /adr/,
-/func-adr/, /tech-adr/, /tech-vision/, /product-vision/, /business-vision/
+/func-adr/, /tech-adr/, /tech-vision/, /domain-vision/, /business-vision/
 on disk. The implementation overlay is taken from `sources/<CAP>/{backend,
 stub,bff,frontend}/` in the working tree.
 
@@ -512,7 +512,7 @@ def emit_l2_workspace(
         "governing_urba",
         "governing_tech_strat",
         "governance_adrs",
-        "product_vision",
+        "domain_vision",
         "tech_vision",
     ):
         for item in slices.get(slice_name, []) or []:

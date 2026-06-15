@@ -185,7 +185,7 @@ and skip the Mode A patterns.
 
 The caller will hand you a task to implement. **All BCM/ADR/vision context is sourced
 from the `kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
-`/product-vision/`, `/tech-vision/`, or `/tech-adr/` directly.
+`/domain-vision/`, `/tech-vision/`, or `/tech-adr/` directly.
 
 Run **once** at the top of step 1:
 
