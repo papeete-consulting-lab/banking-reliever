@@ -55,6 +55,7 @@ mkdir -p .claude/skills/<skill-name>
 - Use lowercase with hyphens (e.g., `pdf-processing`, `data-analysis`)
 - Be descriptive but concise
 - Avoid generic names
+- The SKILL.md frontmatter `name:` **must be this exact kebab-case identifier and match the directory name** — not a prose title. A name like `Create New Skills` will mis-register (or fail to register) as an installed plugin.
 
 **Note:** Project skills (`.claude/skills/`) are automatically shared with your team via git. For personal skills only you use, create in `~/.claude/skills/` instead.
 
@@ -63,7 +64,7 @@ mkdir -p .claude/skills/<skill-name>
 Every skill must have:
 ```yaml
 ---
-name: Your Skill Name
+name: your-skill-name
 description: Brief description of what this Skill does and when to use it
 ---
 
