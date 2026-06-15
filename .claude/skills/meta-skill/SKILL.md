@@ -1,5 +1,5 @@
 ---
-name: Create New Skills
+name: meta-skill
 description: Creates new Agent Skills for Claude Code following best practices and documentation. Use when the user wants to create a new skill, extend Claude's capabilities, or package domain expertise into a reusable skill.
 ---
 
