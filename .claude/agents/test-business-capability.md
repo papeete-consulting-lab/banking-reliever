@@ -24,7 +24,7 @@ description: |
 
   <example>
   Context: /code has just finished spawning implement-capability for
-  TASK-003 of BNK.RLVR.CAP.BSP.001 (BUSINESS_SERVICE_PRODUCTION zone) and needs to
+  TASK-003 of <PRODUCT_CTX>.CAP.BSP.001 (BUSINESS_SERVICE_PRODUCTION zone) and needs to
   validate the result.
   assistant: "Spawning test-business-capability agent."
   <commentary>
@@ -84,8 +84,10 @@ Before generating any test file, do this in order.
 
 The caller hands you a task identifier (`TASK-NNN`) and optionally a branch
 or environment slug. **All BCM/ADR/vision context is sourced from the
-`kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
+`kpack` CLI** (context `<PRODUCT_CTX>`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
 `/tech-vision/`, `/strategic-vision/`, or `/domain-vision/` directly.
+
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's product/platform/governance map contexts, resolved from the repo's `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 Run **once** at the top of step 1:
 
@@ -271,12 +273,12 @@ LOCAL_DIR="${BACKEND_DIR}/deployment/local"
   exit 1
 }
 
-# 1) Stand-in platform (creates the external `reliever-platform` Docker
+# 1) Stand-in platform (creates the external `<product>-platform` Docker
 #    network + RabbitMQ + the per-L2 database). Always brought up by the
 #    test agent — never relies on a host-installed platform.
 docker compose -f "${LOCAL_DIR}/platform.compose.yml" up -d
 
-# 2) The component image (joins the same `reliever-platform` network and
+# 2) The component image (joins the same `<product>-platform` network and
 #    reaches RabbitMQ + DB by service name).
 docker compose -f "${LOCAL_DIR}/docker-compose.yml" up -d --build
 
@@ -311,7 +313,7 @@ done
 Always teardown in `Step Z` (below) by bringing down both compose files in
 **reverse order** (component first, then platform stand-in), and removing
 any `$TEMP_DIR`. Never leak processes, containers, or the external
-`reliever-platform` network between runs — concurrent test runs on
+`<product>-platform` network between runs — concurrent test runs on
 different branches share the host Docker daemon.
 
 ### Pattern 2 — Verify tooling availability
@@ -442,7 +444,7 @@ business language. See "Final Report" template below.
 
 ```bash
 # Bring down both compose stacks in reverse order — component first, then
-# the stand-in platform (which also removes the external `reliever-platform`
+# the stand-in platform (which also removes the external `<product>-platform`
 # network).
 docker compose -f "${LOCAL_DIR}/docker-compose.yml" down -v 2>/dev/null
 docker compose -f "${LOCAL_DIR}/platform.compose.yml" down -v 2>/dev/null

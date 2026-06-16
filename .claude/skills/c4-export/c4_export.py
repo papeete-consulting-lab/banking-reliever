@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""c4_export.py — render the Reliever business-capability tree as
+"""c4_export.py — render the product business-capability tree as
 Structurizr DSL files.
 
 Reads upstream BCM via `kpack` only — never touches /bcm/, /adr/,
@@ -30,14 +30,19 @@ The resource-event layer (RVT.*) is intentionally hidden as it is an
 implementation detail of the bus rail.
 
 The DDD process model (aggregates, read-models, policies, bus topology) is
-authored by the `/process` skill in the **reliever-knowledge** repo and
+authored by the `/process` skill in the **product knowledge repo** and
 consumed here **read-only** via `kpack process <CAP_ID>` — exactly like
 the BCM corpus via `kpack pack`. It does not live in this repo.
+
+The product capability-map context (`<PRODUCT_CTX>`) and the GitHub blob base
+URLs are NOT hardcoded: the context comes from the C4_PRODUCT_CTX env var (or
+the repo's `.kpack.yaml` / governance contexts registry), and the ADR / source
+blob URLs come from the C4_KNOWLEDGE_BLOB / C4_SOURCE_BLOB env vars.
 
 Run from the repo root:
 
     python3 .claude/skills/c4-export/c4_export.py            # everything
-    python3 .claude/skills/c4-export/c4_export.py --cap BNK.RLVR.CAP.BSP.001.SCO
+    python3 .claude/skills/c4-export/c4_export.py --cap <PRODUCT_CTX>.CAP.BSP.001.SCO
     python3 .claude/skills/c4-export/c4_export.py --enterprise-only
     python3 .claude/skills/c4-export/c4_export.py --dry-run
 """
@@ -46,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -57,10 +63,27 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 DOCS_C4 = REPO_ROOT / "docs" / "c4"
 SOURCES_DIR = REPO_ROOT / "sources"
 
+# The product capability-map context kpack selects on. Resolved from the
+# C4_PRODUCT_CTX env var (set from the repo's .kpack.yaml / governance contexts
+# registry) — never hardcoded to a specific enterprise/product.
+PRODUCT_CTX = os.environ.get("C4_PRODUCT_CTX", "").strip() or "<PRODUCT_CTX>"
+
+# GitHub blob base URLs. The knowledge blob points at the product knowledge
+# repo (ADR links); the source blob points at this implementation repo
+# (sources/ links). Both come from the contexts registry via env vars rather
+# than being hardcoded to a specific GitHub org/repo.
 BANKING_KNOWLEDGE_BLOB = (
-    "https://github.com/Banking-PapeeteConsulting/reliever-knowledge/blob/main"
+    os.environ.get("C4_KNOWLEDGE_BLOB", "").strip()
+    or "<PRODUCT_KNOWLEDGE_REPO_URL>/blob/main"
 )
-BANKING_BLOB = "https://github.com/Banking-PapeeteConsulting/banking-reliever/blob/main"
+BANKING_BLOB = (
+    os.environ.get("C4_SOURCE_BLOB", "").strip() or "<THIS_REPO_URL>/blob/main"
+)
+
+# Human-readable product name shown as the root software-system label in the
+# enterprise C4 view. Resolved from C4_PRODUCT_NAME (or the contexts registry)
+# — never hardcoded to a specific product.
+PRODUCT_NAME = os.environ.get("C4_PRODUCT_NAME", "").strip() or "The Product"
 
 # Zone abbreviation used to name per-zone Structurizr files (zone-<abbrev>.dsl)
 # and the OTel `zone` resource tag — NOT the on-disk layout, which is uniformly
@@ -99,7 +122,7 @@ def run_bcm_pack(*args: str) -> str:
 def list_capabilities() -> list[dict]:
     """Return every capability kpack knows about. Each entry has
     id / level / zone / name."""
-    raw = run_bcm_pack("list", "--context", "BNK.RLVR")
+    raw = run_bcm_pack("list", "--context", PRODUCT_CTX)
     out: list[dict] = []
     for line in raw.splitlines():
         line = line.strip()
@@ -129,7 +152,7 @@ def fetch_process_model(cap_id: str) -> dict | None:
     """Fetch one capability's DDD process model via `kpack process
     <cap_id> --compact` and return the parsed JSON envelope.
 
-    The process model lives in the reliever-knowledge repo and is served
+    The process model lives in the product knowledge repo and is served
     read-only by the CLI — exactly like the BCM corpus via `kpack pack`.
     Returns None (treated everywhere as "no process model") when:
       - kpack is not installed / not on PATH,
@@ -284,7 +307,7 @@ def mine_ddd(cap_id: str) -> DddComponents:
         for line in bus_text.splitlines():
             m = re.match(
                 # Business-event IDs carry an optional source-context prefix
-                # (e.g. BNK.RLVR.EVT.…) since the CLI v2.0.0 namespacing.
+                # (e.g. <PRODUCT_CTX>.EVT.…) since the CLI v2.0.0 namespacing.
                 r"\s*(?:paired_business_event|business_event):\s*"
                 r"((?:[A-Z]{2,}\.[A-Z]{2,}\.)?EVT\.[A-Z0-9._-]+)",
                 line,
@@ -842,7 +865,7 @@ def emit_zone_workspace(
     lines.append("    model {")
     lines.append(
         f"        {system_ident} = softwareSystem {dsl_str(zone_label)} "
-        f"{dsl_str(f'{zone_label} zone of the Reliever business capability model.')} {{"
+        f"{dsl_str(f'{zone_label} zone of the {PRODUCT_NAME} business capability model.')} {{"
     )
     lines.append(
         f"            tags \"capability-self\" \"zone:{zabbr}\""
@@ -971,18 +994,18 @@ def emit_zone_workspace(
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Enterprise (L1 Reliever) DSL emission
+# Enterprise (L1 product) DSL emission
 # ─────────────────────────────────────────────────────────────────────
 
 
 def emit_enterprise_workspace(
     l2_caps: list[dict], packs: dict[str, dict]
 ) -> str:
-    """One Software Landscape: Reliever as a system, every zone as a container,
+    """One Software Landscape: the product as a system, every zone as a container,
     every L2 as a component."""
     lines: list[str] = []
     lines.append(
-        f"workspace {dsl_str('Reliever — Enterprise C4')} "
+        f"workspace {dsl_str(f'{PRODUCT_NAME} — Enterprise C4')} "
         f"{dsl_str('System landscape — every L2 capability grouped by zone.')} {{"
     )
     lines.append("")
@@ -991,18 +1014,18 @@ def emit_enterprise_workspace(
     lines.append("    model {")
 
     # Actors (external).
-    lines.append("        beneficiary = person \"Beneficiary\" \"Recipient of the Reliever programme.\"")
+    lines.append(f"        beneficiary = person \"Beneficiary\" {dsl_str(f'Recipient of the {PRODUCT_NAME} programme.')}")
     lines.append("        prescriber = person \"Prescriber\" \"Social worker or programme prescriber.\"")
     lines.append("        regulator = person \"Regulator\" \"Programme governance, compliance auditor.\"")
     lines.append("        partner_bank = softwareSystem \"Partner bank\" \"Financial institution providing card and payment rails.\" {")
     lines.append("            tags \"external-system\"")
     lines.append("        }")
 
-    reliever_ident = "reliever"
+    product_ident = "product"
     lines.append("")
     lines.append(
-        f"        {reliever_ident} = softwareSystem {dsl_str('Reliever')} "
-        f"{dsl_str('Financial-inclusion programme: behavioural remediation, autonomy tiers, prescriber co-decision.')} {{"
+        f"        {product_ident} = softwareSystem {dsl_str(PRODUCT_NAME)} "
+        f"{dsl_str('Product capability map rendered as a C4 system landscape.')} {{"
     )
     lines.append("            tags \"capability-self\"")
 
@@ -1021,7 +1044,7 @@ def emit_enterprise_workspace(
         zone_label = zone_display(zone)
         lines.append(
             f"            {zone_ident} = container {dsl_str(zone_label)} "
-            f"{dsl_str(f'{zone_label} zone of Reliever.')} {dsl_str('group')} {{"
+            f"{dsl_str(f'{zone_label} zone of the product.')} {dsl_str('group')} {{"
         )
         lines.append(f"                tags \"zone:{zabbr}\" \"capability-self\"")
         lines.append("                properties {")
@@ -1066,7 +1089,7 @@ def emit_enterprise_workspace(
             lines.append("                }")
         lines.append("            }")
 
-    lines.append("        }")  # close reliever softwareSystem
+    lines.append("        }")  # close product softwareSystem
 
     # Coarse-grained actor relationships.
     if "CHANNEL" in by_zone:
@@ -1074,25 +1097,25 @@ def emit_enterprise_workspace(
         if chn_ident:
             lines.append("")
             lines.append(
-                f"        beneficiary -> {reliever_ident}.{chn_ident} "
+                f"        beneficiary -> {product_ident}.{chn_ident} "
                 f"\"Uses the beneficiary journey\" \"HTTPS\""
             )
             lines.append(
-                f"        prescriber -> {reliever_ident}.{chn_ident} "
+                f"        prescriber -> {product_ident}.{chn_ident} "
                 f"\"Uses the prescriber portal\" \"HTTPS\""
             )
     if "EXCHANGE_B2B" in by_zone:
         b2b_ident = zone_idents.get("EXCHANGE_B2B")
         if b2b_ident:
             lines.append(
-                f"        partner_bank -> {reliever_ident}.{b2b_ident} "
+                f"        partner_bank -> {product_ident}.{b2b_ident} "
                 f"\"Card / Open Banking flows\" \"HTTPS\""
             )
     if "STEERING" in by_zone:
         str_ident = zone_idents.get("STEERING")
         if str_ident:
             lines.append(
-                f"        regulator -> {reliever_ident}.{str_ident} "
+                f"        regulator -> {product_ident}.{str_ident} "
                 f"\"Audits programme governance\" \"HTTPS\""
             )
 
@@ -1120,7 +1143,7 @@ def emit_enterprise_workspace(
         dst = zone_idents.get(dst_zone)
         if src and dst:
             lines.append(
-                f"        {reliever_ident}.{src} -> {reliever_ident}.{dst} "
+                f"        {product_ident}.{src} -> {product_ident}.{dst} "
                 f"\"Business events\" \"Business event subscription\" \"upstream-event\""
             )
 
@@ -1131,18 +1154,18 @@ def emit_enterprise_workspace(
     lines.append("            include *")
     lines.append("            autoLayout lr")
     lines.append("        }")
-    lines.append(f"        systemContext {reliever_ident} \"Reliever-Context\" {{")
+    lines.append(f"        systemContext {product_ident} \"Product-Context\" {{")
     lines.append("            include *")
     lines.append("            autoLayout lr")
     lines.append("        }")
-    lines.append(f"        container {reliever_ident} \"Reliever-Zones\" {{")
+    lines.append(f"        container {product_ident} \"Product-Zones\" {{")
     lines.append("            include *")
     lines.append("            autoLayout lr")
     lines.append("        }")
     for zone, zone_ident in zone_idents.items():
         view_id = f"Zone-{ZONE_ABBREV.get(zone, zone).upper()}-L2s"
         lines.append(
-            f"        component {reliever_ident}.{zone_ident} {dsl_str(view_id)} {{"
+            f"        component {product_ident}.{zone_ident} {dsl_str(view_id)} {{"
         )
         lines.append("            include *")
         lines.append("            autoLayout lr")
@@ -1169,7 +1192,7 @@ def write_file(path: Path, content: str, dry_run: bool) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Render the Reliever capability tree to Structurizr DSL."
+        description="Render the product capability tree to Structurizr DSL."
     )
     ap.add_argument(
         "--cap",

@@ -215,7 +215,7 @@ public static class TelemetrySetup
     // Mandatory tags on every OTel signal (TECH-STRAT-005)
     public const string CapabilityId  = "{CapabilityIdDot}";
     public const string Zone          = "{zone-abbrev}";
-    public const string Deployable    = "reliever-{zone-abbrev}";
+    public const string Deployable    = "<product>-{zone-abbrev}";
 
     public static IServiceCollection AddTelemetry(
         this IServiceCollection services,
@@ -508,7 +508,7 @@ EXPOSE 8080
 
 LABEL capability_id="{CapabilityIdDot}"
 LABEL zone="{zone-abbrev}"
-LABEL deployable="reliever-{zone-abbrev}"
+LABEL deployable="<product>-{zone-abbrev}"
 
 ENTRYPOINT ["dotnet", "{CapId}Bff.dll"]
 ```
@@ -519,7 +519,7 @@ ENTRYPOINT ["dotnet", "{CapId}Bff.dll"]
 
 ```yaml
 # Component-only compose for {capability-id}-bff.
-# Joins the external `reliever-platform` Docker network — RabbitMQ (and any DB)
+# Joins the external `<product>-platform` Docker network — RabbitMQ (and any DB)
 # is provided by the platform installation, NOT bundled here.
 # Renders to: sources/{CAP_ID}/bff/deployment/local/docker-compose.yml
 services:
@@ -527,14 +527,14 @@ services:
     image: {capability-id}-bff:dev
     build: .
     env_file: .env
-    networks: [reliever-platform]
+    networks: [<product>-platform]
     ports: ["${COMPONENT_PORT}:8080"]
     healthcheck:
       test: ["CMD","curl","-fsS","http://localhost:8080/health"]
       interval: 10s
       retries: 6
 networks:
-  reliever-platform: { external: true }
+  <product>-platform: { external: true }
 ```
 
 ---
@@ -562,6 +562,6 @@ services:
     healthcheck: { test: ["CMD","rabbitmq-diagnostics","-q","ping"], interval: 10s, retries: 6 }
 networks:
   default:
-    name: reliever-platform
+    name: <product>-platform
     external: true
 ```

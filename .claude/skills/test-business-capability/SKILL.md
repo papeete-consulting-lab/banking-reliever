@@ -144,7 +144,8 @@ conversation. Include:
 - Local stack metadata: the deterministic `COMPONENT_PORT` (kind=`api`)
   per the Deployment contract in CLAUDE.md. RabbitMQ and the DB are not
   on host ports for the component — they live on the external
-  `reliever-platform` network. When the stand-in `platform.compose.yml`
+  shared platform Docker network (the `<product>-platform` name from the
+  Deployment contract in CLAUDE.md). When the stand-in `platform.compose.yml`
   is up, RabbitMQ is reachable on host 5672/15672 and the DB on its
   standard host port (27017/5432).
 

@@ -63,10 +63,14 @@ write access to the next agent — explicit `rm -f` on exit is preferred.
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via
+> **product knowledge repo** and consumed here **read-only** via
 > `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
+>
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>` are this enterprise's product/platform
+> capability-map contexts, resolved from the repo's `.kpack.yaml` and the
+> governance `contexts:` registry — never hardcoded.
 
 The process model is the **contract** that the implementation must satisfy.
 This skill, and every agent it spawns (`implement-capability`,
@@ -74,7 +78,7 @@ This skill, and every agent it spawns (`implement-capability`,
 via `kpack process <CAP_ID>` but never reshapes it. If a remediation
 iteration suggests changing a command shape, an aggregate invariant, or a
 routing key, stop the loop and tell the user to run `/process <CAPABILITY_ID>`
-in the reliever-knowledge repo to update the model — then re-run `/code TASK-NNN`.
+in the product knowledge repo to update the model — then re-run `/code TASK-NNN`.
 
 When forwarding context to `implement-capability`, `create-bff`, or
 `code-web-frontend`, instruct each agent to **fetch** the process model via
@@ -88,25 +92,25 @@ events, and routing keys — never to invent or reshape them.
 
 Before reading the task, before spawning any agent, verify the capability's
 process model resolves. A model is ready iff `kpack process <CAP_ID>`
-returns exit 0 (kpack resolves the published `main` of reliever-knowledge by
+returns exit 0 (kpack resolves the published `main` of the product knowledge repo by
 default):
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task>"
 
-# The process model lives in reliever-knowledge now; it is ready iff kpack
+# The process model lives in the product knowledge repo now; it is ready iff kpack
 # can resolve it (kpack resolves the published main by default).
 if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the product knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
 ```
 
 If the gate fails, **stop and surface the failure** — do not spawn any
-implementation agent. Once `/process <CAP_ID>` is run in the reliever-knowledge
+implementation agent. Once `/process <CAP_ID>` is run in the product knowledge
 repo and its PR merged, re-run `/code TASK-NNN`.
 
 ---
@@ -180,7 +184,7 @@ repo and its PR merged, re-run `/code TASK-NNN`.
 
    | `task_type` value | Routing path | Notes |
    |-------------------|--------------|-------|
-   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `BNK.RLVR.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in the model's `api` surface (`kpack process <CAP_ID>` → `.model.api`) with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
+   | `contract-stub`   | **Path C — Contract+Stub** | spawns the matching `implement-capability*` agent in **Mode B** — a minimal host materialising the full consumer-facing surface: an event publisher emitting `<PRODUCT_CTX>.RVT.*` on RabbitMQ AND an HTTP server serving the operations declared in the model's `api` surface (`kpack process <CAP_ID>` → `.model.api`) with canned fixtures. Either half may be empty when its source YAML declares nothing. The language of the host (.NET vs Python) is decided in **6c** below. |
    | (absent) or `full-microservice` | Fall through to 6b | standard zone-aware routing |
 
    **6b — Zone (when `task_type` does not force Path C)**
@@ -238,7 +242,7 @@ repo and its PR merged, re-run `/code TASK-NNN`.
 
    > ⚠ No TECH-TACT ADR (or no language tag) found for `{CAP_ID}`. Falling
    > back to the .NET `implement-capability` agent. To change the runtime,
-   > author `ADR-TECH-TACT-{NNN}` in `reliever-knowledge` with a `tags:`
+   > author `ADR-TECH-TACT-{NNN}` in the product knowledge repo with a `tags:`
    > list that names the language (`python`, `dotnet`, …) and merge it
    > upstream; `/code` will re-route on the next run.
 
@@ -353,7 +357,7 @@ The context to pass includes:
 - An explicit mention that `task_type: contract-stub` is set (so the agent
   knows which mode to take, even before reading the file)
 - The governing FUNC ADR(s)
-- The events to contract (the BNK.RLVR.EVT/BNK.RLVR.RVT pairs named in the task) — drives
+- The events to contract (the <PRODUCT_CTX>.EVT/<PRODUCT_CTX>.RVT pairs named in the task) — drives
   the publisher half
 - The query operations to stub — every entry in the process model's api slice
   (`kpack process <CAP_ID>` → `.model.api`), with their response schemas.
@@ -392,7 +396,7 @@ The agent produces:
   (≥3 per query operation, deterministic IDs)
 - The wire-format JSON Schemas it consumes are NOT regenerated — the
   agent reads them from the `kpack process <CAP_ID>` envelope's
-  `.schemas[...]` (already authored by `/process` in reliever-knowledge). No
+  `.schemas[...]` (already authored by `/process` in the product knowledge repo). No
   schema files are authored by the stub.
 - No full microservice scaffold (Domain / Application / Infrastructure /
   Presentation / Contracts projects), no MongoDB, no domain model
@@ -535,7 +539,7 @@ produces, under `sources/{capability-name}/backend/contracts/specs/`:
   `process/{capability-id}/api.yaml` + `commands.yaml` + `read-models.yaml` +
   `schemas/CMD.*.schema.json` + `kpack`'s `.slices.carried_objects[] | select(.layer=="resource")` (resource shapes).
 - `asyncapi.yaml` (AsyncAPI 2.6) — derived strictly from
-  `process/{capability-id}/bus.yaml` + `schemas/BNK.RLVR.RVT.*.schema.json` +
+  `process/{capability-id}/bus.yaml` + `schemas/<PRODUCT_CTX>.RVT.*.schema.json` +
   `kpack`'s `.slices.emitted_events[] | select(.layer=="resource")` / `.slices.consumed_events[] | select(.layer=="resource")`.
 - `lineage.json` — top-level lineage (capability + bcm + process metadata).
 - `harness-report.md` — closure verdict.
@@ -566,7 +570,7 @@ gap:
 | Gap                                            | Resolution                                                  |
 |------------------------------------------------|-------------------------------------------------------------|
 | Dangling `x-lineage.process.*` reference       | run `/process <CAPABILITY_ID>` to amend the model           |
-| Dangling `x-lineage.bcm.*` reference           | fix BCM upstream in `reliever-knowledge`                     |
+| Dangling `x-lineage.bcm.*` reference           | fix BCM upstream in the product knowledge repo                     |
 | Missing controller / consumer in microservice  | feed the gap into the remediation loop (Step 3)             |
 | Drift between generated and committed specs    | re-run the harness in default mode and commit the diff      |
 
@@ -746,7 +750,7 @@ After all tests pass (or after the remediation loop concludes):
    There are **no infrastructure ports to derive** — RabbitMQ and the per-L2
    database live on the out-of-scope platform (or the optional
    `deployment/local/platform.compose.yml` stand-in), reachable by service
-   name on the shared external Docker network `reliever-platform`.
+   name on the shared external Docker network `<PLATFORM_NETWORK>`.
 
    Build the PR body using this template, substituting all placeholders:
 
@@ -777,7 +781,7 @@ After all tests pass (or after the remediation loop concludes):
 
    > Each component ships its own `deployment/local/` (Dockerfile + compose +
    > `.env`). The compose runs **only the component image** and joins the
-   > shared external Docker network `reliever-platform`; RabbitMQ + the per-L2
+   > shared external Docker network `<PLATFORM_NETWORK>`; RabbitMQ + the per-L2
    > database live on the out-of-scope platform (use
    > `deployment/local/platform.compose.yml` as a stand-in if the real platform
    > is not installed).
@@ -829,17 +833,17 @@ After all tests pass (or after the remediation loop concludes):
    ## Dev Environment Artifacts
 
    Each component also ships `deployment/dev/k8s/` (kustomize) and
-   `deployment/dev/terraform/` (banking-tech modules only), derived via
-   `kpack` in two contexts (`BNK.RLVR` → `BNK.TECH`) per the Deployment contract in CLAUDE.md.
+   `deployment/dev/terraform/` (platform-map modules only), derived via
+   `kpack` in two contexts (`<PRODUCT_CTX>` → `<PLATFORM_CTX>`) per the Deployment contract in CLAUDE.md.
 
    - Resolved platform capabilities: see `deployment/dev/terraform/README.md`.
-   - Escape-hatch issues (when a needed banking-tech module is missing): {none |
+   - Escape-hatch issues (when a needed platform-map module is missing): {none |
      <list of `gh` issue URLs>}.
 
    ## Manual Test Plan
 
    - [ ] Platform stand-in (or real platform) is up: `docker ps` shows
-         `rabbitmq` and the DB on the `reliever-platform` network.
+         `rabbitmq` and the DB on the `<PLATFORM_NETWORK>` network.
    - [ ] `docker compose -f deployment/local/docker-compose.yml up -d` without errors
    - [ ] Service starts and binds the deterministic `COMPONENT_PORT`
    - [ ] `GET /health` returns 200
@@ -848,7 +852,7 @@ After all tests pass (or after the remediation loop concludes):
    - [ ] Frontend loads and displays stub data correctly (if applicable)
    - [ ] `kubectl apply -k deployment/dev/k8s/overlay/dev/ --dry-run=client` is clean
    - [ ] `terraform -chdir=deployment/dev/terraform init && terraform plan` is clean
-         (or the README records the open banking-tech issue blocking it)
+         (or the README records the open platform-map issue blocking it)
 
    ---
    🤖 Generated with [Claude Code](https://claude.com/claude-code)
@@ -867,7 +871,7 @@ After all tests pass (or after the remediation loop concludes):
    >
    > Deployment artifacts emitted under `sources/{CAP_ID}/{component}/deployment/`:
    > - local: Dockerfile + docker-compose.yml + .env (COMPONENT_PORT=[port])
-   > - dev:   k8s/ (kustomize) + terraform/ (banking-tech modules)
+   > - dev:   k8s/ (kustomize) + terraform/ (platform-map modules)
    > - Banking-tech issues opened (if any): [list or 'none']
    >
    > Local test environment (requires the platform or `platform.compose.yml` stand-in):

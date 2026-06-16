@@ -55,17 +55,21 @@ access to the next agent — explicit `rm -f` on exit is preferred.
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via
+> **product knowledge repo** and consumed here **read-only** via
 > `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
+>
+> `<PRODUCT_CTX>` is this enterprise's product capability-map context, resolved
+> from the repo's `.kpack.yaml` and the governance `contexts:` registry — never
+> hardcoded.
 
 This skill consumes the model as a primary input — tasks routinely reference
 `AGG.*`, `CMD.*`, `POL.*`, `PRJ.*`, `QRY.*` identifiers from it. Fetch it once
 via `kpack process <CAPABILITY_ID>` and read the returned slices.
 
 If the model evolves (new aggregate, renamed command, new policy), run
-`/process <CAPABILITY_ID>` in the reliever-knowledge repo and merge its PR to
+`/process <CAPABILITY_ID>` in the product knowledge repo and merge its PR to
 refresh the model, then re-run `/task`.
 
 ---
@@ -74,17 +78,17 @@ refresh the model, then re-run `/task`.
 
 Before reading anything from the process model, verify it resolves. A model is
 ready iff `kpack process <CAP_ID>` returns exit 0 (kpack resolves the
-published `main` of reliever-knowledge by default).
+published `main` of the product knowledge repo by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# The process model lives in reliever-knowledge now; it is ready iff kpack
+# The process model lives in the product knowledge repo now; it is ready iff kpack
 # can resolve it (kpack resolves the published main by default).
 if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the product knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -92,7 +96,7 @@ fi
 
 If the gate fails, **stop and surface the failure to the user with the redirect
 message** — do not proceed to generate tasks. Once `/process <CAP_ID>` is run in
-the reliever-knowledge repo and its PR merged, re-run `/task`.
+the product knowledge repo and its PR merged, re-run `/task`.
 
 ---
 
@@ -101,7 +105,7 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
 1. **Identify the capability** to generate tasks for. Ask if not specified, or list plannable 
    capabilities (those with a `roadmap.md` under `/roadmap/{cap}/` but no `/tasks/{cap}/`
    directory yet, or with a stale task set). To enumerate plannable capabilities, run
-   `kpack list --context BNK.RLVR --level L2` (and `--level L3` if relevant) — never read `/bcm/*.yaml` directly.
+   `kpack list --context <PRODUCT_CTX> --level L2` (and `--level L3` if relevant) — never read `/bcm/*.yaml` directly.
 
 2. **Fetch the capability pack** from the `kpack` engine — this is the **only** sanctioned 
    knowledge source. Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, or 
@@ -112,7 +116,7 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
    ```
 
    `<CAPABILITY_ID>` is the **full source-context-prefixed ID** (e.g.
-   `BNK.RLVR.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short `CAP.…` form
+   `<PRODUCT_CTX>.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short `CAP.…` form
    with exit code 2.
 
    **Carry the knowledge-base ref into every TASK.** Read the
@@ -122,7 +126,7 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
    derived from, so `/implementation-pipeline` and `/fix` can later
    `kpack diff <bcm_ref> --capability <CAP_ID>` to detect upstream drift. If
    `.corpus.ref` is absent, fall back to the current `kpack version
-   --context BNK.RLVR --compact` `ref` and note it as an assumption.
+   --context <PRODUCT_CTX> --compact` `ref` and note it as an assumption.
 
    Lightweight mode is enough for task generation — you do not need the rationale ADRs 
    behind the vision narratives. Read these slices selectively:
@@ -146,7 +150,7 @@ the reliever-knowledge repo and its PR merged, re-run `/task`.
      subscriptions from `.model.bus` (use `.parsed`, falling back to `.raw` when
      null — `commands`/`read-models` are frequently `parsed:null`). If
      `kpack process` does not resolve, stop and run `/process
-     <CAPABILITY_ID>` in the reliever-knowledge repo and merge its PR first.
+     <CAPABILITY_ID>` in the product knowledge repo and merge its PR first.
    - Existing tasks in `/tasks/{capability-id}/` — to avoid duplication (local)
 
    Check `pack.warnings` — non-empty entries should land in the `Open Questions` of the 
@@ -234,7 +238,7 @@ A good task:
 ```markdown
 ---
 task_id: TASK-[NNN]
-capability_id: BNK.RLVR.CAP.[ZONE].[NNN].[CODE]   # full source-context-prefixed ID
+capability_id: <PRODUCT_CTX>.CAP.[ZONE].[NNN].[CODE]   # full source-context-prefixed ID
 capability_name: [Name]
 epic: [Epic N — Epic Name]
 status: todo
@@ -281,7 +285,7 @@ capability must be able to do when this task is done]
 
 ## Dependencies
 - [TASK-NNN]: [Why this must be done first]
-- [BNK.RLVR.CAP.ZONE.NNN]: [External capability dependency]
+- [<PRODUCT_CTX>.CAP.ZONE.NNN]: [External capability dependency]
 
 ## Open Questions
 - [ ] [Any unresolved question that must be answered before starting]
@@ -301,7 +305,7 @@ only events, only queries, or both — shape the DoD accordingly.
 ```markdown
 ---
 task_id: TASK-001
-capability_id: BNK.RLVR.CAP.[ZONE].[NNN].[CODE]   # full source-context-prefixed ID
+capability_id: <PRODUCT_CTX>.CAP.[ZONE].[NNN].[CODE]   # full source-context-prefixed ID
 capability_name: [Name]
 epic: Epic 0 — Contract and Development Stub
 status: todo
@@ -314,7 +318,7 @@ bcm_ref: [v2.0.0]                 # from `kpack process <CAP_ID> --compact` .cor
 # TASK-001 — Contract and development stub for [Capability Name]
 
 ## Context
-`BNK.RLVR.CAP.[ZONE].[NNN].[CODE]` exposes [N] resource events on the operational
+`<PRODUCT_CTX>.CAP.[ZONE].[NNN].[CODE]` exposes [N] resource events on the operational
 bus and [M] HTTP operations on its query surface. Per `ADR-BCM-URBA-0009`
 this capability owns the contract of both. As long as the real
 implementation is not in place, this stub publishes the contracted events
@@ -328,7 +332,7 @@ routing key `{BusinessEventName}.{ResourceEventName}`, payload form
 follows `ADR-TECH-STRAT-003`.
 
 ## Capability Reference
-- Capability: [Name] (BNK.RLVR.CAP.[ZONE].[NNN].[CODE])
+- Capability: [Name] (<PRODUCT_CTX>.CAP.[ZONE].[NNN].[CODE])
 - Zone: [TOGAF zone]
 - Governing FUNC ADR(s): [ADR-BCM-FUNC-NNNN]
 - Strategic-tech anchors: ADR-TECH-STRAT-001 (bus), ADR-TECH-STRAT-003 (API), ADR-TECH-STRAT-004 (referential / PII when applicable)
@@ -426,7 +430,7 @@ The TASK-001 file lives in `tasks/<CAP_ID>/TASK-001-contract-and-stub-*.md`
 `TASK-001-contract-and-stub-beneficiary-referential.md`).
 
 If `kpack process <CAP_ID>` does not resolve, **stop** and tell the user to
-run `/process <CAP_ID>` in the reliever-knowledge repo and merge its PR first.
+run `/process <CAP_ID>` in the product knowledge repo and merge its PR first.
 
 ---
 
@@ -461,7 +465,7 @@ kanban: `BOARD.md` at its root (auto-generated by `/sort-task`) plus the
 `<CAP_ID>/TASK-*.md` cards. Per-capability indices, summaries, roadmap
 files, and contract folders all live elsewhere — see the layout rules in
 the `/roadmap` (→ `/roadmap/`) skill. The process model is not a local lane
-here; it is authored by `/process` in the reliever-knowledge repo and consumed
+here; it is authored by `/process` in the product knowledge repo and consumed
 read-only via `kpack process`.
 
 After writing all tasks, tell the user:

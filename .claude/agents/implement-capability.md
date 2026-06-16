@@ -17,7 +17,7 @@ description: |
     canned cold-data fixtures. For use when only the contract is given and the
     full implementation is deferred. The wire-format JSON Schemas are NOT
     regenerated here — they are read from `.schemas` of `kpack process
-    <CAP_ID>` (already authored by `/process` in reliever-knowledge).
+    <CAP_ID>` (already authored by `/process` in the product-knowledge repo).
     Mode B output is a minimal .NET host under `sources/{cap-name}/stub/`
     combining a Minimal-API surface and a BackgroundService publisher.
     No full microservice scaffold; no schema files written anywhere
@@ -57,7 +57,7 @@ You output goes under `sources/{capability-name}/backend/` relative to the curre
 > **Read-only contract — the process model.**
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `kpack
+> **product-knowledge** repo and consumed here **read-only** via `kpack
 > process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`. It
 > does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`. Fetch it once on entry and read its
@@ -69,7 +69,7 @@ You output goes under `sources/{capability-name}/backend/` relative to the curre
 > `PRJ.*` / `QRY.*` identifiers in your code. If you find that the contract
 > is wrong (missing aggregate, mis-paired routing key, schema field absent),
 > abort and tell the caller to run `/process <CAPABILITY_ID>` in the
-> reliever-knowledge repo and merge its PR to amend the model. Your PR must
+> product-knowledge repo and merge its PR to amend the model. Your PR must
 > not contain any diff under `process/`.
 
 > **Downstream — the contract harness.**
@@ -184,8 +184,10 @@ and skip the Mode A patterns.
 ### 1. Read the context
 
 The caller will hand you a task to implement. **All BCM/ADR/vision context is sourced
-from the `kpack` CLI** (context `BNK.RLVR`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
+from the `kpack` CLI** (context `<PRODUCT_CTX>`) — never read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`,
 `/domain-vision/`, `/tech-vision/`, or `/tech-adr/` directly.
+
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>` are this enterprise's product/platform map contexts, resolved from the repo's `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 Run **once** at the top of step 1:
 
@@ -194,30 +196,30 @@ kpack pack {capability_id} --compact > /tmp/pack-impl.json
 ```
 
 `{capability_id}` is the **full source-context-prefixed ID** (e.g.
-`BNK.RLVR.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short `CAP.…` form with
+`<PRODUCT_CTX>.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short `CAP.…` form with
 exit code 2.
 
 > **Asset-ID namespacing (CLI v2.0.0+).** Every ID returned by `kpack` —
-> `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `BNK.RLVR.` source-context prefix.
+> `CAP/RVT/EVT/OBJ/SUB/RES/CON` — carries a `<PRODUCT_CTX>.` source-context prefix.
 > Use them **verbatim** for wire contracts: event class names map to the full ID,
 > RabbitMQ routing keys are the prefixed `<EVT-id>.<RVT-id>` from
 > the process model's `.model.bus`, and the topic-exchange / queue names derive from the
-> **full lower-dotted capability ID** (e.g. `bnk.rlvr.cap.bsp.001.sco-events`).
+> **full lower-dotted capability ID** (e.g. `<product-ctx>.cap.bsp.001.sco-events`).
 > Tactical IDs you invent locally (`CMD/AGG/POL/PRJ/QRY`) stay unprefixed.
 
 > **Platform substrate (optional, Mode A).** When the TECH-TACT / TECH-STRAT
-> slices reference a runtime/deployment **platform** capability (a `BNK.TECH.CAP.…`
+> slices reference a runtime/deployment **platform** capability (a `<PLATFORM_CTX>.CAP.…`
 > ID — e.g. the cluster, deployment, or observability substrate), fetch its
 > contract from the platform context rather than guessing:
 > ```bash
 > kpack pack {platform_capability_id} --compact > /tmp/pack-platform.json
 > ```
-> `kpack` resolves the `BNK.TECH.` context from the platform-prefixed ID. Use it to
+> `kpack` resolves the `<PLATFORM_CTX>.` context from the platform-prefixed ID. Use it to
 > honour platform-mandated deployment topology, health/observability endpoints,
 > and platform event contracts the service must emit/consume. Skip it when no
-> `BNK.TECH.` dependency is referenced. (`kpack` is one engine across every
-> context; point it at a local checkout with `--repo-root <banking-tech>` or
-> `BANKING_PLATFORM_ROOT`.)
+> `<PLATFORM_CTX>.` dependency is referenced. (`kpack` is one engine across every
+> context; point it at a local checkout with `--repo-root <platform-repo-checkout>` or
+> `PLATFORM_REPO_ROOT`.)
 
 Lightweight mode is sufficient for Mode A (you do not need the rationale ADRs behind the
 vision narratives — the FUNC + tactical + URBA + tech-strategic ADRs that you actually
@@ -314,7 +316,7 @@ There is exactly **one stable port per component**, derived from the
 capability ID. RabbitMQ and MongoDB are **not** allocated — they live on
 the external platform (or its `platform.compose.yml` stand-in) and are
 reached by service name (`rabbitmq`, `mongo`, …) on the shared external
-Docker network `reliever-platform`. The legacy `LOCAL_PORT+100/200/201`
+Docker network `<product>-platform`. The legacy `LOCAL_PORT+100/200/201`
 derivations are gone.
 
 ```python
@@ -355,7 +357,7 @@ Read all code templates from **`.claude/agents/implement-capability-templates.md
 
 Note: the legacy random `{LOCAL_PORT}` and its derived broker/DB port
 placeholders no longer exist — RabbitMQ and MongoDB live on the
-external platform network `reliever-platform` and are reached by
+external platform network `<product>-platform` and are reached by
 service name.
 
 ### Output directory layout
@@ -371,7 +373,7 @@ sources/{capability-name}/
     ├── deployment/
     │   ├── local/
     │   │   ├── Dockerfile                  ← universal build (reused by dev via ECR)
-    │   │   ├── docker-compose.yml          ← component image ONLY; joins reliever-platform
+    │   │   ├── docker-compose.yml          ← component image ONLY; joins <product>-platform
     │   │   ├── .env                        ← COMPONENT_PORT + AMQP/DB URLs → platform names
     │   │   ├── platform.compose.yml        ← OPTIONAL stand-in: ext net + RabbitMQ + Mongo
     │   │   └── README.md                   ← how to run locally; platform is a prerequisite
@@ -424,7 +426,7 @@ multi-stage as before, `ASPNETCORE_URLS=http://+:8080`, `EXPOSE 8080` —
 and dev pulls the same image from ECR. There is no per-environment
 Dockerfile. The bundled `docker-compose.yml` similarly moved into
 `backend/deployment/local/`: it now declares **only the component**
-service and joins the external `reliever-platform` Docker network —
+service and joins the external `<product>-platform` Docker network —
 RabbitMQ and MongoDB are no longer inline (see *Deployment artifacts
 (local + dev)* below for the exact spec).
 
@@ -467,7 +469,7 @@ The stub has **two halves** driven by the `kpack process <CAP_ID>` model:
 
 | Half | Driven by | Output |
 |---|---|---|
-| Event publisher | `.model.bus` + `.schemas["*.schema.json"]` (resource-event files are `BNK.RLVR.RVT.*.schema.json`) | `BackgroundService` that publishes simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
+| Event publisher | `.model.bus` + `.schemas["*.schema.json"]` (resource-event files are `<PRODUCT_CTX>.RVT.*.schema.json`) | `BackgroundService` that publishes simulated `RVT.*` payloads on the owned topic exchange at configurable cadence |
 | Query API | `.model.api` + `.schemas["*.schema.json"]` (response schemas) + canned fixtures | ASP.NET Core Minimal-API serving each operation with deterministic canned responses |
 
 Both halves run in the **same .NET host** (one process, one solution).
@@ -529,7 +531,7 @@ Schemas mirror these. Never read `/bcm/*.yaml` directly — go through
 ### B.3 — Read the process model — bus, api, schemas (do NOT regenerate)
 
 The wire-format schemas and the surface declarations are authored by the
-`/process` skill in the **reliever-knowledge** repo from the BCM corpus and
+`/process` skill in the **product-knowledge** repo from the BCM corpus and
 consumed here **read-only** via `kpack process <CAP_ID>` — they do not
 live in this repo. Fetch the model once (`kpack process {capability-id}
 --compact`, cache the JSON) and read its slices. Mode B is a **consumer** of
@@ -541,7 +543,7 @@ Read the model's `.model.bus` (use `.parsed`, fall back to `.raw`) and
 enumerate every emitted `RVT.*` entry. For each, read the paired schema from:
 
 ```
-.schemas["BNK.RLVR.RVT.{zone}.{nnn}.{event}.schema.json"]
+.schemas["<PRODUCT_CTX>.RVT.{zone}.{nnn}.{event}.schema.json"]
 ```
 
 (resource-event schema keys carry the full source-context-prefixed asset
@@ -575,7 +577,7 @@ match — same role as the RVT schema for the publisher half.
 
 If any schema referenced by `.model.bus` or `.model.api` is missing from
 `.schemas`, **stop**: that is a `/process` problem. Tell the caller to run
-`/process <CAP_ID>` in the reliever-knowledge repo to refresh the model and
+`/process <CAP_ID>` in the product-knowledge repo to refresh the model and
 merge the resulting PR before re-running this task. Do NOT attempt to write a
 fallback schema anywhere — the schemas are owned by `/process` and served by
 `kpack process`.
@@ -663,7 +665,7 @@ sources/{capability-name}/stub/
 ├── deployment/
 │   ├── local/
 │   │   ├── Dockerfile                  ← universal build (reused by dev via ECR)
-│   │   ├── docker-compose.yml          ← stub component ONLY; joins reliever-platform
+│   │   ├── docker-compose.yml          ← stub component ONLY; joins <product>-platform
 │   │   ├── .env                        ← COMPONENT_PORT + AMQP_URL → rabbitmq service name
 │   │   ├── platform.compose.yml        ← OPTIONAL stand-in: ext net + RabbitMQ (NO Mongo)
 │   │   └── README.md
@@ -699,7 +701,7 @@ useful to spin up since the stub does not use a DB).
 
 The stub's `docker-compose.yml` (Mode B) follows the same
 component-only shape as Mode A — see *Deployment artifacts (local +
-dev)* below — joining the external `reliever-platform` network and
+dev)* below — joining the external `<product>-platform` network and
 talking to RabbitMQ by service name. No inline broker is ever bundled
 in the component compose.
 
@@ -730,7 +732,7 @@ COMPONENT_PORT = 20000 + ( int(sha256(f"{capability_id}:api").hexdigest()[:8], 1
   listener for the Minimal-API and is published in
   `deployment/local/docker-compose.yml` as `${COMPONENT_PORT}:8080`.
 - If the publisher half is materialised, the stub talks to the broker
-  **by service name** (`rabbitmq`) on the external `reliever-platform`
+  **by service name** (`rabbitmq`) on the external `<product>-platform`
   network. The component allocates no broker port — the platform (or
   the opt-in `platform.compose.yml` stand-in) owns the broker.
 - The publisher-only case (no query half) still allocates
@@ -761,7 +763,7 @@ Before writing files, output:
 - Schemas (read-only):    kpack process <CAP_ID> .schemas[*]
 - Output (stub):          sources/{capability-name}/stub/
 - Component port:         COMPONENT_PORT=[deterministic, see Pattern 2 / B.5]
-- Platform deps:          rabbitmq (via reliever-platform network); no local broker bundled
+- Platform deps:          rabbitmq (via <product>-platform network); no local broker bundled
 
 Sources of truth used: [list of slices read — kpack process .model.bus,
                        .model.api, .schemas[*],
@@ -786,7 +788,7 @@ When Mode B succeeds:
     Bus exchange:       [name]
     Routing keys:       [list]
     Cadence:            [range] events / minute (configurable)
-    RabbitMQ:           via reliever-platform network (service name: rabbitmq)
+    RabbitMQ:           via <product>-platform network (service name: rabbitmq)
 
   Query half:           [enabled | disabled]
     Endpoints:          [list of {method} {path}]
@@ -797,7 +799,7 @@ To start the stub locally (platform must be up — real or stand-in):
   cd sources/{capability-name}/stub/deployment/local
   # stand-in only if you don't have the real platform running:
   # docker compose -f platform.compose.yml up -d
-  docker compose up -d                              # joins reliever-platform network
+  docker compose up -d                              # joins <product>-platform network
 
 ⚠ Set STUB_ACTIVE=true to enable event publication. Default off.
    The query half answers regardless of STUB_ACTIVE (toggle independently
@@ -824,7 +826,7 @@ is what this agent (kind = `api`) owes per component, in both Mode A
   non-root user, `ENTRYPOINT` on the published Presentation DLL. Dev
   pulls this same image from ECR — no per-environment Dockerfile.
 - **`docker-compose.yml`** — component-only; declares no infra; joins
-  the external `reliever-platform` Docker network:
+  the external `<product>-platform` Docker network:
 
   ```yaml
   services:
@@ -832,14 +834,14 @@ is what this agent (kind = `api`) owes per component, in both Mode A
       image: <cap-kebab>-api:dev
       build: .                       # the Dockerfile sits alongside in deployment/local/
       env_file: .env
-      networks: [reliever-platform]
+      networks: [<product>-platform]
       ports: ["${COMPONENT_PORT}:8080"]
       healthcheck:
         test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
         interval: 10s
         retries: 6
   networks:
-    reliever-platform: { external: true }
+    <product>-platform: { external: true }
   ```
 - **`.env`** — exactly:
 
@@ -854,7 +856,7 @@ is what this agent (kind = `api`) owes per component, in both Mode A
   ```
 
   All hostnames are **platform service names** — never localhost, never
-  ports — because the component joins the `reliever-platform` network.
+  ports — because the component joins the `<product>-platform` network.
 - **`platform.compose.yml`** — OPTIONAL. Explicitly labelled at the top
   with a comment `# Stand-in, NOT the real platform — for devs without
   the real platform and for the test agents.` Creates the external
@@ -868,9 +870,9 @@ is what this agent (kind = `api`) owes per component, in both Mode A
 
 ### Dev (`deployment/dev/`)
 
-Both subtrees are **derived via `kpack`** (context `BNK.TECH`) from the
+Both subtrees are **derived via `kpack`** (context `<PLATFORM_CTX>`) from the
 capability's `kpack pack <PLATFORM_CAP_ID>` calls — *no values are invented*.
-The agent **never** reads the `banking-tech` repo directly (no `gh repo view`,
+The agent **never** reads the platform repo directly (no `gh repo view`,
 no `git clone`, no `WebFetch` against it). `kpack` is the only way
 in; `gh` is used only to file the escape-hatch issue below.
 
@@ -886,31 +888,31 @@ in; `gh` is used only to file the escape-hatch issue below.
   - `base/deployment.yaml` references the ECR image of the universal
     `Dockerfile` above and exposes the same `GET /health` probe the
     agent already emits in Mode A / Mode B.
-- **`terraform/`** — calls `banking-tech` modules **only**, at the ref
+- **`terraform/`** — calls platform modules **only**, at the ref
   `kpack` reports, with inputs `project_name`, `environment="dev"`,
   `tenant`, `tags`:
   - `data/db` for `postgresql` / `mongodb` (per the TECH-TACT tag).
   - **RabbitMQ is NOT provisioned here** — it is a platform-level
     concern (`data/broker`).
 - **Escape hatch — generic gaps.** When the component needs a resource
-  that has **no** matching banking-tech module (e.g. a generic S3 blob
+  that has **no** matching platform module (e.g. a generic S3 blob
   bucket), STOP that resource. Do **not** improvise raw cloud. Open or
-  reuse an issue:
+  reuse an issue (`<PLATFORM_REPO>` resolves from the contexts registry):
 
   ```bash
-  gh issue list --repo Banking-PapeeteConsulting/banking-tech \
+  gh issue list --repo <PLATFORM_REPO> \
     --search "platform module needed <resource> for <CAP_ID>" --state open
 
   # if no match, idempotent create:
   gh issue create \
-    --repo Banking-PapeeteConsulting/banking-tech \
-    --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+    --repo <PLATFORM_REPO> \
+    --title "chore(product): platform module needed — <resource> for <CAP_ID>" \
     --body  "<need + caller + bcm_ref>"
   ```
 
   Record the resulting URL in `deployment/dev/terraform/README.md`
   and surface it as a blocker in the final report. The `gh issue
-  create` line is the **only** allowed `gh` against `banking-tech`.
+  create` line is the **only** allowed `gh` against the platform repo.
 
 ### Ledger
 
@@ -957,14 +959,14 @@ When scaffolding succeeds (Mode A):
   Commands:             [list]
   Events:               [list]
   Component port:       {COMPONENT_PORT}     (deterministic — see Pattern 2)
-  Platform deps:        rabbitmq, mongo (via reliever-platform network)
+  Platform deps:        rabbitmq, mongo (via <product>-platform network)
   Bus channel:          {channel}
 
 To start the local stack (platform must be up — real or stand-in):
   cd sources/{capability-name}/backend/deployment/local
   # stand-in only if you don't have the real platform running:
   # docker compose -f platform.compose.yml up -d
-  docker compose up -d                              # joins reliever-platform network
+  docker compose up -d                              # joins <product>-platform network
 
 ⚠ Set GITHUB_USERNAME and GITHUB_TOKEN env vars before running dotnet restore
   (required for the naive-unicorn GitHub Packages feed in nuget.config)

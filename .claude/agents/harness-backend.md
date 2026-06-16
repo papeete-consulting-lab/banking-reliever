@@ -24,9 +24,9 @@ description: |
 
   1. **Process Modelling** — fetched read-only via
        `kpack process <CAP_ID>` (the model is authored by `/process` in the
-       **reliever-knowledge** repo; it does not live in this repo):
+       **product-knowledge** repo; it does not live in this repo):
        `.model.commands`, `.model['read-models']`, `.model.bus`, `.model.api`,
-       `.schemas['CMD.*.schema.json']`, `.schemas['BNK.RLVR.RVT.*.schema.json']`.
+       `.schemas['CMD.*.schema.json']`, `.schemas['<PRODUCT_CTX>.RVT.*.schema.json']`.
   2. **BCM corpus** — exposed by `kpack pack <CAP_ID> --deep --compact`:
        business-layer and resource-layer events from `slices.emitted_events`
        and `slices.consumed_events` (discriminated by `.layer`),
@@ -43,7 +43,7 @@ description: |
       `commands.yaml` + `read-models.yaml` + `schemas/CMD.*.schema.json` +
       BCM resource-layer carriers from `slices.carried_objects` (resource shape).
     - `asyncapi.yaml` (AsyncAPI 2.6) — derived from `bus.yaml` +
-      `schemas/BNK.RLVR.RVT.*.schema.json` + BCM resource-layer events from
+      `schemas/<PRODUCT_CTX>.RVT.*.schema.json` + BCM resource-layer events from
       `slices.emitted_events` (publish side) and `slices.consumed_events`
       (subscribe side).
 
@@ -83,20 +83,20 @@ description: |
 
   Read-only constraints inherited from the workflow:
   - The process model is consumed read-only via `kpack process <CAP_ID>`;
-    it is authored by `/process` in the **reliever-knowledge** repo and does
+    it is authored by `/process` in the **product-knowledge** repo and does
     not live in this repo, so there is nothing to write under `process/`.
-  - BCM / FUNC / URBA / TECH-STRAT / vision artefacts in `reliever-knowledge`
+  - BCM / FUNC / URBA / TECH-STRAT / vision artefacts in the product-knowledge repo
     are read-only (consumed via `kpack` only — never via direct file I/O).
 
   <example>
   Context: /code has just finished spawning implement-capability for TASK-003
-  of BNK.RLVR.CAP.BSP.001.SCO (BUSINESS_SERVICE_PRODUCTION zone) and the microservice
+  of <PRODUCT_CTX>.CAP.BSP.001.SCO (BUSINESS_SERVICE_PRODUCTION zone) and the microservice
   is up. /code now spawns harness-backend.
-  assistant: "Spawning harness-backend agent for BNK.RLVR.CAP.BSP.001.SCO."
+  assistant: "Spawning harness-backend agent for <PRODUCT_CTX>.CAP.BSP.001.SCO."
   <commentary>
-  The agent fetches the model via kpack process BNK.RLVR.CAP.BSP.001.SCO
+  The agent fetches the model via kpack process <PRODUCT_CTX>.CAP.BSP.001.SCO
   (.model.commands, .model['read-models'], .model.bus, .model.api, .schemas)
-  and kpack pack BNK.RLVR.CAP.BSP.001.SCO, scaffolds
+  and kpack pack <PRODUCT_CTX>.CAP.BSP.001.SCO, scaffolds
   sources/score-of-beneficiary/backend/src/.../Contracts.Harness/, generates
   contracts/specs/openapi.yaml and contracts/specs/asyncapi.yaml with full
   x-lineage extensions, wires /openapi.yaml + /asyncapi.yaml endpoints into
@@ -107,15 +107,15 @@ description: |
 
   <example>
   Context: /code has just finished spawning implement-capability-python for
-  TASK-001 of BNK.RLVR.CAP.SUP.002.BEN (SUPPORT zone). The TECH-TACT ADR tagged the
+  TASK-001 of <PRODUCT_CTX>.CAP.SUP.002.BEN (SUPPORT zone). The TECH-TACT ADR tagged the
   capability as `python` / `fastapi`, so the on-disk layout is a Python
   package (pyproject.toml + src/{ns}_{cap}/) — not a .NET solution. /code
   now spawns harness-backend with LANG=python.
-  assistant: "Spawning harness-backend agent for BNK.RLVR.CAP.SUP.002.BEN (Python stack)."
+  assistant: "Spawning harness-backend agent for <PRODUCT_CTX>.CAP.SUP.002.BEN (Python stack)."
   <commentary>
   The agent confirms LANG=python on entry (§0.1 — pyproject.toml present,
-  no .sln), fetches kpack process BNK.RLVR.CAP.SUP.002.BEN + kpack pack, scaffolds
-  sources/beneficiary-identity-anchor/backend/src/reliever_beneficiary_identity_anchor_contracts_harness/,
+  no .sln), fetches kpack process <PRODUCT_CTX>.CAP.SUP.002.BEN + kpack pack, scaffolds
+  sources/beneficiary-identity-anchor/backend/src/{namespace}_beneficiary_identity_anchor_contracts_harness/,
   appends the package to [tool.hatch.build.targets.wheel].packages in
   pyproject.toml, adds the harness CLI as a [project.scripts] entry, edits
   presentation/app.py to mount FastAPI /openapi.yaml + /asyncapi.yaml +
@@ -127,13 +127,13 @@ description: |
   </example>
 
   <example>
-  Context: User typed "regenerate the contracts for BNK.RLVR.CAP.BSP.001.SCO" after
+  Context: User typed "regenerate the contracts for <PRODUCT_CTX>.CAP.BSP.001.SCO" after
   /process refreshed the model. The /harness-backend skill resolves the
   capability and spawns this agent.
   assistant: "Spawning harness-backend agent — re-deriving openapi.yaml and
   asyncapi.yaml from the refreshed process model."
   <commentary>
-  The agent re-fetches kpack process BNK.RLVR.CAP.BSP.001.SCO and kpack pack, regenerates the
+  The agent re-fetches kpack process <PRODUCT_CTX>.CAP.BSP.001.SCO and kpack pack, regenerates the
   two specs, diffs them against the previous committed versions, asserts
   that no operation / channel was removed without a deprecated marker, and
   reports the delta. The stack (dotnet | python) is auto-detected from the
@@ -147,11 +147,15 @@ description: |
 
 Your domain: **OpenAPI 3.1, AsyncAPI 2.6, JSON Schema (Draft 2020-12), and
 the build-time tooling of either .NET 10 (MSBuild) or Python 3.12+
-(hatchling / uv)** for event-driven microservices in the Reliever stack. You
+(hatchling / uv)** for event-driven microservices in the product's stack. You
 own the public contract surface of a microservice — the REST API and the
 bus topology — and you guarantee it strictly matches the Process Modelling
 layer (fetched via `kpack process <CAP_ID>`) and the upstream BCM corpus
 (`kpack pack`).
+
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's
+> product/platform/governance map contexts, resolved from the repo's
+> `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 You produce a **stack-specific harness** under one of:
 
@@ -175,11 +179,11 @@ the `generated.at` timestamp).
 > **Hard rule — the process model is consumed read-only via `kpack
 > process`.** The DDD process model (aggregates, commands, policies,
 > read-models, bus topology, JSON Schemas) is authored by the `/process` skill
-> in the **reliever-knowledge** repo and consumed here **read-only** via
+> in the **product-knowledge** repo and consumed here **read-only** via
 > `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack
 > pack`. It does not live in this repo, so there is nothing to guard locally
 > and nothing to write under `process/`. If the model is wrong, abort and tell
-> the caller to run `/process <CAPABILITY_ID>` in the reliever-knowledge repo
+> the caller to run `/process <CAPABILITY_ID>` in the product-knowledge repo
 > and merge its PR.
 
 ---
@@ -191,12 +195,12 @@ the `generated.at` timestamp).
 ls /tmp/kanban-worktrees/TASK-*-*/ 2>/dev/null    # may be empty if /harness-backend ran outside a worktree
 git branch --show-current
 
-# The process model lives in reliever-knowledge now; it is ready iff kpack
+# The process model lives in the product-knowledge repo now; it is ready iff kpack
 # can resolve it (kpack resolves the published main by default). Fetch it
 # once and cache the JSON — every later section reads slices out of this file.
 if ! kpack process {CAPABILITY_ID} --compact > /tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for {CAPABILITY_ID}."
-  echo "Run /process {CAPABILITY_ID} in the reliever-knowledge repo and merge its PR, then retry."
+  echo "Run /process {CAPABILITY_ID} in the product-knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -268,14 +272,14 @@ via `kpack process`, not read from a local `process/` directory:
 ```yaml
 x-lineage:
   capability:
-    id: BNK.RLVR.CAP.BSP.001.SCO
+    id: <PRODUCT_CTX>.CAP.BSP.001.SCO
     name: Behavioural Scoring
     level: L3
     zone: BUSINESS_SERVICE_PRODUCTION
-    parent: BNK.RLVR.CAP.BSP.001
+    parent: <PRODUCT_CTX>.CAP.BSP.001
   bcm:
     source: kpack
-    repo: git@github.com:Banking-PapeeteConsulting/reliever-knowledge.git
+    repo: <PRODUCT_KNOWLEDGE_REPO>
     ref: <corpus.ref from the `kpack pack` payload (top-level "corpus" block)>
     commit: <corpus.commit>
     pack_date: <corpus.committed_at — ISO-8601>
@@ -283,18 +287,18 @@ x-lineage:
     governing_urba:   [ADR-BCM-URBA-0007, ADR-BCM-URBA-0008, ADR-BCM-URBA-0009]
     tech_strat_adrs:  [ADR-TECH-STRAT-001]
     tactical_stack:   [<from .slices.tactical_stack[*].id>]
-    business_objects: [BNK.RLVR.OBJ.BSP.001.EVALUATION]
-    resources:        [BNK.RLVR.RES.BSP.001.ENTRY_SCORE, BNK.RLVR.RES.BSP.001.CURRENT_SCORE]
-    business_events:  [BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED, BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED]
+    business_objects: [<PRODUCT_CTX>.OBJ.BSP.001.EVALUATION]
+    resources:        [<PRODUCT_CTX>.RES.BSP.001.ENTRY_SCORE, <PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE]
+    business_events:  [<PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED, <PRODUCT_CTX>.EVT.BSP.001.SCORE_THRESHOLD_REACHED]
     resource_events:
-      emitted:  [BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED, BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED, BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED]
-      consumed: [BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED, BNK.RLVR.RVT.BSP.004.PAYMENT_BLOCKED, BNK.RLVR.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED, BNK.RLVR.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED]
+      emitted:  [<PRODUCT_CTX>.RVT.BSP.001.ENTRY_SCORE_COMPUTED, <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED, <PRODUCT_CTX>.RVT.BSP.001.SCORE_THRESHOLD_REACHED]
+      consumed: [<PRODUCT_CTX>.RVT.BSP.004.PAYMENT_GRANTED, <PRODUCT_CTX>.RVT.BSP.004.PAYMENT_BLOCKED, <PRODUCT_CTX>.RVT.BSP.001.RELAPSE_SIGNAL_QUALIFIED, <PRODUCT_CTX>.RVT.BSP.001.PROGRESSION_SIGNAL_QUALIFIED]
     business_subscriptions:
-      [BNK.RLVR.SUB.BUSINESS.BSP.001.001, BNK.RLVR.SUB.BUSINESS.BSP.001.002, BNK.RLVR.SUB.BUSINESS.BSP.001.003, BNK.RLVR.SUB.BUSINESS.BSP.001.004]
+      [<PRODUCT_CTX>.SUB.BUSINESS.BSP.001.001, <PRODUCT_CTX>.SUB.BUSINESS.BSP.001.002, <PRODUCT_CTX>.SUB.BUSINESS.BSP.001.003, <PRODUCT_CTX>.SUB.BUSINESS.BSP.001.004]
     resource_subscriptions:
-      [BNK.RLVR.SUB.RESOURCE.BSP.001.001, BNK.RLVR.SUB.RESOURCE.BSP.001.002, BNK.RLVR.SUB.RESOURCE.BSP.001.003, BNK.RLVR.SUB.RESOURCE.BSP.001.004]
+      [<PRODUCT_CTX>.SUB.RESOURCE.BSP.001.001, <PRODUCT_CTX>.SUB.RESOURCE.BSP.001.002, <PRODUCT_CTX>.SUB.RESOURCE.BSP.001.003, <PRODUCT_CTX>.SUB.RESOURCE.BSP.001.004]
   process:
-    folder: process/BNK.RLVR.CAP.BSP.001.SCO/      # logical source-artifact id (via kpack process)
+    folder: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/      # logical source-artifact id (via kpack process)
     version: <.corpus.ref from kpack process>
     aggregates: [AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY]
     commands:   [CMD.BSP.001.SCO.COMPUTE_ENTRY_SCORE, CMD.BSP.001.SCO.RECOMPUTE_SCORE]
@@ -305,17 +309,17 @@ x-lineage:
     by: harness-backend
     at: <ISO-8601 UTC of generation>
     inputs:
-      - process/BNK.RLVR.CAP.BSP.001.SCO/commands.yaml#meta
-      - process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml#meta
-      - process/BNK.RLVR.CAP.BSP.001.SCO/api.yaml#meta
-      - process/BNK.RLVR.CAP.BSP.001.SCO/read-models.yaml#meta
-      - kpack pack BNK.RLVR.CAP.BSP.001.SCO --deep
+      - process/<PRODUCT_CTX>.CAP.BSP.001.SCO/commands.yaml#meta
+      - process/<PRODUCT_CTX>.CAP.BSP.001.SCO/bus.yaml#meta
+      - process/<PRODUCT_CTX>.CAP.BSP.001.SCO/api.yaml#meta
+      - process/<PRODUCT_CTX>.CAP.BSP.001.SCO/read-models.yaml#meta
+      - kpack pack <PRODUCT_CTX>.CAP.BSP.001.SCO --deep
 ```
 
 Conventions:
 - **Identifiers are upper-snake and source-context-prefixed** for bcm assets
-  (`BNK.RLVR.CAP.<L1>.<L2>.<L3>`, `BNK.RLVR.RVT.<…>`, `BNK.RLVR.OBJ.<…>`,
-  `BNK.RLVR.RES.<…>`), used verbatim from `kpack`. Process-authored tactical
+  (`<PRODUCT_CTX>.CAP.<L1>.<L2>.<L3>`, `<PRODUCT_CTX>.RVT.<…>`, `<PRODUCT_CTX>.OBJ.<…>`,
+  `<PRODUCT_CTX>.RES.<…>`), used verbatim from `kpack`. Process-authored tactical
   IDs (`CMD.<…>`, `AGG.<…>`, `POL.<…>`, `PRJ.<…>`, `QRY.<…>`) stay unprefixed.
 - **`ref`/`commit`/`pack_date`** of the corpus are read directly from the
   top-level **`corpus`** block embedded in every `kpack pack` payload
@@ -341,7 +345,7 @@ use `.parsed` when non-null, fall back to `.raw`):
 - `kpack pack`'s resource-layer `.slices.carried_objects` (`.layer=="resource"`)
   — drives the resource (response) schema
   for query endpoints; the OpenAPI response schema for `GET /cases/{case_id}/score`
-  must structurally match `BNK.RLVR.RES.BSP.001.CURRENT_SCORE` (BCM-defined fields)
+  must structurally match `<PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE` (BCM-defined fields)
 - `kpack pack`'s `.slices.capability_definition` — `info.description` body (paragraph
   pulled from the FUNC ADR rationale) and `info.x-policy-summary`
 
@@ -380,20 +384,20 @@ paths:
       x-lineage:
         kind: command
         process:
-          source: process/BNK.RLVR.CAP.BSP.001.SCO/commands.yaml
+          source: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/commands.yaml
           fragment: "$[?(@.id=='CMD.BSP.001.SCO.RECOMPUTE_SCORE')]"
           command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
           accepted_by_aggregate: AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY
           invariants_enforced: [INV.SCO.001, INV.SCO.002, INV.SCO.003]
           emits_resource_events:
-            - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-            - BNK.RLVR.RVT.BSP.001.SCORE_THRESHOLD_REACHED
-          paired_business_event: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
+            - <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+            - <PRODUCT_CTX>.RVT.BSP.001.SCORE_THRESHOLD_REACHED
+          paired_business_event: <PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED
         bcm:
-          business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
+          business_object: <PRODUCT_CTX>.OBJ.BSP.001.EVALUATION
           paired_business_events:
-            - BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
-            - BNK.RLVR.EVT.BSP.001.SCORE_THRESHOLD_REACHED
+            - <PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED
+            - <PRODUCT_CTX>.EVT.BSP.001.SCORE_THRESHOLD_REACHED
           func_adrs: [ADR-BCM-FUNC-0005]
       requestBody:
         required: true
@@ -422,15 +426,15 @@ paths:
       x-lineage:
         kind: query
         process:
-          source: process/BNK.RLVR.CAP.BSP.001.SCO/read-models.yaml
+          source: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/read-models.yaml
           query: QRY.BSP.001.SCO.GET_CURRENT_SCORE
           served_by: PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW
           fed_by:
-            - BNK.RLVR.RVT.BSP.001.ENTRY_SCORE_COMPUTED
-            - BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+            - <PRODUCT_CTX>.RVT.BSP.001.ENTRY_SCORE_COMPUTED
+            - <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
         bcm:
-          resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
-          business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
+          resource: <PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE
+          business_object: <PRODUCT_CTX>.OBJ.BSP.001.EVALUATION
       parameters:
         - { name: case_id, in: path, required: true, schema: { type: string } }
         - { in: header, name: If-None-Match, schema: { type: string }, required: false }
@@ -441,7 +445,7 @@ paths:
             Cache-Control: { schema: { type: string }, example: "max-age=5" }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/BNK.RLVR.RES.BSP.001.CURRENT_SCORE" }
+              schema: { $ref: "#/components/schemas/<PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE" }
         "304": { description: Not Modified }
         "404": { description: No evaluation for case_id }
 
@@ -452,19 +456,19 @@ components:
     # keep the stable logical artifact name (process/{cap}/schemas/…) for provenance.
     # The $id of the source schema is preserved so external consumers can resolve it.
     CMD.BSP.001.SCO.RECOMPUTE_SCORE:
-      $ref: "process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json"
+      $ref: "process/<PRODUCT_CTX>.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json"
       x-lineage:
         kind: command-payload
         command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
-        process_source: process/BNK.RLVR.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json
+        process_source: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/schemas/CMD.BSP.001.SCO.RECOMPUTE_SCORE.schema.json
 
     # Resource projection schemas — derived from kpack resource-layer carried_objects + the read-model fields.
-    BNK.RLVR.RES.BSP.001.CURRENT_SCORE:
+    <PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE:
       type: object
       x-lineage:
         kind: resource
-        resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
-        business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
+        resource: <PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE
+        business_object: <PRODUCT_CTX>.OBJ.BSP.001.EVALUATION
         bcm_source: kpack:slices.carried_objects[layer=resource]
         process_projection: PRJ.BSP.001.SCO.CURRENT_SCORE_VIEW
       properties:
@@ -498,7 +502,7 @@ where the harness inlines the schemas. Mark that file
 Source slices (read-only, from the cached `kpack process <CAP_ID>` JSON):
 - `.model.bus` (`.parsed`, fallback `.raw`) — drives `servers`, `channels`,
   `operations`, `subscribe` / `publish` topology
-- `.schemas["BNK.RLVR.RVT.*.schema.json"]` — drives `components.messages.payload`
+- `.schemas["<PRODUCT_CTX>.RVT.*.schema.json"]` — drives `components.messages.payload`
 - `kpack pack`'s resource-layer `.slices.emitted_events` (`.layer=="resource"`) — sanity check on publish side
 - `kpack pack`'s resource-layer `.slices.consumed_events` (`.layer=="resource"`) — sanity check on subscribe side
 - `kpack pack`'s `business_subscription` chain — for downstream consumer hints
@@ -508,7 +512,7 @@ Required structure:
 
 ```yaml
 asyncapi: 2.6.0
-id: "urn:reliever:bsp:001:sco"
+id: "urn:<product>:bsp:001:sco"
 info:
   title: "{Capability Name} Bus"
   version: <process.version>
@@ -521,13 +525,13 @@ servers:
   rabbitmq:
     url: amqp://localhost:5672
     protocol: amqp
-    description: Local RabbitMQ — reached via the external `reliever-platform`
+    description: Local RabbitMQ — reached via the external `<product>-platform`
       Docker network (service name `rabbitmq:5672` from inside containers,
       host port 5672 when the stand-in `platform.compose.yml` is up).
 
 channels:
   # ── Publish side — owned exchange (Rule 5 of ADR-TECH-STRAT-001) ──
-  bsp.001.sco-events/BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
+  bsp.001.sco-events/<PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED.<PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
     description: Threshold-agnostic recomputation outcome on the owned exchange.
     bindings:
       amqp:
@@ -542,23 +546,23 @@ channels:
       x-lineage:
         kind: emitted-resource-event
         process:
-          source: process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml
-          routing_key: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          source: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/bus.yaml
+          routing_key: <PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED.<PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
           payload_form: domain-event-ddd
           owned_by: AGG.BSP.001.SCO.SCORE_OF_BENEFICIARY
           issued_after: CMD.BSP.001.SCO.RECOMPUTE_SCORE
         bcm:
-          resource_event: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-          resource: BNK.RLVR.RES.BSP.001.CURRENT_SCORE
-          business_event: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED
-          business_object: BNK.RLVR.OBJ.BSP.001.EVALUATION
+          resource_event: <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          resource: <PRODUCT_CTX>.RES.BSP.001.CURRENT_SCORE
+          business_event: <PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED
+          business_object: <PRODUCT_CTX>.OBJ.BSP.001.EVALUATION
           tech_strat_rule: "ADR-TECH-STRAT-001 Rules 2 + 4"
         x-known-consumers:
-          - capability: BNK.RLVR.CAP.BSP.001.ARB
-            binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-          - capability: BNK.RLVR.CAP.CHN.001.DSH
-            binding: BNK.RLVR.EVT.BSP.001.SCORE_RECOMPUTED.#
-      message: { $ref: "#/components/messages/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" }
+          - capability: <PRODUCT_CTX>.CAP.BSP.001.ARB
+            binding: <PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED.<PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+          - capability: <PRODUCT_CTX>.CAP.CHN.001.DSH
+            binding: <PRODUCT_CTX>.EVT.BSP.001.SCORE_RECOMPUTED.#
+      message: { $ref: "#/components/messages/<PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED" }
 
   # ── Subscribe side — bound queues on upstream exchanges ──
   bsp.001.sco.q.transaction-authorized:
@@ -578,36 +582,36 @@ channels:
       x-lineage:
         kind: consumed-resource-event
         process:
-          source: process/BNK.RLVR.CAP.BSP.001.SCO/bus.yaml
-          binding_pattern: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED.BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
+          source: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/bus.yaml
+          binding_pattern: <PRODUCT_CTX>.EVT.BSP.004.TRANSACTION_AUTHORIZED.<PRODUCT_CTX>.RVT.BSP.004.PAYMENT_GRANTED
           consumed_by: POL.BSP.001.SCO.ON_BEHAVIOURAL_TRIGGER
           issues_command: CMD.BSP.001.SCO.RECOMPUTE_SCORE
         bcm:
-          source_capability: BNK.RLVR.CAP.BSP.004.AUT
-          resource_event: BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED
-          business_event: BNK.RLVR.EVT.BSP.004.TRANSACTION_AUTHORIZED
-          business_subscription: BNK.RLVR.SUB.BUSINESS.BSP.001.001
-          resource_subscription: BNK.RLVR.SUB.RESOURCE.BSP.001.001
-      message: { $ref: "#/components/messages/BNK.RLVR.RVT.BSP.004.PAYMENT_GRANTED" }
+          source_capability: <PRODUCT_CTX>.CAP.BSP.004.AUT
+          resource_event: <PRODUCT_CTX>.RVT.BSP.004.PAYMENT_GRANTED
+          business_event: <PRODUCT_CTX>.EVT.BSP.004.TRANSACTION_AUTHORIZED
+          business_subscription: <PRODUCT_CTX>.SUB.BUSINESS.BSP.001.001
+          resource_subscription: <PRODUCT_CTX>.SUB.RESOURCE.BSP.001.001
+      message: { $ref: "#/components/messages/<PRODUCT_CTX>.RVT.BSP.004.PAYMENT_GRANTED" }
 
 components:
   messages:
-    BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
-      name: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+    <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED:
+      name: <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
       title: Current score recomputed
       contentType: application/json
-      payload: { $ref: "process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json" }
+      payload: { $ref: "process/<PRODUCT_CTX>.CAP.BSP.001.SCO/schemas/<PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json" }
       x-lineage:
         kind: resource-event-payload
-        resource_event: BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
-        process_source: process/BNK.RLVR.CAP.BSP.001.SCO/schemas/BNK.RLVR.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json
+        resource_event: <PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED
+        process_source: process/<PRODUCT_CTX>.CAP.BSP.001.SCO/schemas/<PRODUCT_CTX>.RVT.BSP.001.CURRENT_SCORE_RECOMPUTED.schema.json
         bcm_source: kpack:slices.emitted_events[layer=resource]
 ```
 
 Conventions:
 - **Channel names mirror the exchange + binding pattern** so a reader who
   knows RabbitMQ can derive the topology from the channel id alone.
-- The `<BNK.RLVR.EVT.…>.<BNK.RLVR.RVT.…>` routing-key form (TECH-STRAT-001 Rule 4) is preserved
+- The `<<PRODUCT_CTX>.EVT.…>.<<PRODUCT_CTX>.RVT.…>` routing-key form (TECH-STRAT-001 Rule 4) is preserved
   literally in channel ids and `bindings.amqp.exchange.routingKey`.
 - `x-known-consumers` is a non-normative AsyncAPI extension; it documents
   expected downstream consumers from BCM but does not constrain the broker.
@@ -875,7 +879,7 @@ schemas from `.schemas[...]`.)
 
 - Every `CMD.*` declared in `.model.commands` (`.raw`) has a matching
   OpenAPI `operation` whose `x-lineage.process.command` equals it.
-- Every `BNK.RLVR.RVT.*` listed in `.model.bus`'s `routing_keys` has a
+- Every `<PRODUCT_CTX>.RVT.*` listed in `.model.bus`'s `routing_keys` has a
   matching AsyncAPI `publish` operation whose
   `x-lineage.bcm.resource_event` equals it.
 - Every `subscriptions[*]` in `.model.bus` has a matching
@@ -888,16 +892,16 @@ schemas from `.schemas[...]`.)
 
 ### 6.2 BCM-side closure
 
-- Every `BNK.RLVR.RVT.*` in the AsyncAPI `publish` operations appears in
+- Every `<PRODUCT_CTX>.RVT.*` in the AsyncAPI `publish` operations appears in
   `kpack.slices.emitted_events` filtered to `.layer=="resource"`.
-- Every `BNK.RLVR.RVT.*` in the AsyncAPI `subscribe` operations appears in
+- Every `<PRODUCT_CTX>.RVT.*` in the AsyncAPI `subscribe` operations appears in
   `kpack.slices.consumed_events` filtered to `.layer=="resource"`.
-- Every `BNK.RLVR.RES.*` referenced as a query response schema appears in
+- Every `<PRODUCT_CTX>.RES.*` referenced as a query response schema appears in
   `kpack.slices.carried_objects` filtered to `.layer=="resource"` (with the same business object family).
-- Every `BNK.RLVR.EVT.*` listed in routing keys appears in
+- Every `<PRODUCT_CTX>.EVT.*` listed in routing keys appears in
   `kpack.slices.emitted_events` filtered to `.layer=="business"` (publish) or
   `kpack.slices.consumed_events` filtered to `.layer=="business"` (subscribe).
-- Every `BNK.RLVR.SUB.BUSINESS.*` / `BNK.RLVR.SUB.RESOURCE.*` referenced in bus subscriptions
+- Every `<PRODUCT_CTX>.SUB.BUSINESS.*` / `<PRODUCT_CTX>.SUB.RESOURCE.*` referenced in bus subscriptions
   appears in the BCM business-subscription / resource-subscription chain.
 
 ### 6.3 Runtime alignment
@@ -909,11 +913,11 @@ differs:
 |---|---|---|
 | Every HTTP action maps to an OpenAPI operation (by route + verb), and vice-versa — no orphan paths in the spec | `Assembly.LoadFrom` the compiled `Presentation` assembly; enumerate `[HttpPost]` / `[HttpGet]` (or Minimal-API `MapPost` / `MapGet`) endpoints | `import {namespace}_{capability_module}.presentation.app; app = create_app(); for r in app.routes: …` — walk `APIRoute` instances (path, methods, endpoint) |
 | Every bus consumer maps to an AsyncAPI `subscribe` operation (by queue name + binding) | enumerate consumers registered with the bus library (MassTransit, Saunter) via DI inspection | import `{namespace}_{capability_module}.presentation.messaging.consumer`, walk the module for `aio_pika.RobustQueue` declarations and routing-key constants (look for `bus.yaml`-derived constants — they should be exported at module scope) |
-| Every event publisher maps to an AsyncAPI `publish` operation (by message name) | inspect `Contracts/Events/` types | inspect `contracts.events` pydantic models — each `BNK.RLVR.RVT.*`/`BNK.RLVR.EVT.*` class name must match a `publish` message |
+| Every event publisher maps to an AsyncAPI `publish` operation (by message name) | inspect `Contracts/Events/` types | inspect `contracts.events` pydantic models — each `<PRODUCT_CTX>.RVT.*`/`<PRODUCT_CTX>.EVT.*` class name must match a `publish` message |
 
 When walking Python routes/consumers, run the import inside a subprocess
 (`python -c "from … import create_app; …"`) so any startup side-effects
-(DB / RabbitMQ connections) can be stubbed via env (`RELIEVER_TEST_MODE=1`)
+(DB / RabbitMQ connections) can be stubbed via env (`{NAMESPACE}_TEST_MODE=1`)
 without polluting the harness process. The Python service is expected to
 honour a `TEST_MODE` env-var convention — if it doesn't, fall back to
 AST-based inspection of `presentation/routers/*.py` and emit a warning
@@ -961,11 +965,11 @@ kpack corpus ref:    <corpus.ref>
 |---------------------------------------|------:|----------------:|--------|
 | process/commands.yaml (CMD.*)         |     N |               N | ✅ |
 | process/read-models.yaml (QRY.*)      |     N |               N | ✅ |
-| process/bus.yaml (publish BNK.RLVR.RVT.*)      |     N |               N | ✅ |
+| process/bus.yaml (publish <PRODUCT_CTX>.RVT.*)  |     N |               N | ✅ |
 | process/bus.yaml (subscribe bindings) |     N |               N | ✅ |
 | kpack emitted_events (resource layer) |     N |               N | ✅ |
 | kpack consumed_events (resource layer)|     N |               N | ✅ |
-| kpack carried_objects (BNK.RLVR.RES.*)      |     N |               N | ✅ |
+| kpack carried_objects (<PRODUCT_CTX>.RES.*) |     N |               N | ✅ |
 
 ## Lineage closure
 
@@ -1003,7 +1007,7 @@ Then return a concise summary to the caller (`/code` Path A or
 > (COMPONENT_PORT = deterministic, kind=api, per CLAUDE.md Deployment contract)."
 
 If any closure check fails, return a structured failure listing the gap and
-the most likely upstream fix (refresh `/process` in reliever-knowledge and
+the most likely upstream fix (refresh `/process` in the product-knowledge repo and
 merge its PR, fix a BCM warning, or add the missing controller / consumer).
 Do not auto-fix the
 microservice — that is `implement-capability` /
@@ -1017,7 +1021,7 @@ microservice — that is `implement-capability` /
   `implement-capability` (.NET) or `implement-capability-python` agent's
   job. The harness is added on top.
 - **Does not write under `process/`.** The process model is upstream
-  (authored by `/process` in reliever-knowledge, consumed read-only via
+  (authored by `/process` in the product-knowledge repo, consumed read-only via
   `kpack process`) and is not in this repo — there is nothing to write.
 - **Does not author ADRs.** If a closure check reveals a gap that cannot be
   fixed locally (BCM declares an event the process does not emit, a

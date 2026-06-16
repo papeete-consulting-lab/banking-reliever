@@ -71,7 +71,9 @@ If no files are found: terminate silently, no commit.
 ## Step 2 — Extract PR URLs
 
 For each file found, read the YAML frontmatter and extract `pr_url:`
-(expected format: `https://github.com/Banking-PapeeteConsulting/banking-reliever/pull/NNN`).
+(expected format: `https://github.com/<PRODUCT_IMPL_REPO>/pull/NNN`, where
+`<PRODUCT_IMPL_REPO>` is this implementation repo's `owner/name` slug — read
+it once from `gh repo view --json nameWithOwner -q .nameWithOwner`, never hardcoded).
 
 If a task has `status: in_review` but no `pr_url`: skip it and display a warning:
 > "⚠ TASK-NNN: status in_review but no pr_url — skipped."
@@ -83,7 +85,7 @@ If a task has `status: in_review` but no `pr_url`: skip it and display a warning
 For each PR URL, extract the number (last path segment) and run **once**:
 
 ```bash
-gh pr view <NNN> --repo Banking-PapeeteConsulting/banking-reliever \
+gh pr view <NNN> --repo <PRODUCT_IMPL_REPO> \
   --json number,state,mergedAt,headRefName,headRefOid,title,statusCheckRollup
 ```
 
@@ -208,7 +210,7 @@ and pushed before `/fix` starts mutating worktrees. PRs in the `ci-pending`,
 For each PR in the `ci-failing` bucket, fetch the existing watcher comments:
 
 ```bash
-gh pr view <NNN> --repo Banking-PapeeteConsulting/banking-reliever \
+gh pr view <NNN> --repo <PRODUCT_IMPL_REPO> \
   --json comments --jq '.comments[] | select(.author.login=="github-actions[bot]" or (.body | startswith("pr-merge-watcher:"))) | .body'
 ```
 
@@ -231,16 +233,16 @@ log excerpt — these are the "essential information" passed to `/fix`:
 
 ```bash
 # 1. List the failing checks for this PR.
-gh pr checks <NNN> --repo Banking-PapeeteConsulting/banking-reliever \
+gh pr checks <NNN> --repo <PRODUCT_IMPL_REPO> \
   --json name,state,conclusion,description,link
 
 # 2. For every check whose conclusion is FAILURE/TIMED_OUT/CANCELLED/ACTION_REQUIRED,
 #    pull the failed-step log lines from the underlying run.
-RUN_ID=$(gh run list --repo Banking-PapeeteConsulting/banking-reliever \
+RUN_ID=$(gh run list --repo <PRODUCT_IMPL_REPO> \
   --branch <headRefName> --json databaseId,conclusion,headSha \
   --jq '.[] | select(.headSha=="<headRefOid>" and (.conclusion=="failure" or .conclusion=="timed_out" or .conclusion=="cancelled")) | .databaseId' | head -1)
 
-gh run view "$RUN_ID" --repo Banking-PapeeteConsulting/banking-reliever --log-failed > /tmp/pr-<NNN>-failed.log
+gh run view "$RUN_ID" --repo <PRODUCT_IMPL_REPO> --log-failed > /tmp/pr-<NNN>-failed.log
 ```
 
 From the harvested data, build a **FAILURE_BUNDLE** matching the structure
@@ -272,7 +274,7 @@ Post the marker comment now so a concurrent watcher tick (e.g. when running
 under `/loop 5m`) does not re-dispatch the same fix:
 
 ```bash
-gh pr comment <NNN> --repo Banking-PapeeteConsulting/banking-reliever --body "$(cat <<'BODY'
+gh pr comment <NNN> --repo <PRODUCT_IMPL_REPO> --body "$(cat <<'BODY'
 pr-merge-watcher: dispatched /fix at <headRefOid>
 
 Failing checks:

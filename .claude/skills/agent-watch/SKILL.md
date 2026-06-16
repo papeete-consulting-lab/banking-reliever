@@ -73,7 +73,7 @@ worktree (the skill works regardless), they just won't see live tool calls.
 Once a `TASK-NNN` is resolved, run the helper script in **detach** mode:
 
 ```bash
-bash /home/yoann/sources/banking/banking-reliever/.claude/scripts/agent-watch.sh TASK-NNN --detach
+bash "$(git rev-parse --show-toplevel)/.claude/scripts/agent-watch.sh" TASK-NNN --detach
 ```
 
 The script:

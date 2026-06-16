@@ -7,7 +7,7 @@ description: >
   from the external `kpack` CLI — this skill no longer drives any modeling
   or brainstorming session. The DDD tactical Process Modelling layer
   (aggregates, commands, policies, read-models, bus topology, JSON Schemas) is
-  authored by `/process` in the external `reliever-knowledge` repo and consumed
+  authored by `/process` in the external product knowledge repo and consumed
   here read-only via `kpack process <CAP_ID>`; the local pipeline starts by
   consuming it, every downstream stage reading it as a read-only contract. The code stage is
   zone-aware AND language-aware: non-CHANNEL capabilities go to a
@@ -44,19 +44,23 @@ that takes a planned business capability all the way to a running, validated
 artifact.
 
 All upstream knowledge (BCM YAML, FUNC/URBA/GOV/TECH ADRs, product/business/tech
-visions) lives in the external `reliever-knowledge` repository and is exposed
-read-only through the `kpack` CLI (context `BNK.RLVR`). This skill never authors or modifies
+visions) lives in the external product knowledge repo and is exposed
+read-only through the `kpack` CLI (context `<PRODUCT_CTX>`). This skill never authors or modifies
 upstream artifacts — it consumes them.
+
+> `<PRODUCT_CTX>` is this enterprise's product capability-map context, resolved
+> from the repo's `.kpack.yaml` and the governance `contexts:` registry — never
+> hardcoded.
 
 ---
 
 ## The Pipeline
 
 ```
-[0] Process                         (process skill — IN reliever-knowledge, NOT this repo)   [PARALLELIZABLE per L2/L3 capability]
+[0] Process                         (process skill — IN the product knowledge repo, NOT this repo)   [PARALLELIZABLE per L2/L3 capability]
         ↓ reads:    `kpack pack <CAP_ID> --deep` (BCM + FUNC/URBA/TECH-STRAT ADRs + visions)
         ↓ produces: the DDD tactical Process Modelling layer, authored upstream in
-        ↓           reliever-knowledge and consumed here read-only via `kpack process <CAP_ID>`:
+        ↓           the product knowledge repo and consumed here read-only via `kpack process <CAP_ID>`:
         ↓           ├─ .readme                     (framing + scenarios + open questions)
         ↓           ├─ .model.aggregates           (AGG.* — consistency boundaries, invariants)
         ↓           ├─ .model.commands             (CMD.* — verbs accepted, preconditions, errors)
@@ -65,7 +69,7 @@ upstream artifacts — it consumes them.
         ↓           ├─ .model.bus                  (exchange + routing keys + subscriptions)
         ↓           ├─ .model.api                  (derived REST surface)
         ↓           └─ .schemas[...]               (JSON Schemas for CMD and RVT payloads)
-        ↓ NOTE: `/process` runs in the reliever-knowledge repo. The local pipeline does NOT
+        ↓ NOTE: `/process` runs in the product knowledge repo. The local pipeline does NOT
         ↓       author the process model — it consumes it via `kpack process`. There is
         ↓       no process/ folder in this repo, so nothing to guard or write here.
 
@@ -104,7 +108,7 @@ upstream artifacts — it consumes them.
 [4a] implement-capability agent    (.NET 10 microservice, Clean Architecture + DDD)
          output: sources/{capability-name}/backend/ (+ backend/deployment/{local,dev}/)
          deterministic COMPONENT_PORT (kind=api) per the Deployment contract in CLAUDE.md;
-           RabbitMQ + DB live on the external `reliever-platform` platform — not bundled
+           RabbitMQ + DB live on the external platform — not bundled
          creates Domain / Application / Infrastructure / Presentation / Contracts projects
          writes /health endpoint for readiness probing
          reserves Contracts.Harness/ + contracts/specs/ for the harness step
@@ -120,7 +124,7 @@ upstream artifacts — it consumes them.
                                        lineage.json,harness-report.md}
          OpenAPI 3.1 — strict from process/api.yaml + commands + read-models +
                        schemas/CMD.* + bcm carried_objects
-         AsyncAPI 2.6 — strict from process/bus.yaml + schemas/BNK.RLVR.RVT.* +
+         AsyncAPI 2.6 — strict from process/bus.yaml + schemas/<PRODUCT_CTX>.RVT.* +
                         bcm emitted/consumed events (.layer=="resource")
          every operation/channel/message carries x-lineage → process + bcm
          wires /openapi.yaml + /asyncapi.yaml endpoints on Presentation
@@ -163,13 +167,13 @@ board) and `/launch-task` (orchestrator)** — this skill does not launch
 implementation agents directly.
 
 > **Read-only contract.** The process model is authored by `/process` in the
-> **reliever-knowledge** repo and is the **read-only input** of stages 1, 2, 4, 5
+> **product knowledge repo** and is the **read-only input** of stages 1, 2, 4, 5
 > and any `/fix` / `/continue-work` re-entry, fetched via `kpack process
 > <CAP_ID>` — exactly like the BCM corpus via `kpack pack`. It does not live
 > in this repo, so there is nothing to guard locally and nothing to write under
 > `process/`. If a downstream stage discovers that the model is wrong, it must
 > surface the gap and stop, so the user can re-run `/process <CAPABILITY_ID>` in
-> the reliever-knowledge repo and merge its PR.
+> the product knowledge repo and merge its PR.
 
 ---
 
@@ -182,8 +186,8 @@ then check local artifacts. Do not `ls` `/bcm/`, `/func-adr/`, `/adr/`,
 those paths are not authoritative locally and are typically absent.
 
 ```bash
-# Pick a target capability (or iterate over `kpack list --context BNK.RLVR --level L2`)
-CAP_ID="BNK.RLVR.CAP.BSP.001"
+# Pick a target capability (or iterate over `kpack list --context <PRODUCT_CTX> --level L2`)
+CAP_ID="<PRODUCT_CTX>.CAP.BSP.001"
 
 # Upstream readiness — all required slices must be non-empty for stages 1-2 to run
 kpack pack $CAP_ID --deep --compact > /tmp/probe.json
@@ -198,7 +202,7 @@ jq '{
   warnings:              .warnings
 }' /tmp/probe.json
 
-# Stage 0 — the process model (authored upstream in reliever-knowledge), read via kpack
+# Stage 0 — the process model (authored upstream in the product knowledge repo), read via kpack
 kpack process $CAP_ID --compact >/dev/null 2>&1 && echo "Stage 0: process model present" || echo "Stage 0: no process model"
 
 # Local artifacts produced by this pipeline
@@ -211,7 +215,7 @@ ls tests/*/TASK-*-*/report.html                         # Stage 5 reports
 # Knowledge-base DRIFT — has upstream moved since this capability was modelled?
 # The process model carries the ref it was built from in its .corpus block.
 PINNED_REF=$(kpack process $CAP_ID --compact 2>/dev/null | jq -r '.corpus.ref // empty')
-CURRENT_REF=$(kpack version --context BNK.RLVR --compact | jq -r '.ref')
+CURRENT_REF=$(kpack version --context <PRODUCT_CTX> --compact | jq -r '.ref')
 if [ -n "$PINNED_REF" ] && [ "$PINNED_REF" != "$CURRENT_REF" ]; then
   kpack diff "$PINNED_REF" --capability "$CAP_ID" --compact | jq '{from:.from.ref,to:.to.ref,empty:.empty,summary:.summary}'
 fi
@@ -220,15 +224,15 @@ fi
 Report the status clearly:
 
 ```
-Upstream (kpack) for BNK.RLVR.CAP.BSP.001:
+Upstream (kpack) for <PRODUCT_CTX>.CAP.BSP.001:
   ✅ domain_vision / business_vision / tech_vision present
   ✅ FUNC ADR present (capability_definition non-empty)
   ✅ Tactical ADR present (tactical_stack non-empty)
   ✅ BCM YAML present (capability_self non-empty, no warnings)
 
 Local pipeline:
-  ✅ Stage 0 — Process: `kpack process BNK.RLVR.CAP.BSP.001` resolves (aggregates, commands, policies, read-models, bus, api, schemas — authored upstream in reliever-knowledge)
-  ✅ Stage 1 — Roadmap: /roadmap/BNK.RLVR.CAP.BSP.001/roadmap.md
+  ✅ Stage 0 — Process: `kpack process <PRODUCT_CTX>.CAP.BSP.001` resolves (aggregates, commands, policies, read-models, bus, api, schemas — authored upstream in the product knowledge repo)
+  ✅ Stage 1 — Roadmap: /roadmap/<PRODUCT_CTX>.CAP.BSP.001/roadmap.md
   ⏳ Stage 2 — Tasks: 3/8 epics covered
   ⬜ Stage 3 — Kanban: BOARD.md not yet generated
   ⬜ Stage 4 — No implementation artifacts
@@ -237,7 +241,7 @@ Local pipeline:
 Knowledge drift:
   ⚠️  Process model pinned to v2.0.0; knowledge base now at v2.1.0 —
       `kpack diff` reports 1 changed business event, 2 changed ADRs for this
-      capability. Re-run `/process BNK.RLVR.CAP.BSP.001` to refresh the model,
+      capability. Re-run `/process <PRODUCT_CTX>.CAP.BSP.001` to refresh the model,
       then re-derive roadmap/tasks, before resuming Stage 4.
 
 Next action: complete task generation for the remaining 5 epics.
@@ -245,42 +249,42 @@ Next action: complete task generation for the remaining 5 epics.
 
 **Drift gate.** When `kpack diff <pinned_ref> --capability <CAP_ID>` reports a
 non-empty summary, the process model is stale relative to upstream knowledge.
-Flag it loudly and recommend re-running `/process` in the reliever-knowledge repo
+Flag it loudly and recommend re-running `/process` in the product knowledge repo
 (then `/roadmap` → `/task` here) before any further Stage 4 work — implementing
 against a stale model silently breaks the traceability chain. An empty diff means
 the artifact is current.
 
 If any upstream slice is empty or `pack.warnings` is non-empty, the upstream
 knowledge corpus is incomplete — direct the user to the upstream
-`reliever-knowledge` repository to fix it. This skill cannot author or modify
+the product knowledge repo to fix it. This skill cannot author or modify
 upstream artifacts.
 
 ---
 
 ## Step 2 — Guide or Execute the Next Action
 
-### Stage 0 — Process Modelling (authored upstream in reliever-knowledge)
+### Stage 0 — Process Modelling (authored upstream in the product knowledge repo)
 
 Stage 0 is **not run from this repo.** The DDD Process Modelling layer is
-authored by the `/process` skill in the **reliever-knowledge** repo and consumed
+authored by the `/process` skill in the **product knowledge repo** and consumed
 here read-only via `kpack process <CAP_ID>`. The local pipeline starts by
 *consuming* that model, not producing it.
 
 For each target capability, verify the model resolves:
 
 ```bash
-CAP_ID="BNK.RLVR.CAP.ZONE.NNN"
+CAP_ID="<PRODUCT_CTX>.CAP.ZONE.NNN"
 if kpack process "$CAP_ID" --compact >/dev/null 2>&1; then
   echo "✅ Stage 0 — process model for $CAP_ID resolves (proceed to Stage 1)"
 else
   echo "⬜ Stage 0 — no process model for $CAP_ID."
-  echo "   Run /process $CAP_ID in the reliever-knowledge repo and merge its PR,"
+  echo "   Run /process $CAP_ID in the product knowledge repo and merge its PR,"
   echo "   then resume the pipeline here."
 fi
 ```
 
 If the model does not resolve, direct the user to run `/process <CAP_ID>` in the
-reliever-knowledge repo and merge its PR — this skill cannot author it. Once it
+the product knowledge repo and merge its PR — this skill cannot author it. Once it
 resolves, the model is read-only input for every downstream stage; there is no
 local `process/` folder and nothing to write here.
 
@@ -289,11 +293,11 @@ local `process/` folder and nothing to write here.
 For each L2 capability without a `roadmap.md`, spawn one subagent:
 
 ```
-Use the roadmap skill to generate a roadmap for capability [BNK.RLVR.CAP.ZONE.NNN — Name].
+Use the roadmap skill to generate a roadmap for capability [<PRODUCT_CTX>.CAP.ZONE.NNN — Name].
 
 Knowledge access (mandatory):
 - Source ALL BCM, ADR, and vision context from the `kpack` CLI:
-    `kpack pack [BNK.RLVR.CAP.ZONE.NNN] --deep --compact`
+    `kpack pack [<PRODUCT_CTX>.CAP.ZONE.NNN] --deep --compact`
   Do NOT read /bcm/, /func-adr/, /adr/, /strategic-vision/, /domain-vision/,
   /tech-vision/, or /tech-adr/ directly. The pack returns slices for
   capability_self, capability_definition (FUNC ADR), tactical_stack
@@ -312,12 +316,12 @@ Save the result to /roadmap/[capability-id]/roadmap.md
 For each capability with a roadmap but no tasks, spawn one subagent:
 
 ```
-Use the task skill to generate tasks for capability [BNK.RLVR.CAP.ZONE.NNN — Name].
+Use the task skill to generate tasks for capability [<PRODUCT_CTX>.CAP.ZONE.NNN — Name].
 Read the roadmap from /roadmap/[capability-id]/roadmap.md (local).
 
 Knowledge access (mandatory):
 - Source ALL BCM and ADR context from the `kpack` CLI:
-    `kpack pack [BNK.RLVR.CAP.ZONE.NNN] --compact`
+    `kpack pack [<PRODUCT_CTX>.CAP.ZONE.NNN] --compact`
   (lightweight is enough for task generation — the rationale ADRs are not
   needed). Do NOT read /bcm/, /func-adr/, /adr/, or /tech-adr/ directly.
   Use slices: capability_self, capability_definition,
@@ -403,7 +407,7 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
      and port-allocation conventions:
      - **Deterministic** `COMPONENT_PORT` (kind=`api`) per the Deployment contract
        in CLAUDE.md — formula `20000 + sha256("{capability_id}:api") % 9000`.
-       RabbitMQ + the DB live on the external `reliever-platform` Docker network
+       RabbitMQ + the DB live on the external platform Docker network
        (the platform, or the opt-in `platform.compose.yml` stand-in); the component
        compose under `backend/deployment/local/` runs **only the component image**.
      - Generates Domain / Application / Infrastructure / Presentation / Contracts projects
@@ -456,7 +460,7 @@ When `/launch-task` (or the user via `/code TASK-NNN`) launches a task, the code
     - Push branch and `gh pr create` with a body that includes:
       DoD checklist, test report path, local stack instructions for backend / BFF /
       frontend (one `COMPONENT_PORT` per component, derived from `capability_id`;
-      RabbitMQ + DB reached via the external `reliever-platform` network or the
+      RabbitMQ + DB reached via the external platform network or the
       `platform.compose.yml` stand-in on conventional host ports 5672/15672/27017/5432),
       a pointer to `deployment/dev/{k8s,terraform}/`, and the manual test plan.
     - Report next available tasks (newly unblocked).
@@ -469,7 +473,7 @@ Two distinct skills, picked by the `/code` skill from the capability zone:
 
 Runs in a **temporary, isolated `/tmp/test-{cap-id}-XXXXXX` directory**:
 1. Brings up the stand-in platform (`deployment/local/platform.compose.yml` —
-   external `reliever-platform` network + RabbitMQ + DB on standard host ports
+   external platform network + RabbitMQ + DB on standard host ports
    5672/15672/27017/5432) followed by the component compose
    (`deployment/local/docker-compose.yml`), then probes `GET /health` on the
    deterministic `COMPONENT_PORT` (kind=`api`). Tests never assume a
@@ -525,7 +529,7 @@ under the same `tests/{capability-id}/TASK-NNN-{slug}/` directory.
 
 | Stage | Prerequisite |
 |-------|--------------|
-| 0 (Process) | `kpack pack <CAP_ID> --deep` returns non-empty `capability_self`, `capability_definition`, `tactical_stack`, `governing_urba`, `governing_tech_strat`, `domain_vision`, `business_vision`, `tech_vision`, and `pack.warnings` is empty. The full upstream chain (product → strategic business → strategic tech → FUNC ADR → tactical ADR → BCM YAML) must be in place in the `reliever-knowledge` repo. |
+| 0 (Process) | `kpack pack <CAP_ID> --deep` returns non-empty `capability_self`, `capability_definition`, `tactical_stack`, `governing_urba`, `governing_tech_strat`, `domain_vision`, `business_vision`, `tech_vision`, and `pack.warnings` is empty. The full upstream chain (product → strategic business → strategic tech → FUNC ADR → tactical ADR → BCM YAML) must be in place in the product knowledge repo. |
 | 1 (Roadmap) | Stage 0 prerequisites + `kpack process <CAP_ID>` resolves (exit 0) with at least `.readme`, `.model.aggregates`, `.model.commands`, `.model.policies`, `.model["read-models"]`, `.model.bus`. |
 | 2 (Task) | Stage 1 prerequisite + local `/roadmap/{capability-id}/roadmap.md` has at least one epic with an exit condition |
 | 3 (sort-task / launch-task) | At least one `TASK-NNN-*.md` in local `/tasks/*/` with valid frontmatter |
@@ -534,14 +538,14 @@ under the same `tests/{capability-id}/TASK-NNN-{slug}/` directory.
 
 If a prerequisite is missing, explain which earlier stage must be completed
 first. If the gap is upstream (any required `kpack` slice is empty), point
-the user to the `reliever-knowledge` repository — this skill cannot fix it.
+the user to the product knowledge repo — this skill cannot fix it.
 
 ---
 
 ## Governance Reminders
 
 - **All upstream context is read-only.** GOV / URBA / TECH-STRAT / FUNC /
-  TACTICAL ADRs and BCM YAML live in the `reliever-knowledge` repo and are
+  TACTICAL ADRs and BCM YAML live in the product knowledge repo and are
   consumed via `kpack` only. To author or update them, work in that
   repository directly.
 - Every task must trace back to a roadmap epic, which traces back to an L2
@@ -553,11 +557,11 @@ the user to the `reliever-knowledge` repository — this skill cannot fix it.
 **The traceability chain is unbreakable:**
 
 ```
-[upstream — reliever-knowledge / kpack]
+[upstream — product knowledge repo / kpack]
   Service Offer → Strategic L1 → Strategic Tech (TECH-STRAT) → IS L1/L2 (FUNC) →
   Tactical Tech (TECH-TACT) → BCM YAML
                           ↓
-[upstream — reliever-knowledge / kpack process]
+[upstream — product knowledge repo / kpack process]
   Process Modelling (consumed via `kpack process`)
                           ↓
 [local — this repo]
@@ -568,7 +572,7 @@ Any stage that cannot establish this chain must stop and surface the gap to
 the user.
 
 **The process layer is authored upstream.** Only `/process` can author the
-process model, and it does so in the **reliever-knowledge** repo; this repo
+process model, and it does so in the **product knowledge repo**; this repo
 consumes it read-only via `kpack process <CAP_ID>`. There is no local
 `process/` folder here, so branches and PRs opened by `/code`, `/fix`, or
 `/launch-task` (and their CI/CD pipelines) carry no `process/` diff — there

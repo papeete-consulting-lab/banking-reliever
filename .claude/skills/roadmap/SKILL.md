@@ -27,10 +27,14 @@ language. The "how" emerges in the task phase.
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via
+> **product knowledge repo** and consumed here **read-only** via
 > `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
 > It does not live in this repo, so there is nothing to guard locally and
 > nothing to write under `process/`.
+>
+> `<PRODUCT_CTX>` is this enterprise's product capability-map context, resolved
+> from the repo's `.kpack.yaml` and the governance `contexts:` registry — never
+> hardcoded.
 
 This skill consumes the model as a primary input to ground epics in real
 aggregates and commands. Fetch it once via `kpack process <CAP_ID>` and read
@@ -43,17 +47,17 @@ roadmap, that is a category violation owned by `/process`.
 
 Before reading anything from the process model, verify it resolves. A model is
 ready iff `kpack process <CAP_ID>` returns exit 0 (kpack resolves the
-published `main` of reliever-knowledge by default).
+published `main` of the product knowledge repo by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID>"
 
-# The process model lives in reliever-knowledge now; it is ready iff kpack
-# can resolve it (kpack resolves the published main by default).
+# The process model lives in the product knowledge repo now; it is ready iff
+# kpack can resolve it (kpack resolves the published main by default).
 if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the product knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -61,7 +65,7 @@ fi
 
 If the gate fails, **stop and surface the failure to the user with the redirect
 message above** — do not proceed to draft the roadmap. Once `/process <CAP_ID>`
-is run in the reliever-knowledge repo and its PR merged, re-run `/roadmap`.
+is run in the product knowledge repo and its PR merged, re-run `/roadmap`.
 
 ---
 
@@ -71,15 +75,19 @@ is run in the reliever-knowledge repo and its PR merged, re-run `/roadmap`.
 Do not read `/bcm/`, `/func-adr/`, `/adr/`, `/strategic-vision/`, `/domain-vision/`, or any 
 other knowledge file directly from the local working directory — those paths may be missing, 
 stale, or incomplete in this checkout. The authoritative corpus lives in the
-`Banking-PapeeteConsulting/reliever-knowledge` Git repository, and `kpack` is the only sanctioned 
+product knowledge repo, and `kpack` is the only sanctioned 
 way to query it.
+
+`<PRODUCT_CTX>` is this enterprise's product capability-map context, resolved
+from the repo's `.kpack.yaml` and the governance `contexts:` registry — never
+hardcoded.
 
 Two subcommands are all you need:
 
 ```bash
 # 1. Enumerate plannable capabilities (use to disambiguate user input)
-kpack list --context BNK.RLVR --level L2
-kpack list --context BNK.RLVR --level L3
+kpack list --context <PRODUCT_CTX> --level L2
+kpack list --context <PRODUCT_CTX> --level L3
 
 # 2. Fetch the full pack for one capability (lightweight mode is the default)
 kpack pack <CAPABILITY_ID> --deep --compact
@@ -117,7 +125,7 @@ should land in the roadmap's **Open Questions** section.
 
 ### Repo ref and offline behaviour
 
-- Default ref is `main` on `git@github.com:Banking-PapeeteConsulting/reliever-knowledge.git`. To pin a 
+- Default ref is `main` on the product knowledge repo (from the contexts registry). To pin a 
   specific snapshot (e.g. matching a release): `kpack --ref v0.1.0 pack <ID> --deep --compact`.
 - Cached locally under `~/.cache/kpack/`. Add `--no-fetch` to skip the per-invocation 
   `git fetch` if the network is slow or unreachable; `--fresh` re-clones from scratch.
@@ -128,7 +136,7 @@ should land in the roadmap's **Open Questions** section.
 
 ```bash
 # One JSON object → parse it once, then drive the roadmap from the parsed slices.
-kpack pack BNK.RLVR.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
+kpack pack <PRODUCT_CTX>.CAP.BSP.001.PAL --deep --compact > /tmp/pack.json
 jq '.slices.capability_self[0]'                                  /tmp/pack.json
 jq '.slices.capability_definition[0]'                           /tmp/pack.json
 jq '[.slices.emitted_events[] | select(.layer=="business")]'    /tmp/pack.json
@@ -136,14 +144,14 @@ jq '.warnings'                                                  /tmp/pack.json
 ```
 
 If the capability ID is unknown to `kpack pack` (exit code 2), do not fall back to local
-files — surface the error to the user and ask them to confirm the ID against `kpack list --context BNK.RLVR`.
+files — surface the error to the user and ask them to confirm the ID against `kpack list --context <PRODUCT_CTX>`.
 
 ---
 
 ## Before You Begin
 
 1. **Identify which capability to roadmap.** The user should specify the capability ID (e.g., 
-   `BNK.RLVR.CAP.BSP.001.PAL`) or a name. If ambiguous, run `kpack list --context BNK.RLVR --level L2` (and 
+   `<PRODUCT_CTX>.CAP.BSP.001.PAL`) or a name. If ambiguous, run `kpack list --context <PRODUCT_CTX> --level L2` (and 
    `--level L3` if relevant), present the matches, and ask the user to select.
 
 2. **Fetch the capability pack** with `kpack pack <ID> --deep --compact`. This single call 
@@ -154,7 +162,7 @@ files — surface the error to the user and ask them to confirm the ID against `
    `kpack process <CAPABILITY_ID> --compact` and read the slices from the
    returned envelope (use `.model.<stem>.parsed`, falling back to `.raw` when
    `parsed` is null). These are produced by the `/process` skill in
-   reliever-knowledge and are the canonical source of:
+   the product knowledge repo and are the canonical source of:
    - the **aggregates** (consistency boundaries) the roadmap must deliver — `.model.aggregates`,
    - the **commands** the capability accepts — `.model.commands` (often `parsed:null`; use `.raw`),
    - the **policies** wiring consumed events to commands — `.model.policies`,
@@ -162,7 +170,7 @@ files — surface the error to the user and ask them to confirm the ID against `
    - the **bus topology** (exchanges, routing keys, subscriptions) — `.model.bus`.
 
    If `kpack process` does not resolve (gate fail above), **stop** and ask the
-   user to run `/process <CAPABILITY_ID>` in the reliever-knowledge repo and merge
+   user to run `/process <CAPABILITY_ID>` in the product knowledge repo and merge
    its PR. Do **not** attempt to invent aggregates / commands from the FUNC ADR —
    that is `/process`'s responsibility.
 
@@ -171,7 +179,7 @@ files — surface the error to the user and ask them to confirm the ID against `
    `/process` upstream.
 
 4. **Check if a roadmap already exists** locally at `/roadmap/{capability-id}/roadmap.md`. This *is* a
-   local file — the roadmap output lives in the working repo, not in `reliever-knowledge`. If it 
+   local file — the roadmap output lives in the working repo, not in the product knowledge repo. If it 
    exists, ask: "A roadmap already exists. Do you want to update it or start fresh?"
 
    The folder `/tasks/` is reserved for the kanban (`/tasks/BOARD.md` and the
@@ -335,7 +343,7 @@ preferred.
 | Epic | Depends On | Type |
 |------|-----------|------|
 | Epic 2 | Epic 1 | Sequential |
-| Epic 3 | BNK.RLVR.CAP.REF.001 | Cross-capability |
+| Epic 3 | <PRODUCT_CTX>.CAP.REF.001 | Cross-capability |
 ...
 
 ## Risks

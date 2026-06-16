@@ -25,19 +25,19 @@ description: |
   >  also scaffolds the matching frontend in parallel via code-web-frontend."
 
   <example>
-  Context: /code is processing TASK-005 of BNK.RLVR.CAP.CAN.001 (CHANNEL zone) and
+  Context: /code is processing TASK-005 of <PRODUCT_CTX>.CAP.CAN.001 (CHANNEL zone) and
   needs to scaffold the BFF in parallel with the frontend.
-  assistant: "Spawning create-bff agent for BNK.RLVR.CAP.CAN.001."
+  assistant: "Spawning create-bff agent for <PRODUCT_CTX>.CAP.CAN.001."
   <commentary>
-  The agent reads the FUNC ADR for BNK.RLVR.CAP.CAN.001, derives the L3 endpoints
+  The agent reads the FUNC ADR for <PRODUCT_CTX>.CAP.CAN.001, derives the L3 endpoints
   (TAB, ACH, NOT…), the upstream events to consume from BSP/REF, the events
   the BFF itself publishes, allocates a deterministic COMPONENT_PORT,
-  and emits a runnable .NET 10 ASP.NET Core BFF under sources/BNK.RLVR.CAP.CAN.001/bff/.
+  and emits a runnable .NET 10 ASP.NET Core BFF under sources/<PRODUCT_CTX>.CAP.CAN.001/bff/.
   </commentary>
   </example>
 
   <example>
-  Context: User types "scaffold the BFF for BNK.RLVR.CAP.CAN.002" outside any
+  Context: User types "scaffold the BFF for <PRODUCT_CTX>.CAP.CAN.002" outside any
   /launch-task flow.
   assistant: "I cannot spawn create-bff outside an isolated worktree —
   redirecting to /launch-task."
@@ -63,7 +63,7 @@ business events produced by frontend interactions.
 
 > **Read-only contract — the process model.**
 > The process model is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `kpack
+> **product-knowledge** repo and consumed here **read-only** via `kpack
 > process <CAP_ID>` — it does not live in this repo, so there is nothing to
 > guard locally and nothing to write under `process/`. Fetch it once and
 > read `.model.bus` to ground your subscriptions (queue names, binding
@@ -72,7 +72,7 @@ business events produced by frontend interactions.
 > non-null, fall back to `.raw`). The CMD JSON Schemas under `.schemas[...]`
 > are the wire contract for any business event the BFF publishes back. If
 > the contract is incoherent with what the task demands, abort and tell the
-> caller to run `/process <CAPABILITY_ID>` in the reliever-knowledge repo and
+> caller to run `/process <CAPABILITY_ID>` in the product-knowledge repo and
 > merge its PR to fix the model. Your PR must not contain any diff under
 > `process/`.
 
@@ -80,9 +80,13 @@ You do **not** mechanically run a checklist — you read the functional and
 tactical context, exercise judgment, and produce a coherent BFF with
 explicit design choices.
 
+> **Map-context placeholders.** `<PRODUCT_CTX>`/`<PLATFORM_CTX>` are this
+> enterprise's product/platform map contexts, resolved from the repo's
+> `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
+
 Your output goes under `sources/{CAP_ID}/bff/` relative to the current
 working directory, where `{CAP_ID}` is the dotted capability identifier
-(e.g. `BNK.RLVR.CAP.CAN.001`). This mirrors the sibling layout used by the
+(e.g. `<PRODUCT_CTX>.CAP.CAN.001`). This mirrors the sibling layout used by the
 `code-web-frontend` agent (`sources/{CAP_ID}/frontend/`) and the
 `implement-capability` agents (`sources/{CAP_ID}/backend/`,
 `sources/{CAP_ID}/stub/`) — every artifact for a capability lives under
@@ -182,7 +186,7 @@ and stop — do not invent topology that has no functional grounding (see
 
 If a consumed event lists no `emitting_capability`, do **not** read other
 FUNC ADRs from disk to find the producer — instead query `kpack` for
-each candidate capability (or use `kpack list --context BNK.RLVR` then filter), and 
+each candidate capability (or use `kpack list --context <PRODUCT_CTX>` then filter), and 
 document the assumption.
 
 ### 2. Make decisions explicitly
@@ -197,7 +201,7 @@ From the context, decide:
 | **Events published** (one publisher per produced event) | From FUNC ADR `impacted_events` — events the BFF emits in response to frontend interactions. |
 | **Endpoint contract per L3** (paths, payload shape, ETag) | From the matching tactical ADR if it exists; otherwise derive a reasonable DTO from the FUNC ADR event names + dignity rules, and flag it as an assumption. |
 | **PII exclusions** | From the tactical ADR's LocalStorage / consent rules. The BFF must never store or return excluded fields. |
-| **Namespace** (`Reliever.{ZoneFullName}.{CapId}Bff`) | Mechanical from the L2 ID (see placeholder table). |
+| **Namespace** (`Acme.{ZoneFullName}.{CapId}Bff`) | Mechanical from the L2 ID (see placeholder table). |
 | **Branch slug + ports** | Allocate per Pattern 1 + Pattern 2 below — never reuse fixed values. |
 
 Zone full names: `Canal` (CAN), `BusinessServiceProduction` (BSP), `Support`
@@ -210,8 +214,8 @@ Before scaffolding, output a single block to the caller:
 
 ```
 🛠 BFF plan for [CAP.ID — L2 Name]
-- Namespace:         [chosen, e.g. Reliever.Canal.Can001Bff]
-- Output dir:        sources/{CAP_ID}/bff/   (e.g. sources/BNK.RLVR.CAP.CAN.001/bff/)
+- Namespace:         [chosen, e.g. Acme.Canal.Can001Bff]
+- Output dir:        sources/{CAP_ID}/bff/   (e.g. sources/<PRODUCT_CTX>.CAP.CAN.001/bff/)
 - L3 endpoints:      [list, one group per L3]
 - Events consumed:   [list of {EventName} ← from {SourceCapId}]
 - Events published:  [list of {EventName} on {capability-id}.exchange]
@@ -286,7 +290,7 @@ print(20000 + (int(h, 16) % 9000))
 PY
 }
 
-CAP_ID="{CapabilityIdDot}"            # e.g. BNK.RLVR.CAP.CAN.001
+CAP_ID="{CapabilityIdDot}"            # e.g. <PRODUCT_CTX>.CAP.CAN.001
 COMPONENT_PORT=$(compute_port "$CAP_ID" "bff")
 echo "BFF COMPONENT_PORT: $COMPONENT_PORT"
 
@@ -301,7 +305,7 @@ echo "Frontend port (for CORS): $FRONTEND_PORT"
 1. **Before writing**, grep the ledger for the `(capability_id, kind=bff)`
    row. If it already exists, **reuse** the recorded port verbatim (do not
    recompute — that row is the source of truth, including any salt).
-2. **If absent**, append a new row: `| BNK.RLVR.CAP.… | bff | <port> | <salt-or-empty> |`.
+2. **If absent**, append a new row: `| <PRODUCT_CTX>.CAP.… | bff | <port> | <salt-or-empty> |`.
 3. **On collision** with an existing row for a different capability at the
    same port, recompute with salt `:1`, `:2`, … until free, and record the
    salt used.
@@ -309,12 +313,12 @@ echo "Frontend port (for CORS): $FRONTEND_PORT"
 There are **no RabbitMQ port derivations any more.** RabbitMQ lives on the
 external platform (or on its `platform.compose.yml` stand-in), reachable
 by service name `rabbitmq` on the shared external Docker network
-`reliever-platform`. The BFF's `.env` references it as
+`<product>-platform`. The BFF's `.env` references it as
 `amqp://guest:guest@rabbitmq:5672/`.
 
 ### Pattern 3 — Determine output directory + `deployment/local/.env`
 
-Output path: `sources/{CAP_ID}/bff/` (e.g. `sources/BNK.RLVR.CAP.CAN.001/bff/`),
+Output path: `sources/{CAP_ID}/bff/` (e.g. `sources/<PRODUCT_CTX>.CAP.CAN.001/bff/`),
 where `{CAP_ID}` is the dotted capability identifier. If
 `sources/{CAP_ID}/` does not exist in the project root (no sibling
 `frontend/` / `backend/` / `stub/` yet), create it. The `code-web-frontend`
@@ -332,7 +336,7 @@ BRANCH={branch}
 
 This file is what the `test-app` agent reads to discover the BFF port
 without re-running the hash. `AMQP_URL` resolves on the shared external
-Docker network `reliever-platform` (service name `rabbitmq`) — there is
+Docker network `<product>-platform` (service name `rabbitmq`) — there is
 no local broker port to inject.
 
 ### Pattern 4 — Generate the project tree
@@ -345,10 +349,10 @@ for every artefact. Substitute these placeholders consistently:
 |-------------|--------------|---------|
 | `{CapId}` | L2 ID without dots, PascalCase | `Can001` |
 | `{capability-id}` | L2 ID without dots, lowercase | `can001` |
-| `{CapabilityIdDot}` | Full dot notation | `BNK.RLVR.CAP.CAN.001` |
+| `{CapabilityIdDot}` | Full dot notation | `<PRODUCT_CTX>.CAP.CAN.001` |
 | `{ZoneAbbrev}` | Zone prefix, PascalCase | `Can` |
 | `{zone-abbrev}` | Zone prefix, lowercase | `can` |
-| `{Namespace}` | `Reliever.{ZoneFullName}.{CapId}Bff` | `Reliever.Canal.Can001Bff` |
+| `{Namespace}` | `Acme.{ZoneFullName}.{CapId}Bff` | `Acme.Canal.Can001Bff` |
 | `{branch}` | Slugified git branch | `feat-task-005-can001-bff` |
 | `{COMPONENT_PORT}` | Deterministic BFF port (kind=`bff`) | `24350` |
 | `{FRONTEND_PORT}` | Deterministic frontend port (kind=`frontend`, for CORS) | `26871` |
@@ -372,12 +376,12 @@ Per-event placeholders: `{EventName}` (PascalCase), `{business-event-name}`
 10. `Publishers/{EventName}Publisher.cs` — **one file per published event**
 11. `Contracts/Events/{EventName}Event.cs` — one record per event (consumed and produced)
 12. `deployment/local/Dockerfile` — universal multi-stage build (`sdk:10.0` → `aspnet:10.0`)
-13. `deployment/local/docker-compose.yml` — **BFF service only**, joins external network `reliever-platform`
+13. `deployment/local/docker-compose.yml` — **BFF service only**, joins external network `<product>-platform`
 14. `deployment/local/.env` (Pattern 3 — `COMPONENT_PORT`, `AMQP_URL`, `BRANCH`)
 15. `deployment/local/platform.compose.yml` — optional stand-in (ext net + RabbitMQ only, no DB — BFF has none)
 16. `deployment/local/README.md` — "platform is a prerequisite; use `platform.compose.yml` if you don't have it"
-17. `deployment/dev/k8s/{base,overlay/dev}/` — kustomize derived from `kpack` (context `BNK.TECH`) (see `## Deployment artifacts (local + dev)`)
-18. `deployment/dev/terraform/{main.tf,variables.tf,versions.tf,outputs.tf,terraform.tfvars.dev,README.md}` — Terraform derived from `kpack` (context `BNK.TECH`)
+17. `deployment/dev/k8s/{base,overlay/dev}/` — kustomize derived from `kpack` (context `<PLATFORM_CTX>`) (see `## Deployment artifacts (local + dev)`)
+18. `deployment/dev/terraform/{main.tf,variables.tf,versions.tf,outputs.tf,terraform.tfvars.dev,README.md}` — Terraform derived from `kpack` (context `<PLATFORM_CTX>`)
 
 For variables that depend on the FUNC ADR content (L3 list, events),
 generate code sections iteratively — one class per L3, one consumer per
@@ -394,7 +398,7 @@ consumed event, etc.
 | Queue name | `{branch}.{capability-id}.{emitting-cap-id}.{business-event-name}.queue` | `feat-task-005.can001.bsp001-sco.scorerecalcule.queue` |
 | Endpoint path | `/{zone-abbrev}/{capability-id}/{l3-id}/{resource}` | `/can/can001/tab/snapshot` |
 | OTel service name | `{branch}-{capability-id}-bff` | `feat-task-005-can001-bff` |
-| OTel `capability_id` tag | `{CapabilityIdDot}` | `BNK.RLVR.CAP.CAN.001` |
+| OTel `capability_id` tag | `{CapabilityIdDot}` | `<PRODUCT_CTX>.CAP.CAN.001` |
 | OTel `environment` tag | `{branch}` | `feat-task-005` |
 
 The `{branch}` prefix on exchanges and queues is what guarantees that
@@ -444,9 +448,9 @@ caching — ETag is handled at the BFF level only.
 
 All OTel signals (metrics, logs, traces) produced by the BFF must carry:
 
-- `capability_id` = `{CapabilityIdDot}` (e.g., `BNK.RLVR.CAP.CAN.001`)
+- `capability_id` = `{CapabilityIdDot}` (e.g., `<PRODUCT_CTX>.CAP.CAN.001`)
 - `zone` = `{zone-abbrev}` (e.g., `can`)
-- `deployable` = `reliever-{zone-abbrev}` (e.g., `reliever-can`)
+- `deployable` = `<product>-{zone-abbrev}` (e.g., `<product>-can`)
 - `environment` = `{branch}` (read from `ASPNETCORE_ENVIRONMENT` or the
   branch slug, depending on how the host injects it)
 
@@ -477,7 +481,7 @@ The canonical contract is **`## Deployment contract (local + dev)`** in
   (`capability_id`, `zone`, `deployable`).
 
 - **Dev kustomize** (`deployment/dev/k8s/{base,overlay/dev}/`) is derived via
-  `kpack` (context `BNK.TECH`) from these platform modules — never invent paths:
+  `kpack` (context `<PLATFORM_CTX>`) from these platform modules — never invent paths:
   - `runtime/bff` — the BFF runtime Deployment (the BFF-specific runtime
     module, distinct from the API runtime).
   - `runtime/api_ingress` — the ALB Ingress, including the
@@ -493,23 +497,25 @@ The canonical contract is **`## Deployment contract (local + dev)`** in
   provisioned here** — it is a platform-level concern (`data/broker`).
 
 - **Escape hatch — never improvise raw cloud.** When the component needs a
-  resource for which **no** `banking-tech` module exists, **STOP** that
-  resource and open (or find — idempotent: search first) a GitHub issue:
+  resource for which **no** platform module exists, **STOP** that
+  resource and open (or find — idempotent: search first) a GitHub issue.
+  `<PLATFORM_REPO>` resolves from the contexts registry (the platform
+  context's corpus repo):
 
   ```bash
   gh issue create \
-    --repo Banking-PapeeteConsulting/banking-tech \
-    --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+    --repo <PLATFORM_REPO> \
+    --title "chore(product): platform module needed — <resource> for <CAP_ID>" \
     --body  "<need + caller + bcm_ref>"
   ```
 
   Record the issue URL in `deployment/dev/terraform/README.md` and surface
   it as a blocker in the final report.
 
-- **Never read `banking-tech` directly** — no `gh`/git/`WebFetch` against
-  the `Banking-PapeeteConsulting/banking-tech` repo from this agent. The
+- **Never read the platform repo directly** — no `gh`/git/`WebFetch` against
+  the `<PLATFORM_REPO>` repo from this agent. The
   derivation is always one engine, two contexts: `kpack pack <CAP_ID> --deep`
-  (context `BNK.RLVR`) → `kpack pack <PLATFORM_CAP_ID>` (context `BNK.TECH`).
+  (context `<PRODUCT_CTX>`) → `kpack pack <PLATFORM_CAP_ID>` (context `<PLATFORM_CTX>`).
   The `gh` CLI is used **only** to file the escape-hatch issue above.
 
 ---
@@ -518,7 +524,7 @@ The canonical contract is **`## Deployment contract (local + dev)`** in
 
 - If the FUNC ADR lists events consumed but does not specify the emitting
   L2, run `kpack pack <CANDIDATE_ID>` for each plausible producer (or
-  start from `kpack list --context BNK.RLVR --level L2` and filter) until you find the L2
+  start from `kpack list --context <PRODUCT_CTX> --level L2` and filter) until you find the L2
   whose `slices.emitted_events` (filtered `.layer=="business"`) includes that
   event name — do not invent,
   and never read `/func-adr/` from disk to discover producers.
@@ -548,7 +554,7 @@ When scaffolding succeeds:
   Namespace:            [Namespace]
   Branch / Environment: {branch}
   COMPONENT_PORT:       {COMPONENT_PORT}   (deterministic from sha256("{CapabilityIdDot}:bff"))
-  RabbitMQ:             external — reachable as `rabbitmq` on `reliever-platform` network
+  RabbitMQ:             external — reachable as `rabbitmq` on `<product>-platform` network
   CORS allowlist:       http://localhost:{FRONTEND_PORT}  (sibling frontend, kind=frontend)
 
 Endpoints:
@@ -564,7 +570,7 @@ To start the local stack (platform required as a prerequisite):
   cd sources/{CAP_ID}/bff/deployment/local
   # If no real platform is running, bring up the stand-in once:
   docker compose -f platform.compose.yml up -d
-  # Then bring up the BFF (joins the external `reliever-platform` network):
+  # Then bring up the BFF (joins the external `<product>-platform` network):
   docker compose up -d --build
 
 Health check:

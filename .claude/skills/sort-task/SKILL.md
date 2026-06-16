@@ -166,10 +166,14 @@ Sort `ready` tasks by descending score → these are the candidates `/launch-tas
 prioritize first.
 
 **Calculation examples:**
-- `BNK.RLVR.CAP.BSP.001.SCO/TASK-001` → score 53 — directly blocks `BNK.RLVR.CAP.CAN.001.TAB/TASK-002`,
+- `<PRODUCT_CTX>.CAP.BSP.001.SCO/TASK-001` → score 53 — directly blocks `<PRODUCT_CTX>.CAP.CAN.001.TAB/TASK-002`,
   which transitively blocks `TASK-003/004/005/006` of the same capability. Total
   5 tasks × 10 + high×3 = 53.
-- `BNK.RLVR.CAP.CAN.001.TAB/TASK-004` → score 12 (blocks 1 task × 10 + medium×2 = 12)
+- `<PRODUCT_CTX>.CAP.CAN.001.TAB/TASK-004` → score 12 (blocks 1 task × 10 + medium×2 = 12)
+
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's product/platform/governance
+> map contexts, resolved from the repo's `.kpack.yaml` and the governance `contexts:` registry —
+> never hardcoded.
 
 ---
 
@@ -207,8 +211,8 @@ _No PR awaiting merge_ (if empty)
 
 | # | Task | Capability | Title | Priority | Score | Unblocks |
 |---|------|-----------|-------|----------|-------|---------|
-| 1 | TASK-001 | BNK.RLVR.CAP.CAN.001 | Freeze event contract | high | 53 | TASK-002, 003, 004 |
-| 2 | TASK-007 | BNK.RLVR.CAP.BSP.001 | Other task | medium | 12 | TASK-008 |
+| 1 | TASK-001 | <PRODUCT_CTX>.CAP.CAN.001 | Freeze event contract | high | 53 | TASK-002, 003, 004 |
+| 2 | TASK-007 | <PRODUCT_CTX>.CAP.BSP.001 | Other task | medium | 12 | TASK-008 |
 
 _No ready tasks_ (if empty)
 
@@ -244,8 +248,8 @@ _No stalled tasks_ (if empty)
 
 | Task | Capability | Title | Blocked By |
 |------|-----------|-------|------------|
-| TASK-002 | BNK.RLVR.CAP.CAN.001.TAB | Subscription point and consumption layer | BNK.RLVR.CAP.BSP.001.SCO/TASK-001, BNK.RLVR.CAP.BSP.001.PAL/TASK-001, BNK.RLVR.CAP.BSP.004.ENV/TASK-001 |
-| TASK-003 | BNK.RLVR.CAP.CAN.001.TAB | Consent gate and current situation web view | TASK-002 |
+| TASK-002 | <PRODUCT_CTX>.CAP.CAN.001.TAB | Subscription point and consumption layer | <PRODUCT_CTX>.CAP.BSP.001.SCO/TASK-001, <PRODUCT_CTX>.CAP.BSP.001.PAL/TASK-001, <PRODUCT_CTX>.CAP.BSP.004.ENV/TASK-001 |
+| TASK-003 | <PRODUCT_CTX>.CAP.CAN.001.TAB | Consent gate and current situation web view | TASK-002 |
 
 _No blocked tasks_ (if empty)
 

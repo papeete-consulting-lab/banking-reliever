@@ -28,15 +28,15 @@ description: |
   >  in parallel via create-bff."
 
   <example>
-  Context: /code is processing TASK-003 of BNK.RLVR.CAP.CAN.001.TAB (CHANNEL zone)
+  Context: /code is processing TASK-003 of <PRODUCT_CTX>.CAP.CAN.001.TAB (CHANNEL zone)
   and needs to generate the web view in parallel with the BFF scaffolding.
-  assistant: "Spawning code-web-frontend agent for BNK.RLVR.CAP.CAN.001.TAB."
+  assistant: "Spawning code-web-frontend agent for <PRODUCT_CTX>.CAP.CAN.001.TAB."
   <commentary>
   The agent reads the TASK, the plan, the FUNC ADR, the domain vision,
   detects the BFF/microservice contract from sources/, decides on
   views/sections/stubs, applies the dignity rule (progression before
   restrictions), and emits a runnable vanilla web frontend under
-  sources/BNK.RLVR.CAP.CAN.001.TAB/frontend/.
+  sources/<PRODUCT_CTX>.CAP.CAN.001.TAB/frontend/.
   </commentary>
   </example>
 
@@ -64,7 +64,7 @@ through which beneficiaries interact with the IS.
 
 > **Read-only contract — the process model.**
 > The process model is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via `kpack
+> **product-knowledge** repo and consumed here **read-only** via `kpack
 > process <CAP_ID>` — it does not live in this repo, so there is nothing to
 > guard locally and nothing to write under `process/`. Fetch it once and
 > read `.model.api` and `.model["read-models"]` (use `.parsed` when
@@ -73,9 +73,13 @@ through which beneficiaries interact with the IS.
 > Schemas under `.schemas[...]` as the truth for any payload the frontend
 > sends to the BFF. Your PR must not contain any diff under `process/`.
 
+> **Context placeholders.** `<PRODUCT_CTX>`/`<PLATFORM_CTX>` are this
+> enterprise's product/platform map contexts, resolved from the repo's
+> `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
+
 You scaffold production-ready web views that can be opened directly in a
 browser or served by any static HTTP server. The reference graphical
-pattern is the **`frontend-baseline/BNK.RLVR.CAP.CAN.001.TAB/`** folder (when
+pattern is the **`frontend-baseline/<PRODUCT_CTX>.CAP.CAN.001.TAB/`** folder (when
 present in the repo) — its file structure, CSS conventions, and JS
 pattern are canonical. When in doubt about a detail (naming, DOM
 pattern, style), consult that folder.
@@ -336,7 +340,7 @@ sources/{capability-id}/frontend/
     ├── local/
     │   ├── Dockerfile            ← multi-stage: copy static files → nginx:alpine
     │   ├── nginx.conf            ← SPA-style try_files + cache headers
-    │   ├── docker-compose.yml    ← component-only on the external reliever-platform network
+    │   ├── docker-compose.yml    ← component-only on the external <product>-platform network
     │   ├── .env                  ← COMPONENT_PORT=<computed>, BFF_ORIGIN=http://<cap-kebab>-bff:8080
     │   ├── platform.compose.yml  ← OPTIONAL stand-in platform (creates external net; no infra for frontend)
     │   └── README.md
@@ -823,7 +827,7 @@ section in `CLAUDE.md` — read it first.** This section only documents the
     `http://localhost:<bff COMPONENT_PORT>` (re-derived, not invented).
 - **Local compose** (`deployment/local/docker-compose.yml`) declares
   **only the frontend container** and joins the shared external Docker
-  network `reliever-platform`:
+  network `<product>-platform`:
 
   ```yaml
   services:
@@ -831,24 +835,24 @@ section in `CLAUDE.md` — read it first.** This section only documents the
       image: <cap-kebab>-frontend:dev
       build: .
       env_file: .env
-      networks: [reliever-platform]
+      networks: [<product>-platform]
       ports: ["${COMPONENT_PORT}:80"]
       healthcheck:
         test: ["CMD","wget","-qO-","http://localhost/"]
         interval: 10s
         retries: 6
   networks:
-    reliever-platform:
+    <product>-platform:
       external: true
   ```
 
   The optional `platform.compose.yml` only **creates the external
-  `reliever-platform` network** for devs without a running platform — no
+  `<product>-platform` network** for devs without a running platform — no
   infra (RabbitMQ, DB) is bundled for a frontend.
 - **Dev environment** is derived via the **two-context derivation** described in
-  CLAUDE.md (`kpack pack <CAP_ID>` context `BNK.RLVR` → `kpack pack
-  <PLATFORM_CAP_ID>` context `BNK.TECH`) — never read the
-  `banking-tech` repo directly (no `gh`/git/`WebFetch` against it).
+  CLAUDE.md (`kpack pack <CAP_ID>` context `<PRODUCT_CTX>` → `kpack pack
+  <PLATFORM_CAP_ID>` context `<PLATFORM_CTX>`) — never read the
+  platform repo directly (no `gh`/git/`WebFetch` against it).
   - **kustomize** (`deployment/dev/k8s/`) derived from `runtime/static_hosting`
     (frontend hosting), `runtime/deploy` (namespace + PodSecurityStandards
     + ResourceQuotas), `runtime/api_ingress` (Ingress — URL contract for
@@ -859,20 +863,21 @@ section in `CLAUDE.md` — read it first.** This section only documents the
     `runtime/static_hosting` (S3 + CloudFront) for the frontend kind.
     Inputs limited to `project_name`, `environment="dev"`, `tenant`, `tags`.
 - **Escape hatch (identical to all other Stage-4 agents)**: when a required
-  need has **no** matching `banking-tech` module, **stop that resource**,
+  need has **no** matching platform module, **stop that resource**,
   do **not** improvise raw cloud, and file (or find — search first to stay
-  idempotent) an issue:
+  idempotent) an issue against `<PLATFORM_REPO>` (the platform repo slug,
+  resolved from the contexts registry):
 
   ```bash
   gh issue create \
-    --repo Banking-PapeeteConsulting/banking-tech \
-    --title "chore(reliever): platform module needed — <resource> for <CAP_ID>" \
+    --repo <PLATFORM_REPO> \
+    --title "chore(product): platform module needed — <resource> for <CAP_ID>" \
     --body  "<need + caller + bcm_ref>"
   ```
 
   Record the issue URL in `deployment/dev/terraform/README.md` and surface
   it as a blocker in the final report. `gh` is used **only** for this
-  escape-hatch issue — never to read the `banking-tech` repo.
+  escape-hatch issue — never to read the platform repo.
 
 ---
 
@@ -887,9 +892,9 @@ section in `CLAUDE.md` — read it first.** This section only documents the
 - Does **not** run automated DoD validation — that is delegated to
   `test-app`, which the `/code` skill invokes
   immediately after this agent.
-- Does **not** read the `banking-tech` repo directly — derivation goes
-  through `kpack pack <PLATFORM_CAP_ID>` (context `BNK.TECH`). `gh` against
-  `Banking-PapeeteConsulting/banking-tech` is restricted to the
+- Does **not** read the platform repo directly — derivation goes
+  through `kpack pack <PLATFORM_CAP_ID>` (context `<PLATFORM_CTX>`). `gh` against
+  `<PLATFORM_REPO>` is restricted to the
   escape-hatch `gh issue create` flow described above.
 - If multiple frontend tasks for the same capability depend on each
   other (e.g. TASK-003 → TASK-004), expect the caller to invoke this

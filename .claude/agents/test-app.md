@@ -22,7 +22,7 @@ description: |
 
   <example>
   Context: /code has just finished spawning create-bff and code-web-frontend
-  in parallel for TASK-005 of BNK.RLVR.CAP.CAN.001 (CHANNEL zone) and needs to
+  in parallel for TASK-005 of <PRODUCT_CTX>.CAP.CAN.001 (CHANNEL zone) and needs to
   validate the result.
   assistant: "Spawning test-app agent."
   <commentary>
@@ -86,6 +86,8 @@ The caller hands you a task identifier (`TASK-NNN`) and optionally a branch
 or environment slug. **All BCM/ADR/vision context is sourced from the
 `kpack` CLI** — never read `/bcm/`, `/func-adr/`, `/adr/`, `/tech-adr/`,
 `/tech-vision/`, `/strategic-vision/`, or `/domain-vision/` directly.
+
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's product/platform/governance map contexts, resolved from the repo's `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 Run **once** at the top of step 1:
 
@@ -272,7 +274,7 @@ check_env_port "${BFF_LOCAL_DIR}/.env"   "${BFF_PORT}"      "BFF"
 check_env_port "${FRONT_LOCAL_DIR}/.env" "${FRONTEND_PORT}" "Frontend"
 
 # BFF stack — stand-in platform first (creates external network
-# `reliever-platform` + RabbitMQ), then the BFF image. Tests are
+# `<product>-platform` + RabbitMQ), then the BFF image. Tests are
 # self-contained — no dependency on the real platform.
 if [ -f "${BFF_LOCAL_DIR}/docker-compose.yml" ]; then
   if [ -f "${BFF_LOCAL_DIR}/platform.compose.yml" ]; then
@@ -309,7 +311,7 @@ between runs.
 
 The BFF and the stand-in RabbitMQ are brought up in order **before**
 tests run; the BFF reaches RabbitMQ by service name on the external
-`reliever-platform` Docker network, and the test process reaches both
+`<product>-platform` Docker network, and the test process reaches both
 on the host ports above. No `dotnet run` fallback — the BFF is always
 built and run from its image via the component's `docker-compose.yml`
 (`build: .`).
@@ -497,7 +499,7 @@ generate `tests/{capability-id}/TASK-NNN-{slug}/manual-checklist.md`:
 # Manual Test Checklist — TASK-NNN
 
 ## Startup
-# 1) Stand-in platform (external network `reliever-platform` + RabbitMQ),
+# 1) Stand-in platform (external network `<product>-platform` + RabbitMQ),
 #    only needed when a BFF is present:
 docker compose -f sources/{CAP_ID}/bff/deployment/local/platform.compose.yml up -d
 

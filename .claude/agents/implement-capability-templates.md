@@ -30,7 +30,7 @@ All placeholders: `{Namespace}`, `{CapabilityName}`, `{AggregateName}`, `{capabi
 ## deployment/local/docker-compose.yml
 
 Component-only compose. RabbitMQ + MongoDB are NOT bundled here — they live
-on the external `reliever-platform` Docker network and are reached by service
+on the external `<product>-platform` Docker network and are reached by service
 name (`rabbitmq`, `mongo`).
 
 ```yaml
@@ -39,14 +39,14 @@ services:
     image: {capability-lower}-api:dev
     build: .
     env_file: .env
-    networks: [reliever-platform]
+    networks: [<product>-platform]
     ports: ["${COMPONENT_PORT}:8080"]
     healthcheck:
       test: ["CMD","curl","-fsS","http://localhost:8080/health"]
       interval: 10s
       retries: 6
 networks:
-  reliever-platform: { external: true }
+  <product>-platform: { external: true }
 ```
 
 ---
@@ -65,7 +65,7 @@ RabbitMQConnection=amqp://admin:password@rabbitmq:5672/{capability-lower}
 ## deployment/local/platform.compose.yml
 
 Opt-in stand-in platform for local dev / tests. Creates the external
-`reliever-platform` network and stands up RabbitMQ + MongoDB on standard host
+`<product>-platform` network and stands up RabbitMQ + MongoDB on standard host
 ports. Explicitly **not** the real platform — the component's own compose
 never owns infra.
 
@@ -84,7 +84,7 @@ services:
     healthcheck: { test: ["CMD-SHELL","mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep 1"], interval: 10s, retries: 6 }
 networks:
   default:
-    name: reliever-platform
+    name: <product>-platform
     external: true
 ```
 

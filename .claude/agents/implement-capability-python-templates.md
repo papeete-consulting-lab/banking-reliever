@@ -2,6 +2,10 @@
 
 Canonical layouts for the Python `implement-capability-python` agent.
 
+> **`<PRODUCT_CTX>`** is this enterprise's product map context, resolved from
+> the repo's `.kpack.yaml` and the governance `contexts:` registry — never
+> hardcoded.
+>
 > **Layout note:** the Dockerfile, `docker-compose.yml`, `.env`, optional
 > `platform.compose.yml`, and `README.md` templates below all render to
 > `sources/{capability-kebab}/backend/deployment/local/` — NOT to the
@@ -27,7 +31,7 @@ of this file.
 [project]
 name = "{namespace}-{capability-kebab}"
 version = "0.1.0"
-description = "{CapabilityName} — Reliever capability"
+description = "{CapabilityName} — the product's capability"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
@@ -96,11 +100,11 @@ CMD ["uvicorn", "{namespace}_{capability_module}.presentation.app:app", "--host"
 
 ---
 
-## docker-compose.yml  (component-only — joins the external `reliever-platform` network)
+## docker-compose.yml  (component-only — joins the external `<product>-platform` network)
 
 The component compose ships **only** the component service. RabbitMQ and the
 per-L2 database are provided by the platform (or by the stand-in
-`platform.compose.yml` below) on the external `reliever-platform` Docker
+`platform.compose.yml` below) on the external `<product>-platform` Docker
 network — services are reached by name (`rabbitmq`, `postgres`, `mongo`).
 
 ```yaml
@@ -109,14 +113,14 @@ services:
     image: {capability-kebab}-api:dev
     build: .
     env_file: .env
-    networks: [reliever-platform]
+    networks: [<product>-platform]
     ports: ["${COMPONENT_PORT}:8000"]
     healthcheck:
       test: ["CMD","curl","-fsS","http://localhost:8000/health"]
       interval: 10s
       retries: 6
 networks:
-  reliever-platform: { external: true }
+  <product>-platform: { external: true }
 ```
 
 ---
@@ -125,12 +129,12 @@ networks:
 
 ```
 COMPONENT_PORT={COMPONENT_PORT}
-RELIEVER_HTTP_HOST=0.0.0.0
-RELIEVER_HTTP_PORT=8000
-RELIEVER_AMQP_URL=amqp://admin:password@rabbitmq:5672/
+<PRODUCT>_HTTP_HOST=0.0.0.0
+<PRODUCT>_HTTP_PORT=8000
+<PRODUCT>_AMQP_URL=amqp://admin:password@rabbitmq:5672/
 # Use one of the two below depending on the TECH-TACT tag:
-RELIEVER_PG_DSN=postgresql://reliever:reliever@postgres:5432/{capability_snake}
-# RELIEVER_MONGO_URL=mongodb://mongo:27017/{capability_snake}
+<PRODUCT>_PG_DSN=postgresql://{namespace}:{namespace}@postgres:5432/{capability_snake}
+# <PRODUCT>_MONGO_URL=mongodb://mongo:27017/{capability_snake}
 ```
 
 ---
@@ -139,7 +143,7 @@ RELIEVER_PG_DSN=postgresql://reliever:reliever@postgres:5432/{capability_snake}
 
 Sibling of `docker-compose.yml` under `deployment/local/`. Opt-in convenience
 for devs without the real platform and for the test agents. It creates the
-external `reliever-platform` network plus RabbitMQ + the per-L2 DB on standard
+external `<product>-platform` network plus RabbitMQ + the per-L2 DB on standard
 host ports. Pick the DB service that matches the TECH-TACT ADR tag
 (`postgresql` / `mongodb`) — keep one, drop the other.
 
@@ -157,10 +161,10 @@ services:
     image: postgres:16-alpine
     ports: ["5432:5432"]
     environment:
-      POSTGRES_USER: reliever
-      POSTGRES_PASSWORD: reliever
+      POSTGRES_USER: {namespace}
+      POSTGRES_PASSWORD: {namespace}
       POSTGRES_DB: {capability_snake}
-    healthcheck: { test: ["CMD-SHELL","pg_isready -U reliever -d {capability_snake}"], interval: 5s, retries: 10 }
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U {namespace} -d {capability_snake}"], interval: 5s, retries: 10 }
   # mongodb variant (keep one of postgres / mongo, not both)
   # mongo:
   #   image: mongo:7
@@ -168,7 +172,7 @@ services:
   #   healthcheck: { test: ["CMD-SHELL","mongosh --quiet --eval 'db.runCommand({ping:1}).ok' | grep 1"], interval: 10s, retries: 6 }
 networks:
   default:
-    name: reliever-platform
+    name: <product>-platform
     external: true
 ```
 
@@ -217,7 +221,7 @@ level = "INFO"
 ## src/{namespace}_{capability_module}/__init__.py
 
 ```python
-"""{CapabilityName} capability — Reliever programme.
+"""{CapabilityName} capability — the product.
 
 This package implements the {CAP_ID} capability following hexagonal
 architecture: domain (pure), application (use cases), infrastructure
@@ -517,7 +521,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="RELIEVER_",
+        env_prefix="<PRODUCT>_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
@@ -756,7 +760,7 @@ Apply these substitutions on top of the MongoDB templates above.
 ```
 
 **docker-compose.yml** — no change. The component compose ships only the
-component service and joins the external `reliever-platform` network; the
+component service and joins the external `<product>-platform` network; the
 database is provided by the platform (or by the `platform.compose.yml`
 stand-in) and resolved by service name (`postgres`).
 
@@ -766,15 +770,15 @@ templated above) and **delete the commented `mongo` variant**.
 **.env** — switch to the Postgres DSN line, comment out the Mongo URL:
 
 ```
-RELIEVER_PG_DSN=postgresql://reliever:reliever@postgres:5432/{capability_snake}
-# RELIEVER_MONGO_URL=mongodb://mongo:27017/{capability_snake}
+<PRODUCT>_PG_DSN=postgresql://{namespace}:{namespace}@postgres:5432/{capability_snake}
+# <PRODUCT>_MONGO_URL=mongodb://mongo:27017/{capability_snake}
 ```
 
 **hot.toml** — replace `[database]` block:
 
 ```toml
 [database]
-url = "postgresql://reliever:reliever@postgres:5432/{capability_snake}"
+url = "postgresql://{namespace}:{namespace}@postgres:5432/{capability_snake}"
 ```
 
 **settings.py** — `database_url` default changes to the Postgres DSN above.

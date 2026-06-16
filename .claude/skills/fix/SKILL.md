@@ -71,10 +71,14 @@ explicit `rm -f` on exit is preferred.
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via
-> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
-> It does not live in this repo, so there is nothing to guard locally and
-> nothing to write under `process/`.
+> **product knowledge repo** (the product map's repo, from the contexts
+> registry) and consumed here **read-only** via `kpack process <CAP_ID>` —
+> exactly like the BCM corpus via `kpack pack`. It does not live in this repo,
+> so there is nothing to guard locally and nothing to write under `process/`.
+>
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's
+> product/platform/governance map contexts, resolved from the repo's
+> `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 A fix never reshapes the process model — it is the contract; the fix lives in
 the implementation that must satisfy it. The model is fetched via
@@ -84,7 +88,7 @@ If the failure analysis reveals that the contract itself is wrong (an
 aggregate invariant is too strict, a command schema misses a field, a routing
 key is mis-paired), **stop the fix loop**. Tell the user to:
 
-1. run `/process <CAPABILITY_ID>` in the reliever-knowledge repo to amend the model,
+1. run `/process <CAPABILITY_ID>` in the product knowledge repo to amend the model,
 2. merge that change upstream,
 3. re-run `/fix` against the failing PR with the refreshed model in place.
 
@@ -95,17 +99,17 @@ key is mis-paired), **stop the fix loop**. Tell the user to:
 Before re-spawning any implementation agent, verify the capability's process
 model resolves. A fix must never run against an unresolvable model. A model is
 ready iff `kpack process <CAP_ID>` returns exit 0 (kpack resolves the
-published `main` of reliever-knowledge by default).
+published `main` of the product knowledge repo by default).
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-failing-task>"
 
-# The process model lives in reliever-knowledge now; it is ready iff kpack
-# can resolve it (kpack resolves the published main by default).
+# The process model lives in the product knowledge repo now; it is ready iff
+# kpack can resolve it (kpack resolves the published main by default).
 if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the product knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -185,7 +189,7 @@ fix on. Never guess.
    ```
 
    `<capability_id>` is the full source-context-prefixed ID (e.g.
-   `BNK.RLVR.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short form (exit 2).
+   `<PRODUCT_CTX>.CAP.BSP.001.SCO`); the v2.0.0 CLI rejects the short form (exit 2).
    Read `slices.capability_self[0].zoning` for routing. Never read `/bcm/`,
    `/func-adr/`, `/adr/`, `/strategic-vision/`, `/domain-vision/`, or
    `/tech-vision/` directly.
@@ -354,13 +358,13 @@ way `/code` Step 2.5 does:
 | ✅ Closure green, drift = 0                         | proceed to Step 4 (re-validate with the test skill).                          |
 | ❌ Drift > 0 (specs regenerated)                    | the new specs ARE the fix surface — proceed to Step 4. The fix commit (Step 5) will include the spec diff alongside the code change. |
 | ❌ Dangling `x-lineage.process.*`                   | model is wrong. **Stall** (do not consume loop budget): set `stalled_reason: "harness closure failed: process gap — <detail>"`, refresh BOARD.md, point user at `/process <CAPABILITY_ID>`. |
-| ❌ Dangling `x-lineage.bcm.*`                       | BCM is wrong. **Stall**: `stalled_reason: "harness closure failed: bcm gap — <detail>"`, point user at `reliever-knowledge`. |
+| ❌ Dangling `x-lineage.bcm.*`                       | BCM is wrong. **Stall**: `stalled_reason: "harness closure failed: bcm gap — <detail>"`, point user at the product knowledge repo. |
 | ❌ Missing controller / consumer                    | feed the gap into the failure list and loop back to Step 3.2 — same remediation cycle as a test failure. |
 
 Stalls from process / bcm closure failures are deliberate: an upstream fix
 cannot be done by `/fix` itself — the process model is authored upstream in
-reliever-knowledge and consumed here read-only via `kpack process`, so it
-cannot be amended from this repo at all.
+the product knowledge repo and consumed here read-only via `kpack process`, so
+it cannot be amended from this repo at all.
 
 ---
 

@@ -66,10 +66,14 @@ agent — explicit `rm -f` on exit is preferred.
 
 > The DDD process model (aggregates, commands, policies, read-models, bus
 > topology, JSON Schemas) is authored by the `/process` skill in the
-> **reliever-knowledge** repo and consumed here **read-only** via
-> `kpack process <CAP_ID>` — exactly like the BCM corpus via `kpack pack`.
-> It does not live in this repo, so there is nothing to guard locally and
-> nothing to write under `process/`.
+> **product knowledge repo** (the product map's repo, from the contexts
+> registry) and consumed here **read-only** via `kpack process <CAP_ID>` —
+> exactly like the BCM corpus via `kpack pack`. It does not live in this repo,
+> so there is nothing to guard locally and nothing to write under `process/`.
+>
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's
+> product/platform/governance map contexts, resolved from the repo's
+> `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 The `code` agents you spawn (and the test agents that follow) consume the model
 as a **read-only contract**, fetched via `kpack process <CAP_ID>`. There is
@@ -78,7 +82,7 @@ no local `process/` folder in the main checkout or in any worktree, so:
 - The `code` / `fix` agents you spawn have nothing to commit under `process/`.
 - If a `code` agent reports that the model needs to change to satisfy the
   task, treat it as a **stall** signal: stop the agent, tell the user to run
-  `/process <CAPABILITY_ID>` in the reliever-knowledge repo to amend the model,
+  `/process <CAPABILITY_ID>` in the product knowledge repo to amend the model,
   then reschedule the task once the model has been updated and its PR merged.
 
 When you create a new worktree, propagate this constraint by including in the
@@ -87,7 +91,7 @@ agent prompt:
 > "The process model for this capability is the read-only contract. Fetch it
 > via `kpack process <CAPABILITY_ID>` for AGG / CMD / POL / PRJ / QRY / bus
 > topology / JSON Schemas, but never reshape it — it is authored upstream in
-> reliever-knowledge."
+> the product knowledge repo."
 
 ---
 
@@ -95,19 +99,19 @@ agent prompt:
 
 Before launching any code agent for a task whose capability is `<CAP_ID>`,
 verify the process model resolves. A model is ready iff `kpack process
-<CAP_ID>` returns exit 0 (kpack resolves the published `main` of
-reliever-knowledge by default). Launching against a capability with no published
+<CAP_ID>` returns exit 0 (kpack resolves the published `main` of the product
+knowledge repo by default). Launching against a capability with no published
 process model produces a useless run.
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 CAP_ID="<CAPABILITY_ID-of-the-task-about-to-launch>"
 
-# The process model lives in reliever-knowledge now; it is ready iff kpack
-# can resolve it (kpack resolves the published main by default).
+# The process model lives in the product knowledge repo now; it is ready iff
+# kpack can resolve it (kpack resolves the published main by default).
 if ! kpack process "$CAP_ID" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
   echo "GATE-FAIL: no process model for $CAP_ID."
-  echo "Run /process $CAP_ID in the reliever-knowledge repo and merge its PR, then retry."
+  echo "Run /process $CAP_ID in the product knowledge repo and merge its PR, then retry."
   cat /tmp/process-model.err
   # In auto mode: SKIP this candidate; continue with other capabilities.
 fi
@@ -117,7 +121,8 @@ In **manual mode** (`launch TASK-NNN`), a gate failure is a hard stop —
 report the gate-fail message and refuse to launch. In **auto mode**,
 silently skip every candidate whose capability fails the gate (do not
 launch them) and surface the skipped list in the final summary so the user
-knows which capabilities still need their process model published upstream.
+knows which capabilities still need their process model published upstream
+in the product knowledge repo.
 
 ---
 
@@ -190,11 +195,11 @@ Display the decision table in the conversation:
 
 | # | Task | Capability | Score | Selection Reason |
 |---|------|-----------|-------|---------------------|
-| 1 | TASK-001 | BNK.RLVR.CAP.CAN.001 | 53 | Critical path, unblocks 5 tasks |
-| 2 | TASK-007 | BNK.RLVR.CAP.BSP.001 | 12 | Independent capability |
+| 1 | TASK-001 | <PRODUCT_CTX>.CAP.CAN.001 | 53 | Critical path, unblocks 5 tasks |
+| 2 | TASK-007 | <PRODUCT_CTX>.CAP.BSP.001 | 12 | Independent capability |
 
 Excluded tasks:
-- TASK-003: capability BNK.RLVR.CAP.CAN.001 already active via TASK-001
+- TASK-003: capability <PRODUCT_CTX>.CAP.CAN.001 already active via TASK-001
 - TASK-009: 🟠 unresolved open questions — check the `## Open Questions` section of the task file
 
 Creating isolated environments and launching agents...
@@ -410,10 +415,10 @@ If the intent is to launch a task, present the 3 best `ready` candidates from th
 Tasks available to launch:
 
   [1] TASK-001 — Freeze consumed events contract (high, score 53)
-      Capability: BNK.RLVR.CAP.CAN.001.TAB | Unblocks: TASK-002, 003, 004, 005, 006
+      Capability: <PRODUCT_CTX>.CAP.CAN.001.TAB | Unblocks: TASK-002, 003, 004, 005, 006
 
   [2] TASK-007 — [title] (medium, score 12)
-      Capability: BNK.RLVR.CAP.BSP.001 | Unblocks: TASK-008
+      Capability: <PRODUCT_CTX>.CAP.BSP.001 | Unblocks: TASK-008
 
 Recommendation: TASK-001 — it is on the critical path and unblocks 5 tasks.
 

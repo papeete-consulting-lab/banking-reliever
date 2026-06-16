@@ -69,12 +69,17 @@ resolve the context, detect the target stack, and dispatch the
 
 > **Process model — consumed read-only via `kpack process`.** The DDD
 > process model (aggregates, commands, policies, read-models, bus topology,
-> JSON Schemas) is authored by the `/process` skill in the **reliever-knowledge**
-> repo and consumed here **read-only** via `kpack process <CAP_ID>` — exactly
+> JSON Schemas) is authored by the `/process` skill in the **product knowledge
+> repo** (the product map's repo, from the contexts registry) and consumed here
+> **read-only** via `kpack process <CAP_ID>` — exactly
 > like the BCM corpus via `kpack pack`. It does not live in this repo, so
 > there is nothing to guard locally and nothing to write under `process/`. If
 > the model is wrong, stop and tell the user to run `/process <CAPABILITY_ID>`
-> in the reliever-knowledge repo and merge its PR, then re-run this skill.
+> in the product knowledge repo and merge its PR, then re-run this skill.
+>
+> `<PRODUCT_CTX>`/`<PLATFORM_CTX>`/`<GOV_CTX>` are this enterprise's
+> product/platform/governance map contexts, resolved from the repo's
+> `.kpack.yaml` and the governance `contexts:` registry — never hardcoded.
 
 ---
 
@@ -86,14 +91,14 @@ follow:
 
 | Input form           | Example                               | What to extract                                                                                  |
 |----------------------|---------------------------------------|--------------------------------------------------------------------------------------------------|
-| Capability ID        | `/harness-backend BNK.RLVR.CAP.BSP.001.SCO`    | use the ID directly; resolve worktree from current branch (or `--branch`) |
+| Capability ID        | `/harness-backend <PRODUCT_CTX>.CAP.BSP.001.SCO`    | use the ID directly; resolve worktree from current branch (or `--branch`) |
 | Task ID              | `/harness-backend TASK-003`           | read TASK frontmatter to get capability_id; resolve worktree from `feat/TASK-003-*` |
 | Branch slug          | `/harness-backend --branch feat/TASK-003-bsp-sco` | derive TASK-003 → capability_id from the TASK file in that worktree |
 | No argument          | `/harness-backend` after `/code`     | read the current working branch / worktree, locate the active TASK |
 
 End Step 0 with these resolved values:
 
-1. **`CAPABILITY_ID`** (e.g. `BNK.RLVR.CAP.BSP.001.SCO`).
+1. **`CAPABILITY_ID`** (e.g. `<PRODUCT_CTX>.CAP.BSP.001.SCO`).
 2. **`CAPABILITY_NAME`** (kebab — derived from `kpack pack <CAP_ID>
    --compact | jq -r '.slices.capability_self[0].name'`).
 3. **`WORKTREE_ROOT`** — the directory housing the .NET solution (either
@@ -108,9 +113,9 @@ End Step 0 with these resolved values:
 
 ```bash
 # 1. The process model must resolve for this capability (authored upstream in
-#    reliever-knowledge, consumed read-only via `kpack process`).
+#    the product knowledge repo, consumed read-only via `kpack process`).
 if ! kpack process "${CAPABILITY_ID}" --compact >/tmp/process-model.json 2>/tmp/process-model.err; then
-  echo "❌ No process model for ${CAPABILITY_ID} — run /process ${CAPABILITY_ID} in reliever-knowledge and merge its PR."
+  echo "❌ No process model for ${CAPABILITY_ID} — run /process ${CAPABILITY_ID} in the product knowledge repo and merge its PR."
   cat /tmp/process-model.err
   exit 1
 fi
@@ -172,10 +177,10 @@ If any prerequisite fails, stop and explain the gap clearly:
 
 | Failure                                              | Resolution                                                        |
 |------------------------------------------------------|-------------------------------------------------------------------|
-| `kpack process <CAP>` does not resolve            | run `/process <CAPABILITY_ID>` in reliever-knowledge and merge its PR first |
+| `kpack process <CAP>` does not resolve            | run `/process <CAPABILITY_ID>` in the product knowledge repo and merge its PR first |
 | Neither `.sln` nor `pyproject.toml` under `BACKEND_DIR` | run `/code TASK-NNN` first (Path A scaffolds the microservice) |
 | Zone is CHANNEL                                      | this skill is non-CHANNEL only — no action                        |
-| `pack.warnings` non-empty / required slice empty     | fix the upstream BCM in `reliever-knowledge` (out of scope here)   |
+| `pack.warnings` non-empty / required slice empty     | fix the upstream BCM in `the product knowledge repo` (out of scope here)   |
 
 ---
 
@@ -222,7 +227,7 @@ Agent({
          .model["read-models"], .model.bus, .model.api (use .parsed, fallback
          .raw when null), and .schemas["*.schema.json"]. (Logically the
          process/${CAPABILITY_ID}/{README.md,*.yaml,schemas/*.schema.json}
-         files, authored upstream in reliever-knowledge.)
+         files, authored upstream in the product knowledge repo.)
      - kpack pack ${CAPABILITY_ID} --deep --compact
 
    Existing service under ${BACKEND_DIR}:
@@ -269,7 +274,7 @@ Agent({
 
    Hard rules:
      - The process model is READ-ONLY and is fetched via `kpack process
-       ${CAPABILITY_ID}` — authored upstream in reliever-knowledge, never on
+       ${CAPABILITY_ID}` — authored upstream in the product knowledge repo, never on
        disk here. There is nothing to write under process/.
      - Lineage closure (process AND bcm) is non-negotiable: every operation
        in openapi.yaml AND every channel/message in asyncapi.yaml carries
@@ -293,7 +298,7 @@ Agent({
      - If the on-disk stack contradicts the LANG hint above, abort and
        report — likely a /code routing bug.
      - You never write to the process model — it is served read-only by
-       `kpack process` from reliever-knowledge. If you find yourself trying
+       `kpack process` from the product knowledge repo. If you find yourself trying
        to write a process artifact, stop and report.
 
    Final output:
@@ -332,8 +337,8 @@ back, and offer the right remediation:
 
 | Gap reported                                       | Remediation                                                                                       |
 |----------------------------------------------------|---------------------------------------------------------------------------------------------------|
-| Dangling `x-lineage.process.*` reference           | re-run `/process <CAPABILITY_ID>` in reliever-knowledge to amend the model, then merge its PR      |
-| Dangling `x-lineage.bcm.*` reference               | fix BCM upstream in `reliever-knowledge`                                                           |
+| Dangling `x-lineage.process.*` reference           | re-run `/process <CAPABILITY_ID>` in the product knowledge repo to amend the model, then merge its PR      |
+| Dangling `x-lineage.bcm.*` reference               | fix BCM upstream in `the product knowledge repo`                                                           |
 | Missing HTTP route for an OpenAPI path             | re-run `/code TASK-NNN` — implement-capability(-python) missed a controller / FastAPI route       |
 | Missing consumer for an AsyncAPI subscribe         | re-run `/code TASK-NNN` — bus subscription not wired (MassTransit on .NET / aio-pika on Python)   |
 | Drift between generated and committed specs        | run `/harness-backend <CAPABILITY_ID>` (default mode) and commit the diff                          |

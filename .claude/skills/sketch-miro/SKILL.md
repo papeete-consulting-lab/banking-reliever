@@ -8,7 +8,7 @@ description: >
   (orange), policies (violet), read-models (green), and consumed upstream events
   (faded orange) are laid out as one frame per L2 capability, with connectors
   wiring policy → command → aggregate → event flows. Outputs the live board URL
-  to a `reliever-miro.url` sidecar and a state file (`.reliever-miro.state.json`),
+  to a `process-miro.url` sidecar and a state file (`.process-miro.state.json`),
   both kept next to the bundled script, used as the idempotency ledger between
   process artifact identifiers and Miro widget IDs.
   Trigger on: "sketch-miro", "/sketch-miro", "draw the miro board", "miro board
@@ -25,11 +25,11 @@ local `.rtb` file — see the design note at the bottom for why.
 ## Position in the pipeline
 
 `/sketch-miro` consumes the process model read-only via `kpack process`
-(authored by `/process` in the **reliever-knowledge** repo) and produces a
+(authored by `/process` in the **product knowledge repo**) and produces a
 sharable Miro board. The process model does not live in this repo, so there is
 nothing to write under `process/`. The only files the skill writes are two
-sidecars kept **next to the bundled script**: `reliever-miro.url` (the board
-URL, human readable) and `.reliever-miro.state.json` (the artifact→widget
+sidecars kept **next to the bundled script**: `process-miro.url` (the board
+URL, human readable) and `.process-miro.state.json` (the artifact→widget
 identity map). No sentinel or guard is involved.
 
 Re-runs are idempotent. The skill computes the target widget set from the
@@ -99,8 +99,8 @@ python3 .claude/skills/sketch-miro/sketch_miro.py [--dry-run] [--cap CAP.<…>] 
 The script:
 
 1. Reads `MIRO_ACCESS_TOKEN` from the environment.
-2. Loads `.reliever-miro.state.json` (next to the script, or starts fresh if absent).
-3. If no `board_id` is in state, creates a new board named "Reliever — Event Storming (process layer)" and stores its id.
+2. Loads `.process-miro.state.json` (next to the script, or starts fresh if absent).
+3. If no `board_id` is in state, creates a new board named "<Product> — Event Storming (process layer)" (the product name is resolved from `MIRO_PRODUCT_NAME` / the contexts registry) and stores its id.
 4. Enumerates capabilities via `kpack process <CAP_ID> --list` (the positional id only supplies the corpus context; or only the one passed via `--cap`).
 5. For each capability, fetches its model with `kpack process <CAP> --compact` and reads the `aggregates`, `commands`, `policies`, `read-models`, `bus` slices.
 6. Computes a deterministic widget set: one frame per capability, lanes per kind (event / command / aggregate / policy / read-model), and connectors derived from `accepted_by`, `issues`, `emits`, and the bus subscriptions.
@@ -108,7 +108,7 @@ The script:
    - artifact in target & in state → **PATCH**
    - artifact in target & not in state → **CREATE** (record the widget id)
    - artifact in state & not in target → **DELETE** (drop from state)
-8. Persists `.reliever-miro.state.json` and `reliever-miro.url` next to the script.
+8. Persists `.process-miro.state.json` and `process-miro.url` next to the script.
 9. Prints a summary: counts per kind, board URL, any rate-limit retries.
 
 Pass the script's stdout straight to the user — it is the canonical run report.
@@ -119,7 +119,7 @@ Pass the script's stdout straight to the user — it is the canonical run report
 
 After the script returns, surface to the user:
 
-- The board URL (from the `reliever-miro.url` sidecar next to the script).
+- The board URL (from the `process-miro.url` sidecar next to the script).
 - The CREATE / UPDATE / DELETE counts.
 - Any warnings the script printed (a missing schema reference, a frame
   overflow, an upstream-event subscription with no matching local policy).
@@ -144,7 +144,7 @@ No teardown is needed (no sentinel was posed). Announce:
 
 > "Miro board synchronised — `<URL>`. Created `<n>`, updated `<m>`, deleted
 > `<k>` widgets across `<c>` capabilities. State persisted in
-> `.reliever-miro.state.json` next to the script."
+> `.process-miro.state.json` next to the script."
 
 ---
 
@@ -186,22 +186,22 @@ single end-to-end Event Storming sketch.
 
 ## Design notes
 
-**Why not produce a `reliever-miro.rtb` directly?** The `.rtb` format
+**Why not produce a `process-miro.rtb` directly?** The `.rtb` format
 is a ZIP archive whose internal JSON schema is proprietary, undocumented,
 and recently encrypted on Miro's side. Hand-crafted `.rtb` files routinely
 fail to import with "Something went wrong". The official, supported path is
 the REST API, which produces a real shared board the team can open
-immediately. The board URL is committed in the `reliever-miro.url` sidecar
+immediately. The board URL is committed in the `process-miro.url` sidecar
 next to the script so a teammate cloning the repo discovers it on first read.
 
 **Why a sidecar state file?** Miro's REST API does not expose a
 custom-metadata field on stickies that survives PATCH cleanly. The simplest
-robust strategy is an external map: `.reliever-miro.state.json` (next to the
+robust strategy is an external map: `.process-miro.state.json` (next to the
 script) stores `{board_id, widgets: {<artifact_id>: <miro_widget_id>}}`. This
 makes re-runs O(n) and avoids fragile content-prefix tagging.
 
 **Why keep the sidecars next to the script?** The process model no longer
 lives in this repo — it is served read-only by `kpack process` from
-`reliever-knowledge`. So there is no `process/` folder to anchor the sidecars
+the product knowledge repo. So there is no `process/` folder to anchor the sidecars
 to, and no write-guard to negotiate; the script's own directory is the natural,
 stable home for its idempotency ledger and the board URL.
