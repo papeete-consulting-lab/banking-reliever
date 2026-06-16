@@ -1,0 +1,77 @@
+{
+  "_comment": "Plugin hook wiring for papeete-implementation. Auto-discovered at the plugin root as hooks/hooks.json. Scripts are referenced via ${CLAUDE_PLUGIN_ROOT}; send_event derives --source-app from the consuming repo (no instance hardcoded). Plugin hooks MERGE with the consuming project's settings.json hooks. NOTE: this file is the plugin's wiring — the banking lab itself is still driven by its own .claude/settings.json; this hooks.json is inert in the lab and only takes effect once shipped in the plugin.",
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool_use.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type PreToolUse --summarize" }
+      ]}
+    ],
+    "PostToolUse": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_use.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type PostToolUse --summarize" }
+      ]}
+    ],
+    "PostToolUseFailure": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_use_failure.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type PostToolUseFailure --summarize" }
+      ]}
+    ],
+    "Notification": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/notification.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type Notification --summarize" }
+      ]}
+    ],
+    "Stop": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/stop.py\" --chat" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type Stop --add-chat" }
+      ]}
+    ],
+    "SubagentStart": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent_start.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type SubagentStart" }
+      ]}
+    ],
+    "SubagentStop": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent_stop.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type SubagentStop" }
+      ]}
+    ],
+    "PreCompact": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_compact.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type PreCompact" }
+      ]}
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/user_prompt_submit.py\" --log-only --store-last-prompt --name-agent" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type UserPromptSubmit --summarize" }
+      ]}
+    ],
+    "SessionStart": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type SessionStart" }
+      ]}
+    ],
+    "SessionEnd": [
+      { "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/session_end.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type SessionEnd" }
+      ]}
+    ],
+    "PermissionRequest": [
+      { "matcher": "", "hooks": [
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/permission_request.py\"" },
+        { "type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/send_event.py\" --event-type PermissionRequest --summarize" }
+      ]}
+    ]
+  }
+}

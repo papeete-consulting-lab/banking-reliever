@@ -60,14 +60,25 @@ def send_event_to_server(event_data, server_url='http://localhost:4000/events'):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Send Claude Code hook events to observability server')
-    parser.add_argument('--source-app', required=True, help='Source application name')
+    parser.add_argument('--source-app', default=None,
+                        help='Source application name. Defaults to $CLAUDE_PLUGIN_OPTION_SOURCE_APP, '
+                             'else the basename of $CLAUDE_PROJECT_DIR / cwd (so each consuming repo '
+                             'reports under its own name without hardcoding).')
     parser.add_argument('--event-type', required=True, help='Hook event type (PreToolUse, PostToolUse, etc.)')
     parser.add_argument('--server-url', default='http://localhost:4000/events', help='Server URL')
     parser.add_argument('--add-chat', action='store_true', help='Include chat transcript if available')
     parser.add_argument('--summarize', action='store_true', help='Generate AI summary of the event')
     
     args = parser.parse_args()
-    
+
+    # Resolve the source-app without hardcoding any instance: explicit flag wins, then the
+    # plugin userConfig env var, then the consuming repo's own directory name.
+    source_app = (
+        args.source_app
+        or os.environ.get("CLAUDE_PLUGIN_OPTION_SOURCE_APP")
+        or os.path.basename(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+    )
+
     try:
         # Read hook data from stdin
         input_data = json.load(sys.stdin)
@@ -84,7 +95,7 @@ def main():
 
     # Prepare event data for server
     event_data = {
-        'source_app': args.source_app,
+        'source_app': source_app,
         'session_id': session_id,
         'hook_event_type': args.event_type,
         'payload': input_data,

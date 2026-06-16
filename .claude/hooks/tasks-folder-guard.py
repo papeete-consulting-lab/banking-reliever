@@ -59,7 +59,7 @@ import time
 
 # Racine canonique du repo. La détection accepte aussi les worktrees kanban,
 # qui exposent une copie de l'arbre sous /tmp/kanban-worktrees/TASK-NNN-*/.
-PROJECT_ROOT = "/home/yoann/sources/banking/banking-reliever"
+PROJECT_ROOT = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
 TASKS_REL = "tasks"
 
 TASK_SENTINEL = "/tmp/.claude-task-pipeline.active"
