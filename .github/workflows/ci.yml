@@ -34,13 +34,13 @@ jobs:
       # The BCM and the process model no longer live in this repo — both are
       # hosted in the private `reliever-knowledge` repo (context BNK.RLVR) and
       # consumed via the single `kpack` engine (the GHCR container
-      # `ghcr.io/naive-unicorn/kpack`, which replaces rlv-knowledge/tech/gov-pack).
+      # `ghcr.io/papeete-consulting/kpack`, which replaces rlv-knowledge/tech/gov-pack).
       # check_language.py discovers capabilities via `kpack process BNK.RLVR
       # --list` and fetches prose via `kpack pack`, so a bare `kpack` must be on
       # PATH. We expose it via the repo's `bin/kpack` container wrapper.
       #
       # Auth: the `RELIEVER_KNOWLEDGE_TOKEN` secret must be a token with
-      # `read:packages` on the naive-unicorn org (to pull the private image) AND
+      # `read:packages` on the papeete-consulting org (to pull the private image) AND
       # read access to the private corpora kpack resolves (reliever-knowledge,
       # and — via the governance registry in .kpack.yaml — banking-governance,
       # banking-tech). The wrapper passes it into the container as GITHUB_TOKEN
@@ -64,7 +64,7 @@ jobs:
           # Authenticate to GHCR and pre-pull the private kpack image so the
           # bin/kpack wrapper's `docker run` calls don't re-pull each invocation.
           echo "${RELIEVER_KNOWLEDGE_TOKEN}" | docker login ghcr.io -u x-access-token --password-stdin
-          docker pull ghcr.io/naive-unicorn/kpack:v1.0.0
+          docker pull ghcr.io/papeete-consulting/kpack:v1.0.0
           # Put the wrapper on PATH and let kpack authenticate its private corpus
           # clones with the same token (the wrapper reads GITHUB_TOKEN).
           echo "${GITHUB_WORKSPACE}/bin" >> "$GITHUB_PATH"
