@@ -23,11 +23,11 @@
 #
 # Alternative (no Docker): pip/pipx install the engine from source and drop this
 # wrapper —
-#   pipx install "git+https://x-access-token:$(gh auth token)@github.com/naive-unicorn/knowledge-cli.git"
+#   pipx install "git+https://x-access-token:$(gh auth token)@github.com/papeete-consulting/kpack.git"
 # installs a native `kpack` console script with the identical command surface.
 set -euo pipefail
 
-IMAGE="${KPACK_IMAGE:-ghcr.io/naive-unicorn/kpack:v1.0.0}"
+IMAGE="${KPACK_IMAGE:-ghcr.io/papeete-consulting/kpack:v1.0.0}"
 ENGINE="${KPACK_DOCKER:-docker}"
 TOKEN="${GITHUB_TOKEN:-$(gh auth token 2>/dev/null || true)}"
 
