@@ -10,7 +10,7 @@ vanilla web frontends, contract stubs, and their tests.
 
 All upstream knowledge is consumed **read-only** through a single CLI — **`kpack`**,
 the shared knowledge-pack engine (container `ghcr.io/papeete-consulting/kpack`, repo
-`papeete-consulting/kpack`, implementing `ADR-GCM-URBA-0002`). One engine serves
+`papeete-consulting/kpack`, implementing `ADR-KCM-URBA-0002`). One engine serves
 every capability map; the map is selected **by the id prefix or `--context`, never
 by a binary name**. `kpack` replaces the three retired per-map CLIs `rlv-knowledge`,
 `tech` and `gov-pack`. See the **kpack** subsection below for setup and the command

@@ -8,7 +8,7 @@ consumed **read-only** via `kpack process <CAP_ID>`.
 All upstream knowledge (BCM YAML, GOV / URBA / FUNC / TECH-STRAT / TECH-TACT ADRs,
 product / business / tech visions) is consumed **read-only** through a single CLI —
 **`kpack`**, the shared knowledge-pack engine (container `ghcr.io/papeete-consulting/kpack`,
-implementing `ADR-GCM-URBA-0002`). One engine serves every map; the corpus is selected
+implementing `ADR-KCM-URBA-0002`). One engine serves every map; the corpus is selected
 by the id prefix or `--context`, never by a binary name. `kpack` replaces the three
 retired per-map CLIs `rlv-knowledge`, `tech` and `gov-pack`. The three corpora it
 resolves for this repo:
