@@ -155,16 +155,24 @@ product map's repo in the contexts registry, not hardcoded.
 
 ## Step 0 — Prerequisites
 
-Verify `kpack` is on PATH:
+This skill is a thin wrapper over the **`kproj-c4`** CLI, shipped by the
+`papeete-consulting/projectors` package (backbone #5 — the projector no longer
+lives in this repo). Ensure both `kpack` and `kproj-c4` are on PATH:
 
 ```bash
-command -v kpack && kpack list --context <PRODUCT_CTX> >/dev/null && echo OK || echo MISSING
+command -v kpack    || { echo "kpack MISSING — install it; the skill cannot proceed"; exit 1; }
+command -v kproj-c4 || pip install "git+https://github.com/papeete-consulting/projectors.git@v0.1.0"
 ```
 
-If `kpack` is missing, stop and tell the user. The skill cannot proceed
-without it — there is no fallback.
+`kpack` is mandatory and has no fallback. `kproj-c4` reads upstream knowledge
+exclusively through `kpack` (it never opens `/bcm`, `/adr`, … directly) — the BCM
+corpus is fetched **remotely** by `kpack` via the governance registry, so no
+`--repo-root` is needed here.
 
-Python ≥ 3.9 is sufficient; the script uses only the standard library.
+The product context + GitHub blob bases are still supplied by the environment, as
+before — `C4_PRODUCT_CTX` (the kpack context), `C4_KNOWLEDGE_BLOB`,
+`C4_SOURCE_BLOB`, `C4_PRODUCT_NAME` (resolve from `.kpack.yaml` / the contexts
+registry; never hardcode).
 
 ## Step 1 — Parse arguments
 
@@ -175,13 +183,19 @@ Python ≥ 3.9 is sufficient; the script uses only the standard library.
 | `/c4-export --enterprise-only` | Re-render only the enterprise + zone files |
 | `/c4-export --dry-run` | Print what would be written, change nothing on disk |
 
-## Step 2 — Run the script
+## Step 2 — Run the CLI
+
+`C4_PRODUCT_CTX` supplies the context; write the DSL under this repo's `docs/c4`:
 
 ```bash
-python3 .claude/skills/c4-export/c4_export.py [--cap CAP.<…>] [--enterprise-only] [--dry-run]
+kproj-c4 --out docs/c4 [--cap CAP.<…>] [--enterprise-only] [--dry-run]
 ```
 
-The script:
+(`--context <PRODUCT_CTX>` may be passed explicitly instead of relying on
+`$C4_PRODUCT_CTX`. `--out docs/c4` is required so the files land in this repo, not
+beside the installed package.)
+
+The CLI:
 
 1. Calls `kpack list --context <PRODUCT_CTX>` to enumerate every capability.
 2. Filters to L2 leaves (L1 parents are surfaced inside per-L2 files via the
