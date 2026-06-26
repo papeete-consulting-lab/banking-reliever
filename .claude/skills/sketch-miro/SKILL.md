@@ -9,7 +9,7 @@ description: >
   (faded orange) are laid out as one frame per L2 capability, with connectors
   wiring policy → command → aggregate → event flows. Outputs the live board URL
   to a `process-miro.url` sidecar and a state file (`.process-miro.state.json`),
-  both kept next to the bundled script, used as the idempotency ledger between
+  both kept in the working directory (the kproj-miro --state-dir, default cwd), used as the idempotency ledger between
   process artifact identifiers and Miro widget IDs.
   Trigger on: "sketch-miro", "/sketch-miro", "draw the miro board", "miro board
   for process", "event storming board", "render process to miro", "update miro",
@@ -28,7 +28,7 @@ local `.rtb` file — see the design note at the bottom for why.
 (authored by `/process` in the **product knowledge repo**) and produces a
 sharable Miro board. The process model does not live in this repo, so there is
 nothing to write under `process/`. The only files the skill writes are two
-sidecars kept **next to the bundled script**: `process-miro.url` (the board
+sidecars kept in the working directory (`--state-dir`, default cwd): `process-miro.url` (the board
 URL, human readable) and `.process-miro.state.json` (the artifact→widget
 identity map). No sentinel or guard is involved.
 
@@ -56,13 +56,19 @@ If absent, stop and tell the user:
 >
 > Re-run `/sketch-miro` once the token is available.
 
-Verify Python dependencies:
+This skill is a thin wrapper over the **`kproj-miro`** CLI, shipped by the
+`papeete-consulting/projectors` package (backbone #5 — the renderer no longer
+lives in this repo). Ensure `kpack` and `kproj-miro` are on PATH (the `miro`
+extra pulls in `requests`):
 
 ```bash
-python3 -c "import yaml, requests" 2>&1
+command -v kpack      || { echo "kpack MISSING — the skill cannot proceed"; exit 1; }
+command -v kproj-miro || pip install "kproj[miro] @ git+https://github.com/papeete-consulting/projectors.git@v0.1.0"
 ```
 
-If `requests` is missing: `pip install requests pyyaml`.
+`kproj-miro` reads the process model exclusively through `kpack process`; the
+capability context comes from `$MIRO_CONTEXT_CAP_ID` (resolve from `.kpack.yaml` /
+the contexts registry), the board name from `$MIRO_PRODUCT_NAME` — never hardcode.
 
 ---
 
@@ -80,26 +86,30 @@ The skill accepts:
 `--rebuild` requires the user to confirm before proceeding (it is destructive on the board).
 
 No sentinel or write-guard is involved: the process model is consumed read-only
-via `kpack process` and the only files written are the two sidecars next to
-the bundled script.
+via `kpack process` and the only files written are the two idempotency sidecars
+(`.process-miro.state.json`, `process-miro.url`) in the `--state-dir` (default:
+the current directory).
 
 ---
 
-## Step 2 — Run the script
+## Step 2 — Run the CLI
 
-Delegate the heavy lifting to the bundled Python script. It handles
-discovery (via `kpack process`), model parsing, API calls, rate-limit
-retries, idempotency via the sidecar state file, and a final summary printed to
-stdout.
+`kproj-miro` handles discovery (via `kpack process`), model parsing, API calls,
+rate-limit retries, idempotency via the sidecar state file, and a final summary
+printed to stdout. `$MIRO_CONTEXT_CAP_ID` supplies the context; the state sidecars
+land in the current directory (`--state-dir .`):
 
 ```bash
-python3 .claude/skills/sketch-miro/sketch_miro.py [--dry-run] [--cap CAP.<…>] [--rebuild]
+kproj-miro [--dry-run] [--cap CAP.<…>] [--rebuild]
 ```
 
-The script:
+(`--context-cap <CAP_ID>` may be passed explicitly instead of relying on
+`$MIRO_CONTEXT_CAP_ID`.)
+
+The CLI:
 
 1. Reads `MIRO_ACCESS_TOKEN` from the environment.
-2. Loads `.process-miro.state.json` (next to the script, or starts fresh if absent).
+2. Loads `.process-miro.state.json` (in the --state-dir, or starts fresh if absent).
 3. If no `board_id` is in state, creates a new board named "<Product> — Event Storming (process layer)" (the product name is resolved from `MIRO_PRODUCT_NAME` / the contexts registry) and stores its id.
 4. Enumerates capabilities via `kpack process <CAP_ID> --list` (the positional id only supplies the corpus context; or only the one passed via `--cap`).
 5. For each capability, fetches its model with `kpack process <CAP> --compact` and reads the `aggregates`, `commands`, `policies`, `read-models`, `bus` slices.
@@ -108,7 +118,7 @@ The script:
    - artifact in target & in state → **PATCH**
    - artifact in target & not in state → **CREATE** (record the widget id)
    - artifact in state & not in target → **DELETE** (drop from state)
-8. Persists `.process-miro.state.json` and `process-miro.url` next to the script.
+8. Persists `.process-miro.state.json` and `process-miro.url` in the --state-dir.
 9. Prints a summary: counts per kind, board URL, any rate-limit retries.
 
 Pass the script's stdout straight to the user — it is the canonical run report.
@@ -119,7 +129,7 @@ Pass the script's stdout straight to the user — it is the canonical run report
 
 After the script returns, surface to the user:
 
-- The board URL (from the `process-miro.url` sidecar next to the script).
+- The board URL (from the `process-miro.url` sidecar in the working directory).
 - The CREATE / UPDATE / DELETE counts.
 - Any warnings the script printed (a missing schema reference, a frame
   overflow, an upstream-event subscription with no matching local policy).
@@ -144,7 +154,7 @@ No teardown is needed (no sentinel was posed). Announce:
 
 > "Miro board synchronised — `<URL>`. Created `<n>`, updated `<m>`, deleted
 > `<k>` widgets across `<c>` capabilities. State persisted in
-> `.process-miro.state.json` next to the script."
+> `.process-miro.state.json` in the working directory."
 
 ---
 
@@ -192,7 +202,7 @@ and recently encrypted on Miro's side. Hand-crafted `.rtb` files routinely
 fail to import with "Something went wrong". The official, supported path is
 the REST API, which produces a real shared board the team can open
 immediately. The board URL is committed in the `process-miro.url` sidecar
-next to the script so a teammate cloning the repo discovers it on first read.
+in the working directory so a teammate cloning the repo discovers it on first read.
 
 **Why a sidecar state file?** Miro's REST API does not expose a
 custom-metadata field on stickies that survives PATCH cleanly. The simplest
@@ -200,8 +210,8 @@ robust strategy is an external map: `.process-miro.state.json` (next to the
 script) stores `{board_id, widgets: {<artifact_id>: <miro_widget_id>}}`. This
 makes re-runs O(n) and avoids fragile content-prefix tagging.
 
-**Why keep the sidecars next to the script?** The process model no longer
+**Why keep the sidecars in the working directory?** The process model no longer
 lives in this repo — it is served read-only by `kpack process` from
 the product knowledge repo. So there is no `process/` folder to anchor the sidecars
-to, and no write-guard to negotiate; the script's own directory is the natural,
+to, and no write-guard to negotiate; the working directory is the natural,
 stable home for its idempotency ledger and the board URL.
